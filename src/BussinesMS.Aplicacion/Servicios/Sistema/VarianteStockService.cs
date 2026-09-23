@@ -1,4 +1,5 @@
 using AutoMapper;
+using BussinesMS.Aplicacion.Common;
 using BussinesMS.Aplicacion.Comun;
 using BussinesMS.Aplicacion.DTOs.Plantillas;
 using BussinesMS.Aplicacion.DTOs.Sistema;
@@ -113,6 +114,98 @@ public class VarianteStockService : IVarianteStockService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al obtener stock de variantes");
+            throw;
+        }
+    }
+
+    public async Task<PagedResultDto<VarianteStockPosDto>> ObtenerStockPosAsync(GenericPaginationQueryDto query, int almacenId)
+    {
+        try
+        {
+            var cutoff = BoliviaTimeZone.RangoDiaUtc(DateOnly.FromDateTime(DateTime.UtcNow)).InicioUtc;
+
+            var loteQuery = _loteRepo.AsQueryable().Where(l => l.IsActive);
+
+            var variantesQuery = _varianteRepo.AsQueryable()
+                .Where(v => v.IsActive)
+                .Include(v => v.Producto)
+                    .ThenInclude(p => p!.Categoria)
+                .Include(v => v.Producto)
+                    .ThenInclude(p => p!.Fabricante)
+                .Include(v => v.Sabor)
+                .Include(v => v.Tamanio)
+                .Include(v => v.Presentaciones)
+                    .ThenInclude(p => p.TipoPresentacion);
+
+            var baseQuery = from v in variantesQuery
+                            join l in loteQuery on v.Id equals l.VarianteId into loteGroup
+                            select new VarianteStockPosDto
+                            {
+                                Id = v.Id,
+                                ProductoId = v.ProductoId,
+                                NombreProducto = v.Producto!.Nombre,
+                                VarianteNombre = DescripcionProductoBuilder.Construir(
+                                    v.Producto.Nombre,
+                                    v.Sabor!.Nombre,
+                                    v.Tamanio!.Nombre,
+                                    v.CantidadCaja,
+                                    v.Producto.Fabricante!.Nombre),
+                                CodigoBarras = v.CodigoBarras,
+                                PrecioVentaUnitario = v.PrecioVentaUnitario,
+                                PrecioVentaMayoreo = v.PrecioVentaMayoreo,
+                                CategoriaId = v.Producto.CategoriaId,
+                                CategoriaNombre = v.Producto.Categoria!.Nombre,
+                                Cantidad = loteGroup
+                                    .SelectMany(l => _loteAlmacenRepo.AsQueryable()
+                                        .Where(la => la.LoteId == l.Id
+                                            && la.IsActive
+                                            && la.AlmacenId == almacenId
+                                            && l.EstadoLote != EstadoLote.Vencido
+                                            && l.EstadoLote != EstadoLote.Devuelto
+                                            && l.EstadoLote != EstadoLote.Baja
+                                            && (l.FechaVencimiento == null || l.FechaVencimiento >= cutoff)))
+                                    .Sum(la => la.StockDisponible),
+                                Presentaciones = v.Presentaciones
+                                    .Where(p => p.IsActive)
+                                    .Select(p => new PresentacionVarianteDto
+                                    {
+                                        Id = p.Id,
+                                        NombrePersonalizado = p.NombrePersonalizado,
+                                        Cantidad = p.CantidadDePadre,
+                                        Nombre = p.NombreMostrar,
+                                        Orden = p.TipoPresentacion!.Orden,
+                                        EsDefaultReporte = p.EsDefaultReporte
+                                    }).ToList()
+                            };
+
+            if (!string.IsNullOrWhiteSpace(query.Filter))
+            {
+                var f = query.Filter.ToLower();
+                baseQuery = baseQuery.Where(x =>
+                    (x.NombreProducto != null && x.NombreProducto.ToLower().Contains(f)) ||
+                    (x.CodigoBarras != null && x.CodigoBarras.ToLower().Contains(f)) ||
+                    (x.CategoriaNombre != null && x.CategoriaNombre.ToLower().Contains(f)));
+            }
+
+            baseQuery = baseQuery.Where(x => x.Cantidad > 0);
+
+            baseQuery = baseQuery.OrderBy(x => x.NombreProducto);
+
+            var (filteredQuery, totalCount) = baseQuery.ApplyFilters(query, skipSorting: true);
+
+            var items = await filteredQuery.ToListAsync();
+
+            return new PagedResultDto<VarianteStockPosDto>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                Page = query.GetPageValue(),
+                PageSize = query.GetPageSizeValue()
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener stock POS de variantes para almacen {AlmacenId}", almacenId);
             throw;
         }
     }
