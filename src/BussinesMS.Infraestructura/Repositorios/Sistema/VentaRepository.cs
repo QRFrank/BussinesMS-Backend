@@ -19,6 +19,7 @@ public class VentaRepository : IVentaRepository
 
     public async Task<List<Venta>> ObtenerTodosAsync()
         => await _context.Ventas
+            .Include(x => x.Cliente)
             .Where(x => x.IsActive)
             .OrderByDescending(x => x.FechaVenta)
             .ToListAsync();
@@ -30,6 +31,7 @@ public class VentaRepository : IVentaRepository
     public async Task<Venta?> ObtenerConDetallesAsync(int id)
         => await _context.Ventas
             .Include(x => x.SesionCaja)
+            .Include(x => x.Cliente)
             .Include(x => x.Detalles)
                 .ThenInclude(d => d.Variante)
                     .ThenInclude(v => v!.Producto)

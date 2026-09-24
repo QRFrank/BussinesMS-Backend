@@ -34,8 +34,9 @@ public static void VerificarActivo<T>(T? entidad, string nombre)
     where T : class, IEntidadActivable { ... }
 ```
 
-### REGLA 3 — Mapeo consistente en el Service
-En el Service, usar AutoMapper para TODOS los retornos. No mezclar mapeo manual con `_mapper.Map<>`.
+### REGLA 3 — Mapeo consistente en el Service, y SIEMPRE convertir fechas a hora de Bolivia
+En el Service, usar AutoMapper para TODOS los retornos cuando el DTO es un mapeo 1:1 de campos (sin
+joins ni fechas). No mezclar mapeo manual con `_mapper.Map<>` sin motivo.
 
 ```csharp
 // ❌ MAL — mapeo manual mezclado con mapper en entrada
@@ -46,6 +47,36 @@ return new CategoriaDto { Id = creada.Id, Nombre = creada.Nombre }; // manual aq
 var entidad = _mapper.Map<Categoria>(dto);
 var creada = await _repo.CrearAsync(entidad);
 return _mapper.Map<CategoriaDto>(creada);
+```
+
+**Excepción obligatoria — campos `DateTime` en DTOs de lectura (`CreatedAt`, `FechaX`, etc.)**:
+`AutoMapper` copia el valor crudo en UTC (así se guarda en la base, ver `EntidadBase.CreatedAt = DateTime.UtcNow`).
+Todo DTO de lectura que exponga un campo de fecha DEBE convertirlo a hora de Bolivia con
+`BussinesMS.Aplicacion.Common.BoliviaTimeZone.ToLocal(...)` antes de devolverlo — si no, la fecha
+queda en UTC y es inconsistente con el resto de módulos que sí la convierten (bug confirmado en
+`ProveedorService`, `SesionCajaService`, `MovimientoInventarioService`, `DevolucionClienteService`
+y `TrasladoService`, que no convierten y muestran UTC crudo mientras el resto del sistema —
+`CategoriaService`, `FabricanteService`, `DescripcionSaborService`, `DescripcionTamanioService`,
+`CompraService`, `VentaService`, `ProductoVarianteService` — sí lo hace).
+
+Dos formas válidas, elegir la que ensucie menos el código:
+
+```csharp
+// Opción A — sobreescribir el campo después de mapear (DTO simple, un solo registro)
+var dto = _mapper.Map<CategoriaDto>(creada);
+dto.CreatedAt = BoliviaTimeZone.ToLocal(creada.CreatedAt);
+return dto;
+
+// Opción B — construir el DTO a mano cuando ya hay varios campos de fecha o joins
+// (ej. listados con Select(x => new XDto { ... })). En ese caso NO es una violación
+// de esta regla, es el patrón esperado — no forzar _mapper.Map<> ahí.
+var dtos = entidades.Select(c => new CategoriaDto
+{
+    Id = c.Id,
+    Nombre = c.Nombre,
+    CreatedAt = BoliviaTimeZone.ToLocal(c.CreatedAt),
+    IsActive = c.IsActive
+}).ToList();
 ```
 
 ### REGLA 4 — Excepciones de dominio tipadas (nunca `throw new Exception`)
@@ -516,13 +547,17 @@ public interface I[NombreEntidad]Service
 
 Reglas:
 - Inyecta repositorios, NUNCA DbContext
-- Usa `_mapper.Map<>` para TODOS los retornos (no mapeo manual)
+- Usa `_mapper.Map<>` para TODOS los retornos que sean mapeo 1:1 de campos (no mapeo manual sin motivo)
+- Si el DTO expone algún campo `DateTime` (`CreatedAt`, etc.), conviértelo SIEMPRE a hora de Bolivia
+  con `BoliviaTimeZone.ToLocal(...)` después de mapear (ver REGLA 3 arriba) — `_mapper.Map<>` solo
+  copia el valor crudo en UTC
 - Usa excepciones de dominio tipadas (no `throw new Exception`)
 - try-catch con logging en cada método público
 
 ```csharp
 using AutoMapper;
 using BussinesMS.Aplicacion.Comun;
+using BussinesMS.Aplicacion.Common; // BoliviaTimeZone
 using BussinesMS.Aplicacion.DTOs.[Sistema];
 using BussinesMS.Aplicacion.DTOs.Plantillas;
 using BussinesMS.Aplicacion.Helpers;
@@ -563,10 +598,14 @@ public class [NombreEntidad]Service : I[NombreEntidad]Service
             (var filteredQuery, var totalCount) = baseQuery.ApplyFilters(query);
             var entidades = await filteredQuery.ToListAsync();
 
-            // ✅ Mapper para el retorno, no construcción manual
+            // ✅ Mapper para el retorno + conversión de fecha a hora de Bolivia
+            var items = _mapper.Map<List<[NombreEntidad]Dto>>(entidades);
+            for (int i = 0; i < items.Count; i++)
+                items[i].CreatedAt = BoliviaTimeZone.ToLocal(entidades[i].CreatedAt);
+
             return new PagedResultDto<[NombreEntidad]Dto>
             {
-                Items = _mapper.Map<List<[NombreEntidad]Dto>>(entidades),
+                Items = items,
                 TotalCount = totalCount,
                 Page = query.GetPageValue(),
                 PageSize = query.GetPageSizeValue()
@@ -586,8 +625,10 @@ public class [NombreEntidad]Service : I[NombreEntidad]Service
             var entidad = await _repo.ObtenerPorIdAsync(id);
             if (entidad == null || !entidad.IsActive) return null;
 
-            // ✅ Mapper
-            return _mapper.Map<[NombreEntidad]Dto>(entidad);
+            // ✅ Mapper + conversión de fecha a hora de Bolivia
+            var dto = _mapper.Map<[NombreEntidad]Dto>(entidad);
+            dto.CreatedAt = BoliviaTimeZone.ToLocal(entidad.CreatedAt);
+            return dto;
         }
         catch (Exception ex)
         {
@@ -610,8 +651,10 @@ public class [NombreEntidad]Service : I[NombreEntidad]Service
 
             _logger.LogInformation("[NombreEntidad] creada: {Nombre}", creada.Nombre);
 
-            // ✅ Mapper para retorno — no construcción manual
-            return _mapper.Map<[NombreEntidad]Dto>(creada);
+            // ✅ Mapper para retorno + conversión de fecha a hora de Bolivia
+            var resultado = _mapper.Map<[NombreEntidad]Dto>(creada);
+            resultado.CreatedAt = BoliviaTimeZone.ToLocal(creada.CreatedAt);
+            return resultado;
         }
         catch (Exception ex)
         {

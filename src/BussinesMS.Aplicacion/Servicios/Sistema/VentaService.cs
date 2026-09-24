@@ -19,6 +19,7 @@ public class VentaService : IVentaService
     private readonly IInventarioLoteRepository _loteRepo;
     private readonly IMovimientoInventarioRepository _movimientoRepo;
     private readonly IVencimientoLoteService _vencimientoService;
+    private readonly IClienteRepository _clienteRepo;
     private readonly ISistemaUnitOfWork _uow;
     private readonly IMapper _mapper;
     private readonly ILogger<VentaService> _logger;
@@ -30,6 +31,7 @@ public class VentaService : IVentaService
         IInventarioLoteRepository loteRepo,
         IMovimientoInventarioRepository movimientoRepo,
         IVencimientoLoteService vencimientoService,
+        IClienteRepository clienteRepo,
         ISistemaUnitOfWork uow,
         IMapper mapper,
         ILogger<VentaService> logger)
@@ -40,6 +42,7 @@ public class VentaService : IVentaService
         _loteRepo = loteRepo;
         _movimientoRepo = movimientoRepo;
         _vencimientoService = vencimientoService;
+        _clienteRepo = clienteRepo;
         _uow = uow;
         _mapper = mapper;
         _logger = logger;
@@ -100,6 +103,8 @@ public class VentaService : IVentaService
                 MotivoDescuento = v.MotivoDescuento,
                 IsActive = v.IsActive,
                 CreatedAt = BoliviaTimeZone.ToLocal(v.CreatedAt),
+                ClienteId = v.ClienteId,
+                ClienteNombre = v.Cliente?.Nombre,
                 CantidadDetalles = v.Detalles?.Count ?? 0
             }).ToList();
 
@@ -165,6 +170,17 @@ public class VentaService : IVentaService
             if (dto.DescuentoTotal.HasValue && dto.DescuentoTotal > 0 && string.IsNullOrWhiteSpace(dto.MotivoDescuento))
                 throw new ValidacionException("El motivo del descuento es requerido cuando hay descuento");
 
+            var clienteId = Cliente.ClienteGenericoId;
+            if (dto.ClienteId.HasValue && dto.ClienteId.Value > 0)
+            {
+                var cliente = await _clienteRepo.ObtenerPorIdAsync(dto.ClienteId.Value);
+                if (cliente == null)
+                    throw new EntidadNoEncontradaException("Cliente", dto.ClienteId.Value);
+
+                ValidacionEntidad.VerificarActivo(cliente, "Cliente");
+                clienteId = cliente.Id;
+            }
+
             await _uow.BeginTransactionAsync();
             try
             {
@@ -172,6 +188,7 @@ public class VentaService : IVentaService
                 {
                     SesionCajaId = dto.SesionCajaId,
                     AlmacenId = sesion.AlmacenId,
+                    ClienteId = clienteId,
                     MetodoPago = dto.MetodoPago,
                     DescuentoTotal = dto.DescuentoTotal ?? 0,
                     MotivoDescuento = dto.MotivoDescuento,

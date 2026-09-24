@@ -123,6 +123,7 @@ public class SistemaDbContext : DbContext
     public DbSet<VentaDetalle> VentaDetalles => Set<VentaDetalle>();
     public DbSet<CategoriaGasto> CategoriasGasto => Set<CategoriaGasto>();
     public DbSet<GastoOperativo> GastosOperativos => Set<GastoOperativo>();
+    public DbSet<Cliente> Clientes => Set<Cliente>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -243,6 +244,31 @@ public class SistemaDbContext : DbContext
             entity.Property(e => e.Nit).HasMaxLength(20);
             entity.Property(e => e.Telefono).HasMaxLength(20);
             entity.HasIndex(e => e.Nombre).IsUnique();
+        });
+
+        modelBuilder.Entity<Cliente>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Nombre).IsRequired().HasMaxLength(150);
+            entity.Property(e => e.NumeroCarnet).HasMaxLength(20);
+            entity.Property(e => e.Telefono).HasMaxLength(20);
+            entity.HasIndex(e => e.NumeroCarnet).IsUnique().HasFilter("[NumeroCarnet] IS NOT NULL");
+
+            // Seed del cliente genérico ("Sin nombre") — valores estáticos para no generar diffs en cada migración
+            entity.HasData(new Cliente
+            {
+                Id = Cliente.ClienteGenericoId,
+                Nombre = "Sin nombre",
+                NumeroCarnet = null,
+                Telefono = null,
+                IsActive = true,
+                CreatedAt = new DateTime(2026, 9, 23, 0, 0, 0, DateTimeKind.Utc),
+                UpdatedAt = null,
+                DeletedAt = null,
+                CreatedByUsuarioId = 1,
+                UpdatedByUsuarioId = null,
+                DeletedByUsuarioId = null
+            });
         });
 
         modelBuilder.Entity<Compra>(entity =>
@@ -423,6 +449,15 @@ public class SistemaDbContext : DbContext
             entity.HasOne(v => v.SesionCaja)
                 .WithMany()
                 .HasForeignKey(v => v.SesionCajaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Cliente — default 1 (cliente genérico) para ventas existentes
+            entity.Property(e => e.ClienteId).HasDefaultValue(Cliente.ClienteGenericoId);
+            entity.HasIndex(e => e.ClienteId);
+
+            entity.HasOne(v => v.Cliente)
+                .WithMany()
+                .HasForeignKey(v => v.ClienteId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

@@ -3,6 +3,7 @@ using BussinesMS.Aplicacion.Common;
 using BussinesMS.Aplicacion.DTOs.Sistema;
 using BussinesMS.Aplicacion.Helpers;
 using BussinesMS.Aplicacion.Interfaces.Sistema;
+using BussinesMS.Aplicacion.Seguridad;
 using BussinesMS.Dominio.Entidades.Sistema;
 using BussinesMS.Dominio.Enums;
 using BussinesMS.Dominio.Excepciones;
@@ -15,22 +16,25 @@ public class SesionCajaService : ISesionCajaService
     private readonly ISesionCajaRepository _repo;
     private readonly IMapper _mapper;
     private readonly ILogger<SesionCajaService> _logger;
+    private readonly ICurrentUserService _currentUser;
 
     public SesionCajaService(
         ISesionCajaRepository repo,
         IMapper mapper,
-        ILogger<SesionCajaService> logger)
+        ILogger<SesionCajaService> logger,
+        ICurrentUserService currentUser)
     {
         _repo = repo;
         _mapper = mapper;
         _logger = logger;
+        _currentUser = currentUser;
     }
 
     public async Task<SesionCajaDto> AbrirCajaAsync(CrearSesionCajaDto dto)
     {
         try
         {
-            var usuarioId = 1;
+            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
 
             var existente = await _repo.ObtenerAbiertaPorUsuarioAsync(usuarioId, dto.AlmacenId);
             if (existente != null)

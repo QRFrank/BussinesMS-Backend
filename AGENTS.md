@@ -63,9 +63,18 @@ A.R.I.S. detecta automáticamente qué tipo de tarea vas a realizar y decide si 
 | Sistema | ProductoVariante | 03/05/2026 | ✅ |
 | Sistema | Proveedor | 27/05/2026 | ✅ |
 | Sistema | Compra | 28/05/2026 | ✅ |
-| Sistema | InventarioLote | - | ⏳
-| Sistema | Venta | - | ⏳ |
-| Sistema | SesionCaja | - | ⏳ |
+| Sistema | PagoCompra | - | ✅ |
+| Sistema | InventarioLote | - | ✅ |
+| Sistema | InventarioLoteAlmacen | - | ✅ |
+| Sistema | MovimientoInventario | - | ✅ |
+| Sistema | Traslado (vía MovimientoInventario) | - | ✅ |
+| Sistema | DevolucionCliente | - | ✅ |
+| Sistema | SesionCaja | - | ✅ |
+| Sistema | Venta | - | 🟡 funcional, falta confirmar/ajustar endpoint de productos para el POS (ver MEMORIA.md) |
+| Sistema | VentaDetalle | - | ✅ |
+| Sistema | CategoriaGasto / GastoOperativo | - | ✅ |
+
+> Auditado contra el código real el 22/09/2026. Ver `docs/ERD.md` para el detalle de esquema y `../MEMORIA.md` (raíz del proyecto) para deuda técnica pendiente.
 
 ---
 

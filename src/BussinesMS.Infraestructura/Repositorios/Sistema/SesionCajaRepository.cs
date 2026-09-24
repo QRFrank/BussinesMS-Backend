@@ -37,6 +37,7 @@ public class SesionCajaRepository : ISesionCajaRepository
     {
         var usuarioId = _currentUser.GetUsuarioId() ?? 1;
         entidad.CreatedByUsuarioId = usuarioId;
+        entidad.UsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
         entidad.IsActive = true;
         _context.SesionesCaja.Add(entidad);
@@ -48,6 +49,7 @@ public class SesionCajaRepository : ISesionCajaRepository
     {
         var usuarioId = _currentUser.GetUsuarioId() ?? 1;
         entidad.CreatedByUsuarioId = usuarioId;
+        entidad.UsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
         entidad.IsActive = true;
         _context.SesionesCaja.Add(entidad);

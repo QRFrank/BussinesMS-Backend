@@ -79,6 +79,13 @@ public class MappingProfile : Profile
         CreateMap<CrearProveedorDto, Proveedor>();
         CreateMap<ActualizarProveedorDto, Proveedor>();
 
+        // Clientes
+        CreateMap<Cliente, ClienteDto>()
+            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => BoliviaTimeZone.ToLocal(src.CreatedAt)));
+        CreateMap<ClienteDto, Cliente>();
+        CreateMap<CrearClienteDto, Cliente>();
+        CreateMap<ActualizarClienteDto, Cliente>();
+
         // ProductoVariantes
         CreateMap<ProductoVariante, ProductoVarianteDto>()
             .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => BoliviaTimeZone.ToLocal(src.CreatedAt)));
@@ -155,9 +162,11 @@ public class MappingProfile : Profile
         // Ventas
         CreateMap<Venta, VentaDto>()
             .ForMember(dest => dest.FechaVenta, opt => opt.MapFrom(src => BoliviaTimeZone.ToLocal(src.FechaVenta)))
-            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => BoliviaTimeZone.ToLocal(src.CreatedAt)));
+            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => BoliviaTimeZone.ToLocal(src.CreatedAt)))
+            .ForMember(dest => dest.ClienteNombre, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.Nombre : null));
         CreateMap<CrearVentaDto, Venta>()
-            .ForMember(dest => dest.Detalles, opt => opt.Ignore());
+            .ForMember(dest => dest.Detalles, opt => opt.Ignore())
+            .ForMember(dest => dest.ClienteId, opt => opt.Ignore()); // lo resuelve VentaService (null → cliente genérico)
 
         // VentaDetalles
         CreateMap<VentaDetalle, VentaDetalleDto>()

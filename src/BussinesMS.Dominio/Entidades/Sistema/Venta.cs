@@ -14,7 +14,9 @@ public class Venta : EntidadBase
     public decimal TotalNeto { get; set; }
     public MetodoPago MetodoPago { get; set; }
     public string? MotivoDescuento { get; set; }
+    public int ClienteId { get; set; } = Cliente.ClienteGenericoId;
 
     public SesionCaja? SesionCaja { get; set; }
+    public Cliente? Cliente { get; set; }
     public List<VentaDetalle> Detalles { get; set; } = [];
 }

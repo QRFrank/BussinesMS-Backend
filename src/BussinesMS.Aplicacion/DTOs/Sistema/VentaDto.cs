@@ -26,6 +26,8 @@ public class VentaDto
     public string? MotivoDescuento { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
+    public int ClienteId { get; set; }
+    public string? ClienteNombre { get; set; }
     public List<VentaDetalleDto> Detalles { get; set; } = [];
 }
 
@@ -43,12 +45,16 @@ public class VentaListDto
     public string? MotivoDescuento { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
+    public int ClienteId { get; set; }
+    public string? ClienteNombre { get; set; }
     public int CantidadDetalles { get; set; }
 }
 
 public class CrearVentaDto
 {
     public int SesionCajaId { get; set; }
+    /// <summary>Opcional. Null o &lt;= 0 → cliente genérico (Id 1).</summary>
+    public int? ClienteId { get; set; }
     public MetodoPago MetodoPago { get; set; }
     public decimal? DescuentoTotal { get; set; }
     public string? MotivoDescuento { get; set; }
