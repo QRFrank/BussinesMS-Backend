@@ -117,9 +117,13 @@ public class SistemaDbContext : DbContext
     public DbSet<InventarioLote> InventarioLotes => Set<InventarioLote>();
     public DbSet<InventarioLoteAlmacen> InventarioLoteAlmacenes => Set<InventarioLoteAlmacen>();
     public DbSet<MovimientoInventario> MovimientosInventario => Set<MovimientoInventario>();
-    public DbSet<Traslado> Traslados => Set<Traslado>();
-    public DbSet<TrasladoDetalle> TrasladosDetalles => Set<TrasladoDetalle>();
     public DbSet<DevolucionCliente> DevolucionesClientes => Set<DevolucionCliente>();
+    public DbSet<SesionCaja> SesionesCaja => Set<SesionCaja>();
+    public DbSet<Venta> Ventas => Set<Venta>();
+    public DbSet<VentaDetalle> VentaDetalles => Set<VentaDetalle>();
+    public DbSet<CategoriaGasto> CategoriasGasto => Set<CategoriaGasto>();
+    public DbSet<GastoOperativo> GastosOperativos => Set<GastoOperativo>();
+    public DbSet<Cliente> Clientes => Set<Cliente>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -163,11 +167,7 @@ public class SistemaDbContext : DbContext
         modelBuilder.Entity<ProductoVariante>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.NombreProducto).HasMaxLength(200);
-            entity.Property(e => e.DescripcionProducto).HasMaxLength(500);
             entity.Property(e => e.CodigoBarras).HasMaxLength(50);
-            entity.Property(e => e.SaborDescripcion).HasMaxLength(200);
-            entity.Property(e => e.PesoTamanio).HasMaxLength(100);
             entity.Property(e => e.PrecioVentaUnitario).IsRequired().HasColumnType("decimal(18,2)");
             entity.Property(e => e.PrecioVentaMayoreo).IsRequired().HasColumnType("decimal(18,2)");
             entity.Property(e => e.PrecioCompra).IsRequired().HasColumnType("decimal(18,2)");
@@ -246,6 +246,31 @@ public class SistemaDbContext : DbContext
             entity.HasIndex(e => e.Nombre).IsUnique();
         });
 
+        modelBuilder.Entity<Cliente>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Nombre).IsRequired().HasMaxLength(150);
+            entity.Property(e => e.NumeroCarnet).HasMaxLength(20);
+            entity.Property(e => e.Telefono).HasMaxLength(20);
+            entity.HasIndex(e => e.NumeroCarnet).IsUnique().HasFilter("[NumeroCarnet] IS NOT NULL");
+
+            // Seed del cliente genérico ("Sin nombre") — valores estáticos para no generar diffs en cada migración
+            entity.HasData(new Cliente
+            {
+                Id = Cliente.ClienteGenericoId,
+                Nombre = "Sin nombre",
+                NumeroCarnet = null,
+                Telefono = null,
+                IsActive = true,
+                CreatedAt = new DateTime(2026, 9, 23, 0, 0, 0, DateTimeKind.Utc),
+                UpdatedAt = null,
+                DeletedAt = null,
+                CreatedByUsuarioId = 1,
+                UpdatedByUsuarioId = null,
+                DeletedByUsuarioId = null
+            });
+        });
+
         modelBuilder.Entity<Compra>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -294,9 +319,15 @@ public class SistemaDbContext : DbContext
         modelBuilder.Entity<InventarioLote>(entity =>
         {
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.CodigoLote).HasMaxLength(60).IsRequired();
             entity.Property(e => e.CostoCompraUnitario).IsRequired().HasColumnType("decimal(18,4)");
-            entity.Property(e => e.CantidadTotal).IsRequired();
+            entity.Property(e => e.StockInicial).IsRequired();
+            entity.Property(e => e.CantidadVendida).IsRequired();
+            entity.Property(e => e.CantidadVencida).IsRequired();
+            entity.Property(e => e.EstadoLote).IsRequired();
             entity.Property(e => e.FechaVencimiento).HasColumnType("date");
+
+            entity.HasIndex(e => e.CodigoLote).IsUnique().HasDatabaseName("UQ_InventarioLote_CodigoLote");
 
             entity.HasOne(l => l.Variante)
                 .WithMany()
@@ -357,42 +388,6 @@ public class SistemaDbContext : DbContext
         });
 
         // =============================================
-        // TRASLADOS — Cabecera + Detalle
-        // =============================================
-        modelBuilder.Entity<Traslado>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Observacion).HasMaxLength(255);
-            entity.Property(e => e.FechaTraslado).HasColumnType("datetime2");
-
-            entity.HasOne(t => t.Variante)
-                .WithMany()
-                .HasForeignKey(t => t.VarianteId)
-                .OnDelete(DeleteBehavior.Restrict);
-        });
-
-        modelBuilder.Entity<TrasladoDetalle>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.CostoUnitarioCapturado).HasColumnType("decimal(18,4)");
-
-            entity.HasOne(td => td.Traslado)
-                .WithMany(t => t.Detalles)
-                .HasForeignKey(td => td.TrasladoId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasOne(td => td.LoteAlmacenOrigen)
-                .WithMany()
-                .HasForeignKey(td => td.LoteAlmacenOrigenId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne(td => td.LoteAlmacenDestino)
-                .WithMany()
-                .HasForeignKey(td => td.LoteAlmacenDestinoId)
-                .OnDelete(DeleteBehavior.SetNull);
-        });
-
-        // =============================================
         // DEVOLUCIONES — DevolucionCliente
         // =============================================
         modelBuilder.Entity<DevolucionCliente>(entity =>
@@ -416,6 +411,120 @@ public class SistemaDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(d => d.VarianteId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // =============================================
+        // VENTAS Y CAJA — SesionCaja
+        // =============================================
+        modelBuilder.Entity<SesionCaja>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.MontoInicial).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.IngresosEfectivo).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.IngresosDigitales).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.EgresosGastos).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.EgresosPagoProveedor).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.MontoEsperadoEfectivo).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.MontoRealEntregado).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Diferencia).HasColumnType("decimal(18,2)");
+
+            entity.HasIndex(e => new { e.UsuarioId, e.AlmacenId, e.Estado })
+                  .HasDatabaseName("IX_SesionCaja_Usuario_Almacen");
+        });
+
+        // =============================================
+        // VENTAS Y CAJA — Venta
+        // =============================================
+        modelBuilder.Entity<Venta>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.TotalBruto).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.DescuentoTotal).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.TotalNeto).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.MotivoDescuento).HasMaxLength(255);
+
+            entity.HasIndex(e => e.SesionCajaId);
+            entity.HasIndex(e => e.FechaVenta);
+
+            entity.HasOne(v => v.SesionCaja)
+                .WithMany()
+                .HasForeignKey(v => v.SesionCajaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Cliente — default 1 (cliente genérico) para ventas existentes
+            entity.Property(e => e.ClienteId).HasDefaultValue(Cliente.ClienteGenericoId);
+            entity.HasIndex(e => e.ClienteId);
+
+            entity.HasOne(v => v.Cliente)
+                .WithMany()
+                .HasForeignKey(v => v.ClienteId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // =============================================
+        // VENTAS Y CAJA — VentaDetalle
+        // =============================================
+        modelBuilder.Entity<VentaDetalle>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PrecioUnitarioCobrado).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.CostoUnitarioLote).IsRequired().HasColumnType("decimal(18,4)");
+            entity.Property(e => e.Subtotal).IsRequired().HasColumnType("decimal(18,2)");
+
+            entity.HasIndex(e => e.VentaId);
+            entity.HasIndex(e => e.LoteId);
+
+            entity.HasOne(d => d.Venta)
+                .WithMany(v => v.Detalles)
+                .HasForeignKey(d => d.VentaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Variante)
+                .WithMany()
+                .HasForeignKey(d => d.VarianteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(d => d.Lote)
+                .WithMany()
+                .HasForeignKey(d => d.LoteId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // =============================================
+        // VENTAS Y CAJA — CategoriaGasto
+        // =============================================
+        modelBuilder.Entity<CategoriaGasto>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Nombre).IsRequired().HasMaxLength(100);
+            entity.HasIndex(e => e.Nombre).IsUnique();
+        });
+
+        // =============================================
+        // VENTAS Y CAJA — GastoOperativo
+        // =============================================
+        modelBuilder.Entity<GastoOperativo>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Monto).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Descripcion).HasMaxLength(500);
+
+            entity.HasIndex(e => e.SesionCajaId);
+
+            entity.HasOne(g => g.SesionCaja)
+                .WithMany()
+                .HasForeignKey(g => g.SesionCajaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(g => g.CategoriaGasto)
+                .WithMany()
+                .HasForeignKey(g => g.CategoriaGastoId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(g => g.PagoCompra)
+                .WithMany()
+                .HasForeignKey(g => g.PagoCompraId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

@@ -161,7 +161,13 @@ public async Task<PagedResultDto<[NombreEntidad]Dto>> ObtenerTodosAsync(GenericP
         (var filteredQuery, var totalCount) = baseQuery.ApplyFilters(query);
         var entidades = await filteredQuery.ToListAsync();
         var dtos = _mapper.Map<List<[NombreEntidad]Dto>>(entidades);
-        
+
+        // ⚠️ OBLIGATORIO si el DTO expone CreatedAt/fechas: AutoMapper copia el valor
+        // crudo en UTC (así se guarda en la base). Convertir siempre a hora de Bolivia:
+        // using BussinesMS.Aplicacion.Common; (BoliviaTimeZone)
+        for (int i = 0; i < dtos.Count; i++)
+            dtos[i].CreatedAt = BoliviaTimeZone.ToLocal(entidades[i].CreatedAt);
+
         return new PagedResultDto<[NombreEntidad]Dto>
         {
             Items = dtos,

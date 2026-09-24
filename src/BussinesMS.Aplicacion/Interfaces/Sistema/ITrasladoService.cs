@@ -1,12 +1,8 @@
-using BussinesMS.Aplicacion.DTOs.Plantillas;
 using BussinesMS.Aplicacion.DTOs.Sistema;
 
 namespace BussinesMS.Aplicacion.Interfaces.Sistema;
 
 public interface ITrasladoService
 {
-    Task<PagedResultDto<TrasladoDto>> ObtenerTodosAsync(GenericPaginationQueryDto query);
-    Task<TrasladoDto?> ObtenerPorIdAsync(int id);
-    Task<TrasladoDto> CrearPorLoteAsync(CrearTrasladoPorLoteDto dto);
-    Task<TrasladoDto> CrearPorVarianteAsync(CrearTrasladoPorVarianteDto dto);
+    Task<MovimientoInventarioDto> CrearPorLoteAsync(CrearTrasladoPorLoteDto dto);
 }

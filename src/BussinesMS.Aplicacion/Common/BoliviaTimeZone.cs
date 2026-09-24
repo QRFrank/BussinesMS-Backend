@@ -4,6 +4,8 @@ public static class BoliviaTimeZone
 {
     private static readonly TimeSpan Offset = TimeSpan.FromHours(-4);
 
+    public static DateTime Now() => ToLocal(DateTime.UtcNow);
+
     public static DateTime ToLocal(DateTime utc)
         => DateTime.SpecifyKind(utc, DateTimeKind.Utc).Add(Offset);
 

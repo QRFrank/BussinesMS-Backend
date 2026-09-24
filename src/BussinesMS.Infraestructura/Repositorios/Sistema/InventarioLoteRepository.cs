@@ -32,6 +32,13 @@ public class InventarioLoteRepository : IInventarioLoteRepository
     public async Task<InventarioLote?> ObtenerConDetallesAsync(int id)
         => await _context.InventarioLotes
             .Include(x => x.Variante)
+                .ThenInclude(v => v!.Producto)
+                    .ThenInclude(p => p!.Categoria)
+            .Include(x => x.Variante!.Producto!.Fabricante)
+            .Include(x => x.Variante!.Sabor)
+            .Include(x => x.Variante!.Tamanio)
+            .Include(x => x.Variante!.Presentaciones)
+                .ThenInclude(p => p.TipoPresentacion)
             .Include(x => x.CompraDetalle)
             .FirstOrDefaultAsync(x => x.Id == id);
 

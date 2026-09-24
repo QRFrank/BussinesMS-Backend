@@ -74,6 +74,7 @@ builder.Services.AddSwaggerGen(c =>
 Console.WriteLine("Agregando FluentValidation...");
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+builder.Services.AddValidatorsFromAssemblyContaining<BussinesMS.Aplicacion.Validadores.Sistema.CrearClienteDtoValidator>();
 
 Console.WriteLine("Agregando AutoMapper...");
 builder.Services.AddAutoMapper(typeof(MappingProfile));
@@ -86,6 +87,7 @@ builder.Services.AddSingleton<JwtHelper>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 Console.WriteLine("Configurando Authentication JWT...");
+System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -93,6 +95,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
+    options.MapInboundClaims = false;
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
@@ -151,6 +154,7 @@ builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IDescripcion
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IProductoRepository, BussinesMS.Infraestructura.Repositorios.Sistema.ProductoRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IProductoVarianteRepository, BussinesMS.Infraestructura.Repositorios.Sistema.ProductoVarianteRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IProveedorRepository, BussinesMS.Infraestructura.Repositorios.Sistema.ProveedorRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IClienteRepository, BussinesMS.Infraestructura.Repositorios.Sistema.ClienteRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.ICompraRepository, BussinesMS.Infraestructura.Repositorios.Sistema.CompraRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IPagoCompraRepository, BussinesMS.Infraestructura.Repositorios.Sistema.PagoCompraRepository>();
 
@@ -171,6 +175,7 @@ builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IMigracionSe
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IProductoService, BussinesMS.Aplicacion.Servicios.Sistema.ProductoService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IProductoVarianteService, BussinesMS.Aplicacion.Servicios.Sistema.ProductoVarianteService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IProveedorService, BussinesMS.Aplicacion.Servicios.Sistema.ProveedorService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IClienteService, BussinesMS.Aplicacion.Servicios.Sistema.ClienteService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.ICompraService, BussinesMS.Aplicacion.Servicios.Sistema.CompraService>();
 // Repositorios — agrega después de IProductoVarianteRepository
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.ITipoPresentacionRepository, BussinesMS.Infraestructura.Repositorios.Sistema.TipoPresentacionRepository>();
@@ -178,8 +183,9 @@ builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IProductoPre
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IInventarioLoteRepository, BussinesMS.Infraestructura.Repositorios.Sistema.InventarioLoteRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IInventarioLoteAlmacenRepository, BussinesMS.Infraestructura.Repositorios.Sistema.InventarioLoteAlmacenRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IMovimientoInventarioRepository, BussinesMS.Infraestructura.Repositorios.Sistema.MovimientoInventarioRepository>();
-builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.ITrasladoRepository, BussinesMS.Infraestructura.Repositorios.Sistema.TrasladoRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IDevolucionClienteRepository, BussinesMS.Infraestructura.Repositorios.Sistema.DevolucionClienteRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.ISesionCajaRepository, BussinesMS.Infraestructura.Repositorios.Sistema.SesionCajaRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IVentaRepository, BussinesMS.Infraestructura.Repositorios.Sistema.VentaRepository>();
 
 // Servicios — agrega después de IProductoVarianteService
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.ITipoPresentacionService, BussinesMS.Aplicacion.Servicios.Sistema.TipoPresentacionService>();
@@ -189,6 +195,9 @@ builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IMovimientoI
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.ITrasladoService, BussinesMS.Aplicacion.Servicios.Sistema.TrasladoService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IDevolucionClienteService, BussinesMS.Aplicacion.Servicios.Sistema.DevolucionClienteService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IVarianteStockService, BussinesMS.Aplicacion.Servicios.Sistema.VarianteStockService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.ISesionCajaService, BussinesMS.Aplicacion.Servicios.Sistema.SesionCajaService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IVentaService, BussinesMS.Aplicacion.Servicios.Sistema.VentaService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IVencimientoLoteService, BussinesMS.Aplicacion.Servicios.Sistema.VencimientoLoteService>();
 
 // Background Services
 builder.Services.AddHostedService<BussinesMS.Infraestructura.Jobs.VencimientoLotesJob>();

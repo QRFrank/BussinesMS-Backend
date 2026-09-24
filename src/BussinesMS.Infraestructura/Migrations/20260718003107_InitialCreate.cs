@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace BussinesMS.Infraestructura.Migrations.SistemaDb
+namespace BussinesMS.Infraestructura.Migrations
 {
     /// <inheritdoc />
     public partial class InitialCreate : Migration
@@ -213,14 +213,10 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     ProductoId = table.Column<int>(type: "int", nullable: false),
-                    NombreProducto = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
-                    DescripcionProducto = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
                     CodigoBarras = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
                     SaborId = table.Column<int>(type: "int", nullable: false),
-                    SaborDescripcion = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
                     CantidadCaja = table.Column<int>(type: "int", nullable: true),
                     TamanioId = table.Column<int>(type: "int", nullable: false),
-                    PesoTamanio = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     PrecioVentaUnitario = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     PrecioVentaMayoreo = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
                     PrecioCompra = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
@@ -295,7 +291,6 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                         .Annotation("SqlServer:Identity", "1, 1"),
                     CompraId = table.Column<int>(type: "int", nullable: false),
                     VarianteId = table.Column<int>(type: "int", nullable: false),
-                    AlmacenId = table.Column<int>(type: "int", nullable: false),
                     CantidadUnidades = table.Column<int>(type: "int", nullable: false),
                     CostoUnitario = table.Column<decimal>(type: "decimal(18,4)", nullable: false),
                     Subtotal = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
@@ -363,39 +358,6 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                 });
 
             migrationBuilder.CreateTable(
-                name: "Traslados",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    TipoTraslado = table.Column<int>(type: "int", nullable: false),
-                    VarianteId = table.Column<int>(type: "int", nullable: false),
-                    AlmacenOrigenId = table.Column<int>(type: "int", nullable: false),
-                    AlmacenDestinoId = table.Column<int>(type: "int", nullable: false),
-                    CantidadUnidades = table.Column<int>(type: "int", nullable: false),
-                    Observacion = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
-                    FechaTraslado = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UsuarioId = table.Column<int>(type: "int", nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    CreatedByUsuarioId = table.Column<int>(type: "int", nullable: false),
-                    UpdatedByUsuarioId = table.Column<int>(type: "int", nullable: true),
-                    DeletedByUsuarioId = table.Column<int>(type: "int", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Traslados", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Traslados_ProductoVariantes_VarianteId",
-                        column: x => x.VarianteId,
-                        principalTable: "ProductoVariantes",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "InventarioLotes",
                 columns: table => new
                 {
@@ -404,6 +366,10 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                     VarianteId = table.Column<int>(type: "int", nullable: false),
                     CompraDetalleId = table.Column<int>(type: "int", nullable: true),
                     CostoCompraUnitario = table.Column<decimal>(type: "decimal(18,4)", nullable: false),
+                    StockInicial = table.Column<int>(type: "int", nullable: false),
+                    CantidadVendida = table.Column<int>(type: "int", nullable: false),
+                    CantidadVencida = table.Column<int>(type: "int", nullable: false),
+                    EstadoLote = table.Column<int>(type: "int", nullable: false),
                     FechaVencimiento = table.Column<DateTime>(type: "date", nullable: true),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
@@ -437,13 +403,9 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     LoteId = table.Column<int>(type: "int", nullable: false),
+                    VarianteId = table.Column<int>(type: "int", nullable: false),
                     AlmacenId = table.Column<int>(type: "int", nullable: false),
-                    StockInicial = table.Column<int>(type: "int", nullable: false),
                     StockDisponible = table.Column<int>(type: "int", nullable: false),
-                    CantidadVendida = table.Column<int>(type: "int", nullable: false),
-                    CantidadTrasladada = table.Column<int>(type: "int", nullable: false),
-                    CantidadVencida = table.Column<int>(type: "int", nullable: false),
-                    EstadoLote = table.Column<int>(type: "int", nullable: false),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -545,48 +507,6 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                         onDelete: ReferentialAction.Restrict);
                 });
 
-            migrationBuilder.CreateTable(
-                name: "TrasladosDetalles",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    TrasladoId = table.Column<int>(type: "int", nullable: false),
-                    LoteAlmacenOrigenId = table.Column<int>(type: "int", nullable: false),
-                    LoteAlmacenDestinoId = table.Column<int>(type: "int", nullable: true),
-                    CantidadUnidades = table.Column<int>(type: "int", nullable: false),
-                    CostoUnitarioCapturado = table.Column<decimal>(type: "decimal(18,4)", nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    CreatedByUsuarioId = table.Column<int>(type: "int", nullable: false),
-                    UpdatedByUsuarioId = table.Column<int>(type: "int", nullable: true),
-                    DeletedByUsuarioId = table.Column<int>(type: "int", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_TrasladosDetalles", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_TrasladosDetalles_InventarioLoteAlmacenes_LoteAlmacenDestinoId",
-                        column: x => x.LoteAlmacenDestinoId,
-                        principalTable: "InventarioLoteAlmacenes",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.SetNull);
-                    table.ForeignKey(
-                        name: "FK_TrasladosDetalles_InventarioLoteAlmacenes_LoteAlmacenOrigenId",
-                        column: x => x.LoteAlmacenOrigenId,
-                        principalTable: "InventarioLoteAlmacenes",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_TrasladosDetalles_Traslados_TrasladoId",
-                        column: x => x.TrasladoId,
-                        principalTable: "Traslados",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
             migrationBuilder.CreateIndex(
                 name: "IX_Categorias_Nombre",
                 table: "Categorias",
@@ -633,6 +553,11 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                 name: "IX_LoteAlmacen_FEFO",
                 table: "InventarioLoteAlmacenes",
                 columns: new[] { "AlmacenId", "LoteId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LoteAlmacen_VarianteAlmacen",
+                table: "InventarioLoteAlmacenes",
+                columns: new[] { "VarianteId", "AlmacenId" });
 
             migrationBuilder.CreateIndex(
                 name: "UQ_LoteAlmacen",
@@ -763,26 +688,6 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                 table: "TiposPresentacion",
                 column: "Orden",
                 unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Traslados_VarianteId",
-                table: "Traslados",
-                column: "VarianteId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_TrasladosDetalles_LoteAlmacenDestinoId",
-                table: "TrasladosDetalles",
-                column: "LoteAlmacenDestinoId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_TrasladosDetalles_LoteAlmacenOrigenId",
-                table: "TrasladosDetalles",
-                column: "LoteAlmacenOrigenId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_TrasladosDetalles_TrasladoId",
-                table: "TrasladosDetalles",
-                column: "TrasladoId");
         }
 
         /// <inheritdoc />
@@ -801,16 +706,10 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                 name: "ProductoPresentaciones");
 
             migrationBuilder.DropTable(
-                name: "TrasladosDetalles");
-
-            migrationBuilder.DropTable(
-                name: "TiposPresentacion");
-
-            migrationBuilder.DropTable(
                 name: "InventarioLoteAlmacenes");
 
             migrationBuilder.DropTable(
-                name: "Traslados");
+                name: "TiposPresentacion");
 
             migrationBuilder.DropTable(
                 name: "InventarioLotes");

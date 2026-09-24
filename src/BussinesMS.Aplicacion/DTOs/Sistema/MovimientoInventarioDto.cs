@@ -7,9 +7,7 @@ public class MovimientoInventarioDto
     public int VarianteId { get; set; }
     public string? VarianteNombre { get; set; }
     public int? AlmacenOrigenId { get; set; }
-    public string? AlmacenOrigenNombre { get; set; }
     public int? AlmacenDestinoId { get; set; }
-    public string? AlmacenDestinoNombre { get; set; }
     public int TipoMovimiento { get; set; }
     public int CantidadUnidades { get; set; }
     public int SaldoResultante { get; set; }

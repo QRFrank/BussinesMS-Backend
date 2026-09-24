@@ -1,10 +1,12 @@
 using AutoMapper;
+using BussinesMS.Aplicacion.Common;
 using BussinesMS.Aplicacion.DTOs.Sistema;
 using BussinesMS.Aplicacion.Helpers;
 using BussinesMS.Aplicacion.Interfaces.Sistema;
 using BussinesMS.Dominio.Entidades.Sistema;
 using BussinesMS.Dominio.Enums;
 using BussinesMS.Dominio.Excepciones;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace BussinesMS.Aplicacion.Servicios.Sistema;
@@ -15,6 +17,7 @@ public class DevolucionClienteService : IDevolucionClienteService
     private readonly IInventarioLoteRepository _loteRepo;
     private readonly IInventarioLoteAlmacenRepository _loteAlmacenRepo;
     private readonly IMovimientoInventarioRepository _movimientoRepo;
+    private readonly IProductoVarianteRepository _varianteRepo;
     private readonly ISistemaUnitOfWork _uow;
     private readonly IMapper _mapper;
     private readonly ILogger<DevolucionClienteService> _logger;
@@ -24,6 +27,7 @@ public class DevolucionClienteService : IDevolucionClienteService
         IInventarioLoteRepository loteRepo,
         IInventarioLoteAlmacenRepository loteAlmacenRepo,
         IMovimientoInventarioRepository movimientoRepo,
+        IProductoVarianteRepository varianteRepo,
         ISistemaUnitOfWork uow,
         IMapper mapper,
         ILogger<DevolucionClienteService> logger)
@@ -32,6 +36,7 @@ public class DevolucionClienteService : IDevolucionClienteService
         _loteRepo = loteRepo;
         _loteAlmacenRepo = loteAlmacenRepo;
         _movimientoRepo = movimientoRepo;
+        _varianteRepo = varianteRepo;
         _uow = uow;
         _mapper = mapper;
         _logger = logger;
@@ -62,11 +67,22 @@ public class DevolucionClienteService : IDevolucionClienteService
                 loteOrigen.StockDisponible -= dto.CantidadUnidades;
                 await _loteAlmacenRepo.ActualizarAsync(loteOrigen);
 
+                var variante = await _varianteRepo.ObtenerConDetallesAsync(loteOrigen.Lote!.VarianteId);
+                var nombreProducto = variante?.Producto?.Nombre ?? string.Empty;
+                var textoPresentacion = variante?.Tamanio?.Nombre ?? "UN";
+                var fechaLocal = BoliviaTimeZone.Now();
+                var codigoLote = CodigoLoteGenerator.Generar(nombreProducto, textoPresentacion, fechaLocal);
+
                 var loteDevuelto = new InventarioLote
                 {
                     VarianteId = loteOrigen.Lote!.VarianteId,
                     CompraDetalleId = null,
+                    CodigoLote = codigoLote,
                     CostoCompraUnitario = loteOrigen.Lote.CostoCompraUnitario,
+                    StockInicial = dto.CantidadUnidades,
+                    CantidadVendida = 0,
+                    CantidadVencida = 0,
+                    EstadoLote = EstadoLote.Devuelto,
                     FechaVencimiento = loteOrigen.Lote.FechaVencimiento
                 };
                 await _loteRepo.CrearSinGuardarAsync(loteDevuelto);
@@ -76,12 +92,8 @@ public class DevolucionClienteService : IDevolucionClienteService
                 {
                     LoteId = loteDevuelto.Id,
                     AlmacenId = dto.AlmacenId,
-                    StockInicial = dto.CantidadUnidades,
-                    StockDisponible = dto.CantidadUnidades,
-                    CantidadVendida = 0,
-                    CantidadTrasladada = 0,
-                    CantidadVencida = 0,
-                    EstadoLote = EstadoLote.Devuelto
+                    VarianteId = dto.VarianteId,
+                    StockDisponible = dto.CantidadUnidades
                 };
                 await _loteAlmacenRepo.CrearAsync(loteAlmacenDevuelto);
 
@@ -209,8 +221,14 @@ public class DevolucionClienteService : IDevolucionClienteService
                 var cantidadBaja = loteDevuelto!.StockDisponible;
 
                 loteDevuelto.StockDisponible = 0;
-                loteDevuelto.EstadoLote = EstadoLote.Baja;
                 await _loteAlmacenRepo.ActualizarAsync(loteDevuelto);
+
+                var lote = await _loteRepo.ObtenerPorIdAsync(loteDevuelto.LoteId);
+                if (lote != null)
+                {
+                    lote.EstadoLote = EstadoLote.Baja;
+                    await _loteRepo.ActualizarAsync(lote);
+                }
 
                 var movimiento = new MovimientoInventario
                 {

@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace BussinesMS.Infraestructura.Migrations.SistemaDb
+namespace BussinesMS.Infraestructura.Migrations
 {
     [DbContext(typeof(SistemaDbContext))]
     partial class SistemaDbContextModelSnapshot : ModelSnapshot
@@ -66,6 +66,109 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                         .IsUnique();
 
                     b.ToTable("Categorias");
+                });
+
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.CategoriaGasto", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Nombre")
+                        .IsUnique();
+
+                    b.ToTable("CategoriasGasto");
+                });
+
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.Cliente", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("NumeroCarnet")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Telefono")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NumeroCarnet")
+                        .IsUnique()
+                        .HasFilter("[NumeroCarnet] IS NOT NULL");
+
+                    b.ToTable("Clientes");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2026, 9, 23, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedByUsuarioId = 1,
+                            IsActive = true,
+                            Nombre = "Sin nombre"
+                        });
                 });
 
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.Compra", b =>
@@ -365,6 +468,65 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                     b.ToTable("Fabricantes");
                 });
 
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.GastoOperativo", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CategoriaGastoId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Descripcion")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("EsPagoProveedor")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("Monto")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("PagoCompraId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SesionCajaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoriaGastoId");
+
+                    b.HasIndex("PagoCompraId");
+
+                    b.HasIndex("SesionCajaId");
+
+                    b.ToTable("GastosOperativos");
+                });
+
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.InventarioLote", b =>
                 {
                     b.Property<int>("Id")
@@ -373,8 +535,16 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("CantidadTotal")
+                    b.Property<int>("CantidadVencida")
                         .HasColumnType("int");
+
+                    b.Property<int>("CantidadVendida")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CodigoLote")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
 
                     b.Property<int?>("CompraDetalleId")
                         .HasColumnType("int");
@@ -394,11 +564,17 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                     b.Property<int?>("DeletedByUsuarioId")
                         .HasColumnType("int");
 
+                    b.Property<int>("EstadoLote")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("FechaVencimiento")
                         .HasColumnType("date");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
+
+                    b.Property<int>("StockInicial")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -410,6 +586,10 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CodigoLote")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_InventarioLote_CodigoLote");
 
                     b.HasIndex("CompraDetalleId");
 
@@ -429,15 +609,6 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                     b.Property<int>("AlmacenId")
                         .HasColumnType("int");
 
-                    b.Property<int>("CantidadTrasladada")
-                        .HasColumnType("int");
-
-                    b.Property<int>("CantidadVencida")
-                        .HasColumnType("int");
-
-                    b.Property<int>("CantidadVendida")
-                        .HasColumnType("int");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -450,9 +621,6 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                     b.Property<int?>("DeletedByUsuarioId")
                         .HasColumnType("int");
 
-                    b.Property<int>("EstadoLote")
-                        .HasColumnType("int");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
@@ -460,9 +628,6 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                         .HasColumnType("int");
 
                     b.Property<int>("StockDisponible")
-                        .HasColumnType("int");
-
-                    b.Property<int>("StockInicial")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -762,20 +927,8 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                     b.Property<int?>("DeletedByUsuarioId")
                         .HasColumnType("int");
 
-                    b.Property<string>("DescripcionProducto")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
-
-                    b.Property<string>("NombreProducto")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("PesoTamanio")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
 
                     b.Property<decimal>("PrecioCompra")
                         .HasColumnType("decimal(18,2)");
@@ -788,10 +941,6 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
 
                     b.Property<int>("ProductoId")
                         .HasColumnType("int");
-
-                    b.Property<string>("SaborDescripcion")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("SaborId")
                         .HasColumnType("int");
@@ -872,6 +1021,82 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                     b.ToTable("Proveedores");
                 });
 
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.SesionCaja", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AlmacenId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("Diferencia")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("EgresosGastos")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("EgresosPagoProveedor")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("Estado")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaApertura")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("FechaCierre")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("IngresosDigitales")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("IngresosEfectivo")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("MontoEsperadoEfectivo")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("MontoInicial")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("MontoRealEntregado")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId", "AlmacenId", "Estado")
+                        .HasDatabaseName("IX_SesionCaja_Usuario_Almacen");
+
+                    b.ToTable("SesionesCaja");
+                });
+
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.TipoPresentacion", b =>
                 {
                     b.Property<int>("Id")
@@ -920,7 +1145,7 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                     b.ToTable("TiposPresentacion");
                 });
 
-            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.Traslado", b =>
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.Venta", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -928,14 +1153,13 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("AlmacenDestinoId")
+                    b.Property<int>("AlmacenId")
                         .HasColumnType("int");
 
-                    b.Property<int>("AlmacenOrigenId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("CantidadUnidades")
-                        .HasColumnType("int");
+                    b.Property<int>("ClienteId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -949,18 +1173,30 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                     b.Property<int?>("DeletedByUsuarioId")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("FechaTraslado")
+                    b.Property<decimal>("DescuentoTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("FechaVenta")
                         .HasColumnType("datetime2");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
-                    b.Property<string>("Observacion")
+                    b.Property<int>("MetodoPago")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MotivoDescuento")
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
-                    b.Property<int>("TipoTraslado")
+                    b.Property<int>("SesionCajaId")
                         .HasColumnType("int");
+
+                    b.Property<decimal>("TotalBruto")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalNeto")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -971,17 +1207,18 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                     b.Property<int>("UsuarioId")
                         .HasColumnType("int");
 
-                    b.Property<int>("VarianteId")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("VarianteId");
+                    b.HasIndex("ClienteId");
 
-                    b.ToTable("Traslados");
+                    b.HasIndex("FechaVenta");
+
+                    b.HasIndex("SesionCajaId");
+
+                    b.ToTable("Ventas");
                 });
 
-            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.TrasladoDetalle", b =>
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.VentaDetalle", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -992,48 +1229,33 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                     b.Property<int>("CantidadUnidades")
                         .HasColumnType("int");
 
-                    b.Property<decimal>("CostoUnitarioCapturado")
+                    b.Property<decimal>("CostoUnitarioLote")
                         .HasColumnType("decimal(18,4)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("CreatedByUsuarioId")
+                    b.Property<int>("LoteId")
                         .HasColumnType("int");
 
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
+                    b.Property<decimal>("PrecioUnitarioCobrado")
+                        .HasColumnType("decimal(18,2)");
 
-                    b.Property<int?>("DeletedByUsuarioId")
+                    b.Property<decimal>("Subtotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("VarianteId")
                         .HasColumnType("int");
 
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<int?>("LoteAlmacenDestinoId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("LoteAlmacenOrigenId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TrasladoId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("UpdatedByUsuarioId")
+                    b.Property<int>("VentaId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("LoteAlmacenDestinoId");
+                    b.HasIndex("LoteId");
 
-                    b.HasIndex("LoteAlmacenOrigenId");
+                    b.HasIndex("VarianteId");
 
-                    b.HasIndex("TrasladoId");
+                    b.HasIndex("VentaId");
 
-                    b.ToTable("TrasladosDetalles");
+                    b.ToTable("VentaDetalles");
                 });
 
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.Compra", b =>
@@ -1090,6 +1312,32 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                     b.Navigation("LoteAlmacenOrigen");
 
                     b.Navigation("Variante");
+                });
+
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.GastoOperativo", b =>
+                {
+                    b.HasOne("BussinesMS.Dominio.Entidades.Sistema.CategoriaGasto", "CategoriaGasto")
+                        .WithMany()
+                        .HasForeignKey("CategoriaGastoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BussinesMS.Dominio.Entidades.Sistema.PagoCompra", "PagoCompra")
+                        .WithMany()
+                        .HasForeignKey("PagoCompraId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("BussinesMS.Dominio.Entidades.Sistema.SesionCaja", "SesionCaja")
+                        .WithMany()
+                        .HasForeignKey("SesionCajaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CategoriaGasto");
+
+                    b.Navigation("PagoCompra");
+
+                    b.Navigation("SesionCaja");
                 });
 
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.InventarioLote", b =>
@@ -1222,41 +1470,50 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                     b.Navigation("Tamanio");
                 });
 
-            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.Traslado", b =>
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.Venta", b =>
                 {
+                    b.HasOne("BussinesMS.Dominio.Entidades.Sistema.Cliente", "Cliente")
+                        .WithMany()
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BussinesMS.Dominio.Entidades.Sistema.SesionCaja", "SesionCaja")
+                        .WithMany()
+                        .HasForeignKey("SesionCajaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Cliente");
+
+                    b.Navigation("SesionCaja");
+                });
+
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.VentaDetalle", b =>
+                {
+                    b.HasOne("BussinesMS.Dominio.Entidades.Sistema.InventarioLote", "Lote")
+                        .WithMany()
+                        .HasForeignKey("LoteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("BussinesMS.Dominio.Entidades.Sistema.ProductoVariante", "Variante")
                         .WithMany()
                         .HasForeignKey("VarianteId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Variante");
-                });
-
-            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.TrasladoDetalle", b =>
-                {
-                    b.HasOne("BussinesMS.Dominio.Entidades.Sistema.InventarioLoteAlmacen", "LoteAlmacenDestino")
-                        .WithMany()
-                        .HasForeignKey("LoteAlmacenDestinoId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("BussinesMS.Dominio.Entidades.Sistema.InventarioLoteAlmacen", "LoteAlmacenOrigen")
-                        .WithMany()
-                        .HasForeignKey("LoteAlmacenOrigenId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("BussinesMS.Dominio.Entidades.Sistema.Traslado", "Traslado")
+                    b.HasOne("BussinesMS.Dominio.Entidades.Sistema.Venta", "Venta")
                         .WithMany("Detalles")
-                        .HasForeignKey("TrasladoId")
+                        .HasForeignKey("VentaId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("LoteAlmacenDestino");
+                    b.Navigation("Lote");
 
-                    b.Navigation("LoteAlmacenOrigen");
+                    b.Navigation("Variante");
 
-                    b.Navigation("Traslado");
+                    b.Navigation("Venta");
                 });
 
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.Compra", b =>
@@ -1281,7 +1538,7 @@ namespace BussinesMS.Infraestructura.Migrations.SistemaDb
                     b.Navigation("Presentaciones");
                 });
 
-            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.Traslado", b =>
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Sistema.Venta", b =>
                 {
                     b.Navigation("Detalles");
                 });

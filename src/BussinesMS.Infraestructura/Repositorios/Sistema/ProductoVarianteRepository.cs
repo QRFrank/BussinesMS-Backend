@@ -24,6 +24,7 @@ public class ProductoVarianteRepository : IProductoVarianteRepository
         => await _context.ProductoVariantes
             .Where(x => x.IsActive)
             .Include(x => x.Producto)
+                .ThenInclude(p => p.Fabricante)
             .Include(x => x.Sabor)
             .Include(x => x.Tamanio)
             .OrderBy(x => x.Producto!.Nombre)
@@ -39,6 +40,8 @@ public class ProductoVarianteRepository : IProductoVarianteRepository
         => await _context.ProductoVariantes
             .Include(x => x.Producto)
                 .ThenInclude(p => p.Categoria)
+            .Include(x => x.Producto)
+                .ThenInclude(p => p.Fabricante)
             .Include(x => x.Sabor)
             .Include(x => x.Tamanio)
             .Include(x => x.Presentaciones.Where(p => p.IsActive))
@@ -49,6 +52,7 @@ public class ProductoVarianteRepository : IProductoVarianteRepository
         => await _context.ProductoVariantes
             .Where(x => x.IsActive)
             .Include(x => x.Producto)
+                .ThenInclude(p => p.Fabricante)
             .Include(x => x.Sabor)
             .Include(x => x.Tamanio)
             .OrderBy(x => x.Producto!.Nombre)
@@ -83,6 +87,7 @@ public class ProductoVarianteRepository : IProductoVarianteRepository
     public async Task<ProductoVariante?> ObtenerPorCodigoBarrasAsync(string codigoBarras)
         => await _context.ProductoVariantes
             .Include(x => x.Producto)
+                .ThenInclude(p => p.Fabricante)
             .Include(x => x.Sabor)
             .Include(x => x.Tamanio)
             .FirstOrDefaultAsync(x => x.CodigoBarras == codigoBarras && x.IsActive);

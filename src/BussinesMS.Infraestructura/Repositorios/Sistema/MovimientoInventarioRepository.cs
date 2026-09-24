@@ -20,7 +20,8 @@ public class MovimientoInventarioRepository : IMovimientoInventarioRepository
 
     public async Task<MovimientoInventario> CrearAsync(MovimientoInventario entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var rawId = _currentUser.GetUsuarioId();
+        var usuarioId = rawId is int id && id > 0 ? id : 1;
         entidad.UsuarioId = usuarioId;
         entidad.FechaMovimiento = DateTime.UtcNow;
         _context.MovimientosInventario.Add(entidad);
@@ -30,7 +31,8 @@ public class MovimientoInventarioRepository : IMovimientoInventarioRepository
 
     public async Task<MovimientoInventario> CrearSinGuardarAsync(MovimientoInventario entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var rawId = _currentUser.GetUsuarioId();
+        var usuarioId = rawId is int id && id > 0 ? id : 1;
         entidad.UsuarioId = usuarioId;
         entidad.FechaMovimiento = DateTime.UtcNow;
         _context.MovimientosInventario.Add(entidad);
@@ -39,6 +41,7 @@ public class MovimientoInventarioRepository : IMovimientoInventarioRepository
 
     public async Task<List<MovimientoInventario>> ObtenerTodosAsync()
         => await _context.MovimientosInventario
+            .Include(x => x.Variante)
             .OrderByDescending(x => x.FechaMovimiento)
             .ToListAsync();
 
@@ -70,10 +73,14 @@ public class MovimientoInventarioRepository : IMovimientoInventarioRepository
             query = query.Where(x => x.FechaMovimiento < finUtc);
         }
 
-        return await query.OrderByDescending(x => x.FechaMovimiento).ToListAsync();
+        return await query
+            .Include(x => x.Variante)
+            .OrderByDescending(x => x.FechaMovimiento)
+            .ToListAsync();
     }
 
     public async Task<MovimientoInventario?> ObtenerPorIdAsync(int id)
         => await _context.MovimientosInventario
+            .Include(x => x.Variante)
             .FirstOrDefaultAsync(x => x.Id == id);
 }

@@ -148,7 +148,7 @@ public class CompraService : ICompraService
                         {
                             InventarioLoteAlmacenId = la.Id,
                             AlmacenId = la.AlmacenId,
-                            CantidadUnidades = la.StockInicial,
+                            CantidadUnidades = la.StockDisponible,
                             StockDisponible = la.StockDisponible
                         }).ToListAsync();
 
@@ -223,14 +223,21 @@ public class CompraService : ICompraService
                 await _uow.SaveChangesAsync();
 
                 var lotes = new List<(InventarioLote lote, CrearCompraDetalleDto detalleDto)>();
+                var fechaLocal = BoliviaTimeZone.Now();
                 foreach (var (detalle, detalleDto) in pares)
                 {
+                    var codigoLote = await GenerarCodigoLoteUnicoAsync(detalle.VarianteId, fechaLocal);
+
                     var lote = new InventarioLote
                     {
                         VarianteId = detalle.VarianteId,
                         CompraDetalleId = detalle.Id,
+                        CodigoLote = codigoLote,
                         CostoCompraUnitario = detalle.CostoUnitario,
-                        CantidadTotal = detalle.CantidadUnidades,
+                        StockInicial = detalle.CantidadUnidades,
+                        CantidadVendida = 0,
+                        CantidadVencida = 0,
+                        EstadoLote = EstadoLote.Activo,
                         FechaVencimiento = detalle.FechaVencimiento
                     };
                     await _loteRepo.CrearSinGuardarAsync(lote);
@@ -246,12 +253,10 @@ public class CompraService : ICompraService
                     {
                         var loteAlmacen = new InventarioLoteAlmacen
                         {
-                            Lote = lote,
+                            LoteId = lote.Id,
                             VarianteId = lote.VarianteId,
                             AlmacenId = alm.AlmacenId,
-                            StockInicial = alm.CantidadUnidades,
-                            StockDisponible = alm.CantidadUnidades,
-                            EstadoLote = EstadoLote.Activo
+                            StockDisponible = alm.CantidadUnidades
                         };
                         await _loteAlmacenRepo.CrearSinGuardarAsync(loteAlmacen);
                         todosLoteAlmacenes.Add(loteAlmacen);
@@ -269,7 +274,7 @@ public class CompraService : ICompraService
                         AlmacenOrigenId = null,
                         AlmacenDestinoId = loteAlmacen.AlmacenId,
                         TipoMovimiento = TipoMovimiento.EntradaCompra,
-                        CantidadUnidades = loteAlmacen.StockInicial,
+                        CantidadUnidades = loteAlmacen.StockDisponible,
                         SaldoResultante = loteAlmacen.StockDisponible,
                         ReferenciaId = loteAlmacen.Lote?.CompraDetalleId,
                         Observacion = "Entrada por compra"
@@ -288,6 +293,7 @@ public class CompraService : ICompraService
                         {
                             variante.PrecioVentaUnitario = detalleDto.PrecioVentaUnitario;
                             variante.PrecioVentaMayoreo = detalleDto.PrecioVentaMayor;
+                            variante.PrecioCompra = detalleDto.CostoUnitario;
                             await _varianteRepo.ActualizarAsync(variante);
                         }
                     }
@@ -361,7 +367,7 @@ public class CompraService : ICompraService
                             {
                                 InventarioLoteAlmacenId = la.Id,
                                 AlmacenId = la.AlmacenId,
-                                CantidadUnidades = la.StockInicial,
+                                CantidadUnidades = la.StockDisponible,
                                 StockDisponible = la.StockDisponible
                             }).ToList();
                         detalleDto.Almacenes = almacenesDelLote;
@@ -502,5 +508,27 @@ public class CompraService : ICompraService
             _logger.LogError(ex, "Error al agregar pago a compra {CompraId}", compraId);
             throw;
         }
+    }
+
+    private async Task<string> GenerarCodigoLoteUnicoAsync(int varianteId, DateTime fechaLocal)
+    {
+        var variante = await _varianteRepo.ObtenerConDetallesAsync(varianteId)
+            ?? throw new ValidacionException($"Variante {varianteId} no encontrada");
+
+        var nombreProducto = variante.Producto?.Nombre ?? string.Empty;
+
+        var textoPresentacion = variante.Tamanio?.Nombre ?? "UN";
+
+        var codigoBase = CodigoLoteGenerator.Generar(nombreProducto, textoPresentacion, fechaLocal);
+
+        var codigoLote = codigoBase;
+        var n = 2;
+        while (await _loteRepo.AsQueryable().AnyAsync(l => l.CodigoLote == codigoLote && l.IsActive))
+        {
+            codigoLote = $"{codigoBase}-{n}";
+            n++;
+        }
+
+        return codigoLote;
     }
 }

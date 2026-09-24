@@ -4,7 +4,6 @@ using BussinesMS.Dominio.Entidades.Sistema;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using System.Text;
 
 namespace BussinesMS.Aplicacion.Servicios.Sistema;
 
@@ -412,14 +411,8 @@ public class MigracionService : IMigracionService
                     var nuevaVariante = new ProductoVariante
                     {
                         ProductoId = productoId,
-                        NombreProducto = nombreProducto,
-                        DescripcionProducto = ConstruirDescripcionProducto(
-                            nombreProducto ?? "", saborNombre ?? "",
-                            tamanioNombre ?? "", cantidadCaja, fabricanteNombre),
                         SaborId = saborId,
-                        SaborDescripcion = saborNombre,
                         TamanioId = tamanioId,
-                        PesoTamanio = tamanioNombre,
                         CodigoBarras = codigoBarras,
                         PrecioVentaUnitario = 0,
                         PrecioVentaMayoreo = 0,
@@ -602,16 +595,4 @@ public class MigracionService : IMigracionService
         return nuevo;
     }
 
-    private static string ConstruirDescripcionProducto(
-        string nombreProducto, string sabor, string pesoTamanio, int? cantidadCaja,
-        string? fabricante = null)
-    {
-        var sb = new StringBuilder();
-        sb.Append($"{nombreProducto} {sabor} de {pesoTamanio}");
-        if (cantidadCaja.HasValue && cantidadCaja.Value > 0)
-            sb.Append($" x{cantidadCaja}");
-        if (!string.IsNullOrWhiteSpace(fabricante))
-            sb.Append($" - {fabricante}");
-        return sb.ToString().Trim();
-    }
 }

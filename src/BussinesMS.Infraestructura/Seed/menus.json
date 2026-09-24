@@ -2,8 +2,9 @@
   { "id": 1,  "nombre": "Dashboard",           "url": "/dashboard",                    "icono": "solar:home-smile-bold-duotone",                "orden": 1, "isGroup": false, "parentId": null, "sistemaId": 1 },
 
   { "id": 2,  "nombre": "Ventas",              "url": null,                            "icono": "solar:cart-large-bold-duotone",                "orden": 2, "isGroup": true,  "parentId": null, "sistemaId": 1 },
-  { "id": 3,  "nombre": "Punto de Venta",      "url": "/ventas/nueva",                 "icono": "solar:cart-plus-bold-duotone",                 "orden": 1, "isGroup": false, "parentId": 2,    "sistemaId": 1 },
+  { "id": 3,  "nombre": "Punto de Venta",      "url": "/ventas",                       "icono": "solar:cart-plus-bold-duotone",                 "orden": 1, "isGroup": false, "parentId": 2,    "sistemaId": 1 },
   { "id": 4,  "nombre": "Lista Ventas",        "url": "/ventas/lista",                 "icono": "solar:checklist-minimalistic-bold-duotone",    "orden": 2, "isGroup": false, "parentId": 2,    "sistemaId": 1 },
+  { "id": 28, "nombre": "Clientes",            "url": "/ventas/clientes",              "icono": "solar:users-group-rounded-bold-duotone",       "orden": 3, "isGroup": false, "parentId": 2,    "sistemaId": 1 },
   
   { "id": 5,  "nombre": "Almacen",             "url": null,                            "icono": "solar:box-bold-duotone",                       "orden": 3, "isGroup": true,  "parentId": null, "sistemaId": 1 },
   { "id": 6,  "nombre": "Inventarios",         "url": "/almacen/inventarios",          "icono": "solar:box-minimalistic-bold-duotone",          "orden": 1, "isGroup": false, "parentId": 5,    "sistemaId": 1 },

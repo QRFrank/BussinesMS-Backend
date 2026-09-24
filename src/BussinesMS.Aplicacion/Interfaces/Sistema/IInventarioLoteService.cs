@@ -5,10 +5,10 @@ namespace BussinesMS.Aplicacion.Interfaces.Sistema;
 
 public interface IInventarioLoteService
 {
-    Task<PagedResultDto<InventarioLoteAlmacenDto>> ObtenerTodosAsync(GenericPaginationQueryDto query, int? categoriaId = null, int? almacenId = null);
-    Task<InventarioLoteAlmacenDto?> ObtenerPorIdAsync(int id);
-    Task<InventarioLoteAlmacenDto> CrearAsync(CrearInventarioLoteAlmacenDto dto);
-    Task<InventarioLoteAlmacenDto> ActualizarAsync(ActualizarInventarioLoteAlmacenDto dto);
+    Task<PagedResultDto<InventarioLoteDto>> ObtenerTodosAsync(GenericPaginationQueryDto query, int? categoriaId = null, int? almacenId = null, int? estadoLote = null);
+    Task<InventarioLoteDto?> ObtenerPorIdAsync(int id);
+    Task<InventarioLoteDto> CrearAsync(CrearInventarioLoteAlmacenDto dto);
+    Task<InventarioLoteDto> ActualizarAsync(ActualizarInventarioLoteAlmacenDto dto);
     Task EliminarAsync(int id);
-    Task<InventarioLoteAlmacenDto> AjustarStockAsync(int id, AjusteInventarioDto dto);
+    Task<InventarioLoteDto> AjustarStockAsync(int id, AjusteInventarioDto dto);
 }

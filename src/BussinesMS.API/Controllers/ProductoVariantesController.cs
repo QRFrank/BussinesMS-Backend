@@ -60,6 +60,16 @@ public class ProductoVariantesController : BaseController
             : RespuestaOk(resultado);
     }
 
+    [HttpGet("stock-pos")]
+    public async Task<IActionResult> ObtenerStockPos([FromQuery] GenericPaginationQueryDto query, [FromQuery] int almacenId)
+    {
+        if (almacenId <= 0)
+            return RespuestaError("El almacenId es requerido.", 400);
+
+        var resultado = await _stockServicio.ObtenerStockPosAsync(query, almacenId);
+        return RespuestaOk(resultado);
+    }
+
     [HttpGet("CompraInfo/{id}")]
     public async Task<IActionResult> ObtenerCompraInfo(int id)
     {
