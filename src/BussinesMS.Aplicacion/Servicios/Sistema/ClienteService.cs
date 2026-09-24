@@ -81,6 +81,25 @@ public class ClienteService : IClienteService
         }
     }
 
+    public async Task<ClienteDto?> ObtenerPorNumeroCarnetAsync(string numeroCarnet)
+    {
+        try
+        {
+            var carnet = Normalizar(numeroCarnet);
+            if (carnet == null) return null;
+
+            var entidad = await _repo.ObtenerPorNumeroCarnetAsync(carnet);
+            if (entidad == null || !entidad.IsActive) return null;
+
+            return _mapper.Map<ClienteDto>(entidad);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener cliente por carnet {NumeroCarnet}", numeroCarnet);
+            throw;
+        }
+    }
+
     public async Task<(ClienteDto Entidad, bool FueReactivada)> CrearAsync(CrearClienteDto dto)
     {
         try

@@ -33,6 +33,15 @@ public class ClientesController : BaseController
             : RespuestaOk(resultado);
     }
 
+    [HttpGet("carnet/{numeroCarnet}")]
+    public async Task<IActionResult> ObtenerPorNumeroCarnet(string numeroCarnet)
+    {
+        var resultado = await _servicio.ObtenerPorNumeroCarnetAsync(numeroCarnet);
+        return resultado == null
+            ? RespuestaError("Cliente no encontrado", 404)
+            : RespuestaOk(resultado);
+    }
+
     [HttpPost]
     public async Task<IActionResult> Crear([FromBody] CrearClienteDto dto)
     {
