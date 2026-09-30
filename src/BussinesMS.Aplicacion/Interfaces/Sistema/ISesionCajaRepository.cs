@@ -5,6 +5,7 @@ namespace BussinesMS.Aplicacion.Interfaces.Sistema;
 
 public interface ISesionCajaRepository
 {
+    IQueryable<SesionCaja> AsQueryable();
     Task<SesionCaja?> ObtenerPorIdAsync(int id);
     Task<SesionCaja?> ObtenerAbiertaPorUsuarioAsync(int usuarioId, int almacenId);
     Task<List<SesionCaja>> ObtenerTodasAsync();

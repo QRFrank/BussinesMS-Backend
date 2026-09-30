@@ -18,4 +18,5 @@ public class SesionCaja : EntidadBase
     public decimal? MontoRealEntregado { get; set; }
     public decimal? Diferencia { get; set; }
     public EstadoSesionCaja Estado { get; set; } = EstadoSesionCaja.Abierta;
+    public List<Venta> Ventas { get; set; } = [];
 }

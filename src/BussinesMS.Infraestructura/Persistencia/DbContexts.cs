@@ -451,7 +451,7 @@ public class SistemaDbContext : DbContext
             entity.HasIndex(e => e.FechaVenta);
 
             entity.HasOne(v => v.SesionCaja)
-                .WithMany()
+                .WithMany(s => s.Ventas)
                 .HasForeignKey(v => v.SesionCajaId)
                 .OnDelete(DeleteBehavior.Restrict);
 

@@ -1,5 +1,7 @@
 using AutoMapper;
+using BussinesMS.Aplicacion.Comun;
 using BussinesMS.Aplicacion.Common;
+using BussinesMS.Aplicacion.DTOs.Plantillas;
 using BussinesMS.Aplicacion.DTOs.Sistema;
 using BussinesMS.Aplicacion.Helpers;
 using BussinesMS.Aplicacion.Interfaces.Sistema;
@@ -7,6 +9,7 @@ using BussinesMS.Aplicacion.Seguridad;
 using BussinesMS.Dominio.Entidades.Sistema;
 using BussinesMS.Dominio.Enums;
 using BussinesMS.Dominio.Excepciones;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace BussinesMS.Aplicacion.Servicios.Sistema;
@@ -115,6 +118,75 @@ public class SesionCajaService : ISesionCajaService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al obtener sesión abierta del usuario {UsuarioId}", usuarioId);
+            throw;
+        }
+    }
+
+    public async Task<PagedResultDto<SesionCajaListDto>> ObtenerTodosAsync(SesionCajaFiltroDto query)
+    {
+        try
+        {
+            var baseQuery = _repo.AsQueryable().Where(x => x.IsActive);
+
+            if (query.AlmacenId.HasValue)
+                baseQuery = baseQuery.Where(x => x.AlmacenId == query.AlmacenId.Value);
+
+            if (query.UsuarioId.HasValue)
+                baseQuery = baseQuery.Where(x => x.UsuarioId == query.UsuarioId.Value);
+
+            if (query.Estado.HasValue)
+                baseQuery = baseQuery.Where(x => x.Estado == query.Estado.Value);
+
+            if (query.FechaDesde.HasValue)
+            {
+                var (inicioUtc, _) = BoliviaTimeZone.RangoDiaUtc(DateOnly.FromDateTime(query.FechaDesde.Value));
+                baseQuery = baseQuery.Where(x => x.FechaApertura >= inicioUtc);
+            }
+
+            if (query.FechaHasta.HasValue)
+            {
+                var (_, finUtc) = BoliviaTimeZone.RangoDiaUtc(DateOnly.FromDateTime(query.FechaHasta.Value));
+                baseQuery = baseQuery.Where(x => x.FechaApertura < finUtc);
+            }
+
+            (var filteredQuery, var totalCount) = baseQuery.ApplyFilters(query);
+            var entidades = await filteredQuery
+                .Include(x => x.Ventas)
+                .ToListAsync();
+
+            var items = entidades.Select(e => new SesionCajaListDto
+            {
+                Id = e.Id,
+                UsuarioId = e.UsuarioId,
+                AlmacenId = e.AlmacenId,
+                FechaApertura = BoliviaTimeZone.ToLocal(e.FechaApertura),
+                FechaCierre = e.FechaCierre.HasValue ? BoliviaTimeZone.ToLocal(e.FechaCierre.Value) : null,
+                MontoInicial = e.MontoInicial,
+                IngresosEfectivo = e.IngresosEfectivo,
+                IngresosDigitales = e.IngresosDigitales,
+                EgresosGastos = e.EgresosGastos,
+                EgresosPagoProveedor = e.EgresosPagoProveedor,
+                MontoEsperadoEfectivo = e.MontoEsperadoEfectivo,
+                MontoRealEntregado = e.MontoRealEntregado,
+                Diferencia = e.Diferencia,
+                Estado = e.Estado,
+                IsActive = e.IsActive,
+                CreatedAt = BoliviaTimeZone.ToLocal(e.CreatedAt),
+                CantidadVentas = e.Ventas.Count,
+                VentaIds = e.Ventas.Select(v => v.Id).ToList()
+            }).ToList();
+
+            return new PagedResultDto<SesionCajaListDto>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                Page = query.GetPageValue(),
+                PageSize = query.GetPageSizeValue()
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener sesiones de caja");
             throw;
         }
     }

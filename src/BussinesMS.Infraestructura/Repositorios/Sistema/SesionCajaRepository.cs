@@ -18,6 +18,9 @@ public class SesionCajaRepository : ISesionCajaRepository
         _currentUser = currentUser;
     }
 
+    public IQueryable<SesionCaja> AsQueryable()
+        => _context.SesionesCaja.AsQueryable();
+
     public async Task<SesionCaja?> ObtenerPorIdAsync(int id)
         => await _context.SesionesCaja
             .FirstOrDefaultAsync(x => x.Id == id);

@@ -30,6 +30,13 @@ public class SesionesCajaController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> ObtenerTodos([FromQuery] SesionCajaFiltroDto query)
+    {
+        var resultado = await _servicio.ObtenerTodosAsync(query);
+        return RespuestaOk(resultado);
+    }
+
     [HttpGet("{id}")]
     public async Task<IActionResult> ObtenerPorId(int id)
     {
