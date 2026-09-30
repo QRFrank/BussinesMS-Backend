@@ -13,6 +13,10 @@ public class Venta : EntidadBase
     public decimal DescuentoTotal { get; set; } = 0;
     public decimal TotalNeto { get; set; }
     public MetodoPago MetodoPago { get; set; }
+    public decimal MontoEfectivo { get; set; } = 0;
+    public decimal MontoTransferencia { get; set; } = 0;
+    public decimal? MontoRecibido { get; set; }
+    public decimal? Cambio { get; set; }
     public string? MotivoDescuento { get; set; }
     public int ClienteId { get; set; } = Cliente.ClienteGenericoId;
 

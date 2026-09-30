@@ -3,10 +3,12 @@ using BussinesMS.Aplicacion.Common;
 using BussinesMS.Aplicacion.DTOs.Plantillas;
 using BussinesMS.Aplicacion.DTOs.Sistema;
 using BussinesMS.Aplicacion.Helpers;
+using BussinesMS.Aplicacion.Interfaces.Auth;
 using BussinesMS.Aplicacion.Interfaces.Sistema;
 using BussinesMS.Dominio.Entidades.Sistema;
 using BussinesMS.Dominio.Enums;
 using BussinesMS.Dominio.Excepciones;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace BussinesMS.Aplicacion.Servicios.Sistema;
@@ -20,6 +22,8 @@ public class VentaService : IVentaService
     private readonly IMovimientoInventarioRepository _movimientoRepo;
     private readonly IVencimientoLoteService _vencimientoService;
     private readonly IClienteRepository _clienteRepo;
+    private readonly IProductoVarianteRepository _varianteRepo;
+    private readonly IAlmacenRepository _almacenRepo;
     private readonly ISistemaUnitOfWork _uow;
     private readonly IMapper _mapper;
     private readonly ILogger<VentaService> _logger;
@@ -32,6 +36,8 @@ public class VentaService : IVentaService
         IMovimientoInventarioRepository movimientoRepo,
         IVencimientoLoteService vencimientoService,
         IClienteRepository clienteRepo,
+        IProductoVarianteRepository varianteRepo,
+        IAlmacenRepository almacenRepo,
         ISistemaUnitOfWork uow,
         IMapper mapper,
         ILogger<VentaService> logger)
@@ -43,6 +49,8 @@ public class VentaService : IVentaService
         _movimientoRepo = movimientoRepo;
         _vencimientoService = vencimientoService;
         _clienteRepo = clienteRepo;
+        _varianteRepo = varianteRepo;
+        _almacenRepo = almacenRepo;
         _uow = uow;
         _mapper = mapper;
         _logger = logger;
@@ -100,6 +108,10 @@ public class VentaService : IVentaService
                 DescuentoTotal = v.DescuentoTotal,
                 TotalNeto = v.TotalNeto,
                 MetodoPago = v.MetodoPago,
+                MontoEfectivo = v.MontoEfectivo,
+                MontoTransferencia = v.MontoTransferencia,
+                MontoRecibido = v.MontoRecibido,
+                Cambio = v.Cambio,
                 MotivoDescuento = v.MotivoDescuento,
                 IsActive = v.IsActive,
                 CreatedAt = BoliviaTimeZone.ToLocal(v.CreatedAt),
@@ -257,7 +269,8 @@ public class VentaService : IVentaService
                             CantidadUnidades = cantidadADescontar,
                             PrecioUnitarioCobrado = detalleDto.PrecioUnitarioCobrado,
                             CostoUnitarioLote = loteAlmacen.Lote?.CostoCompraUnitario ?? 0,
-                            Subtotal = cantidadADescontar * detalleDto.PrecioUnitarioCobrado
+                            Subtotal = cantidadADescontar * detalleDto.PrecioUnitarioCobrado,
+                            TipoPrecio = detalleDto.TipoPrecio
                         };
 
                         subtotalDetalle += detalle.Subtotal;
@@ -295,16 +308,78 @@ public class VentaService : IVentaService
                 venta.TotalBruto = totalBruto;
                 venta.TotalNeto = totalBruto - venta.DescuentoTotal;
 
+                // El front manda los montos tal cual los tipeó el cajero:
+                //   dto.MontoEfectivo      = billetes que ENTREGÓ el cliente
+                //   dto.MontoTransferencia = lo que se transfirió
+                // El backend calcula lo que se guarda:
+                //   venta.MontoEfectivo = efectivo que QUEDA en caja (auditoría de caja)
+                //   venta.MontoRecibido = billetes entregados; venta.Cambio = vuelto
+                var total = venta.TotalNeto;
+                var efectivoEntregado = dto.MontoEfectivo ?? 0;
+                var transferencia = dto.MontoTransferencia ?? 0;
+
+                if (efectivoEntregado < 0 || transferencia < 0)
+                    throw new ValidacionException("Los montos de pago no pueden ser negativos");
+
+                switch (dto.MetodoPago)
+                {
+                    case MetodoPago.Efectivo:
+                    {
+                        if (transferencia > 0)
+                            throw new ValidacionException("En pago en efectivo el monto por transferencia debe ser 0. Use pago mixto");
+
+                        if (efectivoEntregado <= 0)
+                            efectivoEntregado = total;
+
+                        if (efectivoEntregado < total)
+                            throw new ValidacionException($"Monto insuficiente. Total a cobrar: {total:0.00}, recibido: {efectivoEntregado:0.00}, falta: {total - efectivoEntregado:0.00}");
+
+                        venta.MontoEfectivo = total;
+                        venta.MontoTransferencia = 0;
+                        venta.MontoRecibido = efectivoEntregado;
+                        venta.Cambio = efectivoEntregado - total;
+                        break;
+                    }
+                    case MetodoPago.TransferenciaQR:
+                    {
+                        if (efectivoEntregado > 0)
+                            throw new ValidacionException("En pago por transferencia el monto en efectivo debe ser 0. Use pago mixto");
+
+                        if (transferencia > 0 && Math.Abs(transferencia - total) > 0.01m)
+                            throw new ValidacionException($"El monto transferido ({transferencia:0.00}) debe ser igual al total a cobrar ({total:0.00})");
+
+                        venta.MontoEfectivo = 0;
+                        venta.MontoTransferencia = total;
+                        venta.MontoRecibido = null;
+                        venta.Cambio = null;
+                        break;
+                    }
+                    case MetodoPago.Mixto:
+                    {
+                        if (efectivoEntregado <= 0 || transferencia <= 0)
+                            throw new ValidacionException($"En pago mixto, el monto en efectivo y el monto por transferencia deben ser mayores a 0. Total a cobrar: {total:0.00}");
+
+                        if (transferencia >= total)
+                            throw new ValidacionException($"En pago mixto la transferencia ({transferencia:0.00}) debe ser menor al total a cobrar ({total:0.00}). Use pago por transferencia");
+
+                        var efectivoACobrar = total - transferencia;
+                        if (efectivoEntregado < efectivoACobrar)
+                            throw new ValidacionException($"Monto insuficiente. Total a cobrar: {total:0.00}, recibido: {efectivoEntregado + transferencia:0.00}, falta: {efectivoACobrar - efectivoEntregado:0.00}");
+
+                        venta.MontoEfectivo = efectivoACobrar;
+                        venta.MontoTransferencia = transferencia;
+                        venta.MontoRecibido = efectivoEntregado;
+                        venta.Cambio = efectivoEntregado - efectivoACobrar;
+                        break;
+                    }
+                    default:
+                        throw new ValidacionException("Método de pago inválido. Valores permitidos: 1 (Efectivo), 2 (TransferenciaQR), 3 (Mixto)");
+                }
+
                 await _uow.SaveChangesAsync();
 
-                if (dto.MetodoPago == MetodoPago.Efectivo)
-                {
-                    sesion.IngresosEfectivo += venta.TotalNeto;
-                }
-                else if (dto.MetodoPago == MetodoPago.TransferenciaQR)
-                {
-                    sesion.IngresosDigitales += venta.TotalNeto;
-                }
+                sesion.IngresosEfectivo += venta.MontoEfectivo;
+                sesion.IngresosDigitales += venta.MontoTransferencia;
 
                 await _sesionRepo.ActualizarAsync(sesion);
 
@@ -386,14 +461,8 @@ public class VentaService : IVentaService
                 var sesion = await _sesionRepo.ObtenerPorIdAsync(entidad.SesionCajaId);
                 if (sesion != null && sesion.Estado == EstadoSesionCaja.Abierta)
                 {
-                    if (entidad.MetodoPago == MetodoPago.Efectivo)
-                    {
-                        sesion.IngresosEfectivo -= entidad.TotalNeto;
-                    }
-                    else if (entidad.MetodoPago == MetodoPago.TransferenciaQR)
-                    {
-                        sesion.IngresosDigitales -= entidad.TotalNeto;
-                    }
+                    sesion.IngresosEfectivo -= entidad.MontoEfectivo;
+                    sesion.IngresosDigitales -= entidad.MontoTransferencia;
 
                     await _sesionRepo.ActualizarAsync(sesion);
                 }
@@ -411,6 +480,97 @@ public class VentaService : IVentaService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al anular venta {Id}", id);
+            throw;
+        }
+    }
+
+    public async Task<VarianteVentaDto?> ObtenerVarianteVentaAsync(int varianteId)
+    {
+        try
+        {
+            var variante = await _varianteRepo.AsQueryable()
+                .Where(v => v.Id == varianteId && v.IsActive)
+                .Include(v => v.Producto)
+                    .ThenInclude(p => p!.Fabricante)
+                .Include(v => v.Sabor)
+                .Include(v => v.Tamanio)
+                .Include(v => v.Presentaciones)
+                    .ThenInclude(p => p.TipoPresentacion)
+                .FirstOrDefaultAsync();
+
+            if (variante == null) return null;
+
+            var cutoff = BoliviaTimeZone.RangoDiaUtc(DateOnly.FromDateTime(DateTime.UtcNow)).InicioUtc;
+
+            var stockPorAlmacen = await (
+                from la in _loteAlmacenRepo.AsQueryable()
+                join l in _loteRepo.AsQueryable() on la.LoteId equals l.Id
+                where la.IsActive
+                    && l.IsActive
+                    && l.VarianteId == varianteId
+                    && l.EstadoLote != EstadoLote.Vencido
+                    && l.EstadoLote != EstadoLote.Devuelto
+                    && l.EstadoLote != EstadoLote.Baja
+                    && (l.FechaVencimiento == null || l.FechaVencimiento >= cutoff)
+                group la by la.AlmacenId into g
+                select new { AlmacenId = g.Key, Stock = g.Sum(x => x.StockDisponible) })
+                .Where(x => x.Stock > 0)
+                .ToListAsync();
+
+            var almacenIds = stockPorAlmacen.Select(x => x.AlmacenId).ToList();
+            var almacenes = almacenIds.Count == 0
+                ? []
+                : await _almacenRepo.AsQueryable()
+                    .Where(a => almacenIds.Contains(a.Id))
+                    .ToListAsync();
+
+            var almacenesDto = stockPorAlmacen
+                .Select(s =>
+                {
+                    var almacen = almacenes.FirstOrDefault(a => a.Id == s.AlmacenId);
+                    return new StockAlmacenVentaDto
+                    {
+                        AlmacenId = s.AlmacenId,
+                        AlmacenNombre = almacen?.Nombre,
+                        EsTienda = almacen?.EsTienda ?? false,
+                        StockDisponible = s.Stock
+                    };
+                })
+                .OrderBy(a => a.AlmacenNombre)
+                .ToList();
+
+            return new VarianteVentaDto
+            {
+                Id = variante.Id,
+                ProductoId = variante.ProductoId,
+                NombreProducto = variante.Producto?.Nombre,
+                VarianteNombre = DescripcionProductoBuilder.Construir(
+                    variante.Producto?.Nombre ?? "",
+                    variante.Sabor?.Nombre ?? "",
+                    variante.Tamanio?.Nombre ?? "",
+                    variante.CantidadCaja,
+                    variante.Producto?.Fabricante?.Nombre),
+                CodigoBarras = variante.CodigoBarras,
+                PrecioVentaUnitario = variante.PrecioVentaUnitario,
+                PrecioVentaMayoreo = variante.PrecioVentaMayoreo,
+                StockTotal = almacenesDto.Sum(a => a.StockDisponible),
+                Almacenes = almacenesDto,
+                Presentaciones = variante.Presentaciones
+                    .Where(p => p.IsActive)
+                    .Select(p => new PresentacionVarianteDto
+                    {
+                        Id = p.Id,
+                        NombrePersonalizado = p.NombrePersonalizado,
+                        Cantidad = p.CantidadDePadre,
+                        Nombre = p.NombreMostrar,
+                        Orden = p.TipoPresentacion!.Orden,
+                        EsDefaultReporte = p.EsDefaultReporte
+                    }).ToList()
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener variante para venta {VarianteId}", varianteId);
             throw;
         }
     }

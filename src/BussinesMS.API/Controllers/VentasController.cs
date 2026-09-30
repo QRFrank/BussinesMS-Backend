@@ -32,6 +32,18 @@ public class VentasController : BaseController
             : RespuestaOk(resultado);
     }
 
+    [HttpGet("ProductoVariantes/{id}")]
+    public async Task<IActionResult> ObtenerVarianteVenta(int id)
+    {
+        if (id <= 0)
+            return RespuestaError("El id de la variante es requerido.", 400);
+
+        var resultado = await _servicio.ObtenerVarianteVentaAsync(id);
+        return resultado == null
+            ? RespuestaError("Variante de producto no encontrada", 404)
+            : RespuestaOk(resultado);
+    }
+
     [HttpPost]
     public async Task<IActionResult> Crear([FromBody] CrearVentaDto dto)
     {

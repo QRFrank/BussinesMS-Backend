@@ -9,4 +9,5 @@ public interface IVentaService
     Task<VentaDto?> ObtenerPorIdAsync(int id);
     Task<VentaDto> CrearAsync(CrearVentaDto dto);
     Task EliminarAsync(int id);
+    Task<VarianteVentaDto?> ObtenerVarianteVentaAsync(int varianteId);
 }

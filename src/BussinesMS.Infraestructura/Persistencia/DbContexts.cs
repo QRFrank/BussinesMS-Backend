@@ -442,6 +442,10 @@ public class SistemaDbContext : DbContext
             entity.Property(e => e.DescuentoTotal).IsRequired().HasColumnType("decimal(18,2)");
             entity.Property(e => e.TotalNeto).IsRequired().HasColumnType("decimal(18,2)");
             entity.Property(e => e.MotivoDescuento).HasMaxLength(255);
+            entity.Property(e => e.MontoEfectivo).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.MontoTransferencia).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.MontoRecibido).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Cambio).HasColumnType("decimal(18,2)");
 
             entity.HasIndex(e => e.SesionCajaId);
             entity.HasIndex(e => e.FechaVenta);
@@ -470,6 +474,8 @@ public class SistemaDbContext : DbContext
             entity.Property(e => e.PrecioUnitarioCobrado).IsRequired().HasColumnType("decimal(18,2)");
             entity.Property(e => e.CostoUnitarioLote).IsRequired().HasColumnType("decimal(18,4)");
             entity.Property(e => e.Subtotal).IsRequired().HasColumnType("decimal(18,2)");
+            // Nullable a propósito: ventas históricas quedan sin registrar (null), sin backfill.
+            entity.Property(e => e.TipoPrecio);
 
             entity.HasIndex(e => e.VentaId);
             entity.HasIndex(e => e.LoteId);
