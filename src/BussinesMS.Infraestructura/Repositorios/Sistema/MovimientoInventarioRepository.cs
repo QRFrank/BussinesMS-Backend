@@ -18,6 +18,9 @@ public class MovimientoInventarioRepository : IMovimientoInventarioRepository
         _currentUser = currentUser;
     }
 
+    public IQueryable<MovimientoInventario> AsQueryable()
+        => _context.MovimientosInventario.AsQueryable();
+
     public async Task<MovimientoInventario> CrearAsync(MovimientoInventario entidad)
     {
         var rawId = _currentUser.GetUsuarioId();

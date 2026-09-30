@@ -141,14 +141,19 @@ public class CompraService : ICompraService
 
                 if (lote != null)
                 {
+                    // CantidadUnidades = lo comprado para ese almacén, tomado del movimiento EntradaCompra
+                    // (no cambia con ventas ni traslados; un almacén que recibió el lote por traslado da 0).
+                    // StockDisponible = lo que queda hoy de ese lote en ese almacén.
                     var almacenesDelLote = await _loteAlmacenRepo.AsQueryable()
-                        .Include(la => la.Lote)
                         .Where(la => la.LoteId == lote.Id)
                         .Select(la => new CompraDetalleAlmacenDto
                         {
                             InventarioLoteAlmacenId = la.Id,
                             AlmacenId = la.AlmacenId,
-                            CantidadUnidades = la.StockDisponible,
+                            CantidadUnidades = _movimientoRepo.AsQueryable()
+                                .Where(m => m.LoteAlmacenId == la.Id
+                                    && m.TipoMovimiento == TipoMovimiento.EntradaCompra)
+                                .Sum(m => (int?)m.CantidadUnidades) ?? 0,
                             StockDisponible = la.StockDisponible
                         }).ToListAsync();
 

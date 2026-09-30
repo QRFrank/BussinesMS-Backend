@@ -34,6 +34,9 @@ public class CompraRepository : ICompraRepository
         => await _context.Compras
             .Include(x => x.Proveedor)
             .Include(x => x.Detalles).ThenInclude(d => d.Variante)
+                .ThenInclude(v => v!.Producto).ThenInclude(p => p!.Fabricante)
+            .Include(x => x.Detalles).ThenInclude(d => d.Variante).ThenInclude(v => v!.Sabor)
+            .Include(x => x.Detalles).ThenInclude(d => d.Variante).ThenInclude(v => v!.Tamanio)
             .Include(x => x.Pagos)
             .FirstOrDefaultAsync(x => x.Id == id);
 

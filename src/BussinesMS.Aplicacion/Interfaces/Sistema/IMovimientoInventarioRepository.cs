@@ -4,6 +4,7 @@ namespace BussinesMS.Aplicacion.Interfaces.Sistema;
 
 public interface IMovimientoInventarioRepository
 {
+    IQueryable<MovimientoInventario> AsQueryable();
     Task<MovimientoInventario> CrearAsync(MovimientoInventario entidad);
     Task<MovimientoInventario> CrearSinGuardarAsync(MovimientoInventario entidad);
     Task<List<MovimientoInventario>> ObtenerTodosAsync();
