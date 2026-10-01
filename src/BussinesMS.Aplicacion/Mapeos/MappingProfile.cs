@@ -144,6 +144,7 @@ public class MappingProfile : Profile
         // MovimientoInventario
         CreateMap<MovimientoInventario, MovimientoInventarioDto>()
             .ForMember(dest => dest.FechaMovimiento, opt => opt.MapFrom(src => BoliviaTimeZone.ToLocal(src.FechaMovimiento)))
+            .ForMember(dest => dest.LoteId, opt => opt.MapFrom(src => src.LoteAlmacen != null ? src.LoteAlmacen.LoteId : 0))
             .AfterMap((src, dest) =>
             {
                 dest.VarianteNombre = src.Variante != null

@@ -44,7 +44,10 @@ public class MovimientoInventarioRepository : IMovimientoInventarioRepository
 
     public async Task<List<MovimientoInventario>> ObtenerTodosAsync()
         => await _context.MovimientosInventario
-            .Include(x => x.Variante)
+            .Include(x => x.Variante).ThenInclude(v => v!.Producto).ThenInclude(p => p!.Fabricante)
+            .Include(x => x.Variante).ThenInclude(v => v!.Sabor)
+            .Include(x => x.Variante).ThenInclude(v => v!.Tamanio)
+            .Include(x => x.LoteAlmacen)
             .OrderByDescending(x => x.FechaMovimiento)
             .ToListAsync();
 
@@ -56,7 +59,7 @@ public class MovimientoInventarioRepository : IMovimientoInventarioRepository
         var query = _context.MovimientosInventario.AsQueryable();
 
         if (loteId.HasValue)
-            query = query.Where(x => x.LoteAlmacenId == loteId.Value);
+            query = query.Where(x => x.LoteAlmacen!.LoteId == loteId.Value);
         if (varianteId.HasValue)
             query = query.Where(x => x.VarianteId == varianteId.Value);
         if (almacenOrigenId.HasValue)
@@ -77,13 +80,19 @@ public class MovimientoInventarioRepository : IMovimientoInventarioRepository
         }
 
         return await query
-            .Include(x => x.Variante)
+            .Include(x => x.Variante).ThenInclude(v => v!.Producto).ThenInclude(p => p!.Fabricante)
+            .Include(x => x.Variante).ThenInclude(v => v!.Sabor)
+            .Include(x => x.Variante).ThenInclude(v => v!.Tamanio)
+            .Include(x => x.LoteAlmacen)
             .OrderByDescending(x => x.FechaMovimiento)
             .ToListAsync();
     }
 
     public async Task<MovimientoInventario?> ObtenerPorIdAsync(int id)
         => await _context.MovimientosInventario
-            .Include(x => x.Variante)
+            .Include(x => x.Variante).ThenInclude(v => v!.Producto).ThenInclude(p => p!.Fabricante)
+            .Include(x => x.Variante).ThenInclude(v => v!.Sabor)
+            .Include(x => x.Variante).ThenInclude(v => v!.Tamanio)
+            .Include(x => x.LoteAlmacen)
             .FirstOrDefaultAsync(x => x.Id == id);
 }
