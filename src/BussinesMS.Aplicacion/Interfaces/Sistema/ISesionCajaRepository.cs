@@ -12,4 +12,6 @@ public interface ISesionCajaRepository
     Task<SesionCaja> CrearAsync(SesionCaja entidad);
     Task<SesionCaja> CrearSinGuardarAsync(SesionCaja entidad);
     Task<SesionCaja> ActualizarAsync(SesionCaja entidad);
+    Task<Dictionary<int, (decimal EgresosGastos, decimal EgresosPagoProveedor)>> CalcularEgresosAsync(IEnumerable<int> sesionCajaIds);
+    Task<Dictionary<int, int>> ContarTransferenciasAsync(IEnumerable<int> sesionCajaIds);
 }

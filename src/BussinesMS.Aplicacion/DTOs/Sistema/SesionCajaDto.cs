@@ -32,6 +32,7 @@ public class SesionCajaListDto
     public DateTime CreatedAt { get; set; }
     public int CantidadVentas { get; set; }
     public List<int> VentaIds { get; set; } = new();
+    public int CantidadTransferencias { get; set; }
 }
 
 public class SesionCajaDto
@@ -52,6 +53,7 @@ public class SesionCajaDto
     public EstadoSesionCaja Estado { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
+    public int CantidadTransferencias { get; set; }
 }
 
 public class CrearSesionCajaDto

@@ -1,4 +1,3 @@
-using BussinesMS.Aplicacion.DTOs.Plantillas;
 using BussinesMS.Aplicacion.DTOs.Sistema;
 using BussinesMS.Aplicacion.Interfaces.Sistema;
 using Microsoft.AspNetCore.Mvc;
@@ -8,17 +7,17 @@ namespace BussinesMS.API.Controllers;
 [ApiController]
 [Route("api/Sistema/[controller]")]
 [Produces("application/json")]
-public class ComprasController : BaseController
+public class PagosCompraController : BaseController
 {
-    private readonly ICompraService _servicio;
+    private readonly IPagoCompraService _servicio;
 
-    public ComprasController(ICompraService servicio)
+    public PagosCompraController(IPagoCompraService servicio)
     {
         _servicio = servicio;
     }
 
     [HttpGet]
-    public async Task<IActionResult> ObtenerTodos([FromQuery] CompraFiltroDto query)
+    public async Task<IActionResult> ObtenerTodos([FromQuery] PagoCompraFiltroDto query)
     {
         var resultado = await _servicio.ObtenerTodosAsync(query);
         return RespuestaOk(resultado);
@@ -29,28 +28,28 @@ public class ComprasController : BaseController
     {
         var resultado = await _servicio.ObtenerPorIdAsync(id);
         return resultado == null
-            ? RespuestaError("Compra no encontrada", 404)
+            ? RespuestaError("Pago de compra no encontrado", 404)
             : RespuestaOk(resultado);
     }
 
     [HttpPost]
-    public async Task<IActionResult> Crear([FromBody] CrearCompraDto dto)
+    public async Task<IActionResult> Crear([FromBody] CrearPagoCompraDto dto)
     {
         var resultado = await _servicio.CrearAsync(dto);
-        return RespuestaCreado(resultado, "Compra creada");
+        return RespuestaCreado(resultado, "Pago registrado");
     }
 
     [HttpPut]
-    public async Task<IActionResult> Actualizar([FromBody] ActualizarCompraDto dto)
+    public async Task<IActionResult> Actualizar([FromBody] ActualizarPagoCompraDto dto)
     {
         var resultado = await _servicio.ActualizarAsync(dto);
         return RespuestaOk(resultado);
     }
 
     [HttpDelete("{id}")]
-    public async Task<IActionResult> Eliminar(int id)
+    public async Task<IActionResult> Anular(int id)
     {
-        await _servicio.EliminarAsync(id);
-        return RespuestaOk(new { mensaje = "Compra eliminada" });
+        await _servicio.AnularAsync(id);
+        return RespuestaOk(new { mensaje = "Pago anulado" });
     }
 }

@@ -10,5 +10,4 @@ public interface ICompraService
     Task<CompraDto> CrearAsync(CrearCompraDto dto);
     Task<CompraDto> ActualizarAsync(ActualizarCompraDto dto);
     Task EliminarAsync(int id);
-    Task<PagoCompraDto> AgregarPagoAsync(int compraId, CrearPagoCompraDto dto);
 }

@@ -21,6 +21,8 @@
   { "id": 15, "nombre": "Caja",               "url": null,                            "icono": "solar:dollar-bold-duotone",                     "orden": 5, "isGroup": true,  "parentId": null, "sistemaId": 1 },
   { "id": 16, "nombre": "Lista de Caja",       "url": "/caja/lista",                   "icono": "solar:lock-keyhole-unlocked-bold-duotone",     "orden": 1, "isGroup": false, "parentId": 15,   "sistemaId": 1 },
   { "id": 17, "nombre": "Control de Caja",     "url": "/caja/control",                 "icono": "solar:lock-keyhole-bold-duotone",              "orden": 2, "isGroup": false, "parentId": 15,   "sistemaId": 1 },
+  { "id": 30, "nombre": "Control de Pagos",    "url": "/caja/pagos",                   "icono": "solar:hand-money-bold-duotone",                "orden": 3, "isGroup": false, "parentId": 15,   "sistemaId": 1 },
+  { "id": 29, "nombre": "Control de Gastos",   "url": "/caja/gastos",                  "icono": "solar:wallet-money-bold-duotone",              "orden": 4, "isGroup": false, "parentId": 15,   "sistemaId": 1 },
 
   { "id": 18, "nombre": "Reportes",            "url": null,                            "icono": "solar:chart-bold-duotone",                     "orden": 6, "isGroup": true,  "parentId": null, "sistemaId": 1 },
   { "id": 19, "nombre": "Reportes de Ventas",  "url": "/reportes/ventas",              "icono": "solar:chart-2-bold-duotone",                   "orden": 1, "isGroup": false, "parentId": 18,   "sistemaId": 1 },

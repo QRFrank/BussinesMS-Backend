@@ -4,6 +4,7 @@ using BussinesMS.Infraestructura.Persistencia;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BussinesMS.Infraestructura.Migrations
 {
     [DbContext(typeof(SistemaDbContext))]
-    partial class SistemaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260930171713_GastoOperativoSesionOpcionalFechaAlmacen")]
+    partial class GastoOperativoSesionOpcionalFechaAlmacen
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -498,6 +501,9 @@ namespace BussinesMS.Infraestructura.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<bool>("EsPagoProveedor")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime>("FechaGasto")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -509,15 +515,8 @@ namespace BussinesMS.Infraestructura.Migrations
                     b.Property<decimal>("Monto")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<decimal>("MontoCaja")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("decimal(18,2)")
-                        .HasDefaultValue(0m);
-
-                    b.Property<decimal>("MontoExterno")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("decimal(18,2)")
-                        .HasDefaultValue(0m);
+                    b.Property<int?>("PagoCompraId")
+                        .HasColumnType("int");
 
                     b.Property<int?>("SesionCajaId")
                         .HasColumnType("int");
@@ -535,6 +534,8 @@ namespace BussinesMS.Infraestructura.Migrations
                     b.HasIndex("CategoriaGastoId");
 
                     b.HasIndex("FechaGasto");
+
+                    b.HasIndex("PagoCompraId");
 
                     b.HasIndex("SesionCajaId");
 
@@ -752,16 +753,6 @@ namespace BussinesMS.Infraestructura.Migrations
 
                     b.Property<decimal>("Monto")
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("MontoCaja")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("decimal(18,2)")
-                        .HasDefaultValue(0m);
-
-                    b.Property<decimal>("MontoExterno")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("decimal(18,2)")
-                        .HasDefaultValue(0m);
 
                     b.Property<string>("Observacion")
                         .HasMaxLength(255)
@@ -1365,12 +1356,19 @@ namespace BussinesMS.Infraestructura.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("BussinesMS.Dominio.Entidades.Sistema.PagoCompra", "PagoCompra")
+                        .WithMany()
+                        .HasForeignKey("PagoCompraId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("BussinesMS.Dominio.Entidades.Sistema.SesionCaja", "SesionCaja")
                         .WithMany()
                         .HasForeignKey("SesionCajaId")
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("CategoriaGasto");
+
+                    b.Navigation("PagoCompra");
 
                     b.Navigation("SesionCaja");
                 });

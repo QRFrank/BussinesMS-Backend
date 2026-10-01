@@ -315,6 +315,8 @@ public class CompraService : ICompraService
                         {
                             CompraId = entidad.Id,
                             Monto = entidad.TotalCompra,
+                            MontoCaja = 0,
+                            MontoExterno = entidad.TotalCompra,
                             FechaPago = DateTime.UtcNow,
                             SesionCajaId = null,
                             PagadoPorUsuarioId = dto.PagadoPorUsuarioId,
@@ -346,6 +348,8 @@ public class CompraService : ICompraService
                         {
                             CompraId = entidad.Id,
                             Monto = dto.MontoParcial.Value,
+                            MontoCaja = 0,
+                            MontoExterno = dto.MontoParcial.Value,
                             FechaPago = DateTime.UtcNow,
                             SesionCajaId = null,
                             PagadoPorUsuarioId = dto.PagadoPorUsuarioId,
@@ -437,80 +441,6 @@ public class CompraService : ICompraService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al eliminar compra {Id}", id);
-            throw;
-        }
-    }
-
-    public async Task<PagoCompraDto> AgregarPagoAsync(int compraId, CrearPagoCompraDto dto)
-    {
-        try
-        {
-            var compra = await _repo.ObtenerConDetallesAsync(compraId);
-            if (compra == null || !compra.IsActive)
-                throw new EntidadNoEncontradaException("Compra", compraId);
-
-            if (compra.EstaLiquidada)
-                throw new ValidacionException("La compra ya está liquidada");
-
-            if (dto.Monto <= 0)
-                throw new ValidacionException("El monto debe ser mayor a 0");
-
-            if (dto.PagadoPorUsuarioId <= 0)
-                throw new ValidacionException("El campo PagadoPorUsuarioId es requerido");
-
-            var totalPagadoExistente = compra.Pagos
-                .Where(p => p.IsActive)
-                .Sum(p => p.Monto);
-            var totalPagado = totalPagadoExistente + dto.Monto;
-
-            if (totalPagado > compra.TotalCompra)
-                throw new ValidacionException("El monto excede el total de la compra");
-
-            await _uow.BeginTransactionAsync();
-            try
-            {
-                var pago = new PagoCompra
-                {
-                    CompraId = compraId,
-                    Monto = dto.Monto,
-                    FechaPago = DateTime.UtcNow,
-                    SesionCajaId = dto.SesionCajaId,
-                    PagadoPorUsuarioId = dto.PagadoPorUsuarioId,
-                    Observacion = dto.Observacion
-                };
-
-                await _pagoRepo.CrearSinGuardarAsync(pago);
-                await _uow.SaveChangesAsync();
-
-                if (totalPagado == compra.TotalCompra)
-                {
-                    compra.EstaLiquidada = true;
-                    compra.EstadoPago = EstadoPago.Contado;
-                }
-                else
-                {
-                    compra.EstadoPago = EstadoPago.ParcialmentePagado;
-                }
-
-                await _repo.ActualizarAsync(compra);
-                await _uow.SaveChangesAsync();
-
-                await _uow.CommitAsync();
-
-                _logger.LogInformation("Pago registrado para compra {CompraId}: {Monto} - Total pagado: {TotalPagado}",
-                    compraId, dto.Monto, totalPagado);
-
-                return _mapper.Map<PagoCompraDto>(pago);
-            }
-            catch
-            {
-                await _uow.RollbackAsync();
-                throw;
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error al agregar pago a compra {CompraId}", compraId);
             throw;
         }
     }

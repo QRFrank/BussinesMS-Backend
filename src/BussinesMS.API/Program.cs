@@ -186,6 +186,8 @@ builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IMovimientoI
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IDevolucionClienteRepository, BussinesMS.Infraestructura.Repositorios.Sistema.DevolucionClienteRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.ISesionCajaRepository, BussinesMS.Infraestructura.Repositorios.Sistema.SesionCajaRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IVentaRepository, BussinesMS.Infraestructura.Repositorios.Sistema.VentaRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.ICategoriaGastoRepository, BussinesMS.Infraestructura.Repositorios.Sistema.CategoriaGastoRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IGastoOperativoRepository, BussinesMS.Infraestructura.Repositorios.Sistema.GastoOperativoRepository>();
 
 // Servicios — agrega después de IProductoVarianteService
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.ITipoPresentacionService, BussinesMS.Aplicacion.Servicios.Sistema.TipoPresentacionService>();
@@ -197,6 +199,9 @@ builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IDevolucionC
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IVarianteStockService, BussinesMS.Aplicacion.Servicios.Sistema.VarianteStockService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.ISesionCajaService, BussinesMS.Aplicacion.Servicios.Sistema.SesionCajaService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IVentaService, BussinesMS.Aplicacion.Servicios.Sistema.VentaService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.ICategoriaGastoService, BussinesMS.Aplicacion.Servicios.Sistema.CategoriaGastoService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IGastoOperativoService, BussinesMS.Aplicacion.Servicios.Sistema.GastoOperativoService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IPagoCompraService, BussinesMS.Aplicacion.Servicios.Sistema.PagoCompraService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IVencimientoLoteService, BussinesMS.Aplicacion.Servicios.Sistema.VencimientoLoteService>();
 
 // Background Services

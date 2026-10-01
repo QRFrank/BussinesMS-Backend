@@ -68,4 +68,43 @@ public class SesionCajaRepository : ISesionCajaRepository
         await _context.SaveChangesAsync();
         return entidad;
     }
+
+    public async Task<Dictionary<int, (decimal EgresosGastos, decimal EgresosPagoProveedor)>> CalcularEgresosAsync(IEnumerable<int> sesionCajaIds)
+    {
+        var ids = sesionCajaIds.Distinct().ToList();
+        if (ids.Count == 0)
+            return new Dictionary<int, (decimal EgresosGastos, decimal EgresosPagoProveedor)>();
+
+        var gastos = await _context.GastosOperativos
+            .Where(g => g.IsActive && g.SesionCajaId.HasValue && ids.Contains(g.SesionCajaId.Value))
+            .GroupBy(g => g.SesionCajaId!.Value)
+            .Select(g => new { SesionCajaId = g.Key, Total = g.Sum(x => x.MontoCaja) })
+            .ToDictionaryAsync(x => x.SesionCajaId, x => x.Total);
+
+        var pagos = await _context.PagosCompra
+            .Where(p => p.IsActive && p.SesionCajaId.HasValue && ids.Contains(p.SesionCajaId.Value))
+            .GroupBy(p => p.SesionCajaId!.Value)
+            .Select(g => new { SesionCajaId = g.Key, Total = g.Sum(x => x.MontoCaja) })
+            .ToDictionaryAsync(x => x.SesionCajaId, x => x.Total);
+
+        return ids.ToDictionary(
+            id => id,
+            id => (gastos.GetValueOrDefault(id), pagos.GetValueOrDefault(id)));
+    }
+
+    /// <summary>
+    /// Cantidad de ventas activas (no anuladas) con MontoTransferencia > 0 por sesión (QR/Transferencia y Mixtas).
+    /// </summary>
+    public async Task<Dictionary<int, int>> ContarTransferenciasAsync(IEnumerable<int> sesionCajaIds)
+    {
+        var ids = sesionCajaIds.Distinct().ToList();
+        if (ids.Count == 0)
+            return new Dictionary<int, int>();
+
+        return await _context.Ventas
+            .Where(v => v.IsActive && v.MontoTransferencia > 0 && ids.Contains(v.SesionCajaId))
+            .GroupBy(v => v.SesionCajaId)
+            .Select(g => new { SesionCajaId = g.Key, Cantidad = g.Count() })
+            .ToDictionaryAsync(x => x.SesionCajaId, x => x.Cantidad);
+    }
 }

@@ -86,6 +86,12 @@ public class MappingProfile : Profile
         CreateMap<CrearClienteDto, Cliente>();
         CreateMap<ActualizarClienteDto, Cliente>();
 
+        // CategoriasGasto
+        CreateMap<CategoriaGasto, CategoriaGastoDto>()
+            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => BoliviaTimeZone.ToLocal(src.CreatedAt)));
+        CreateMap<CrearCategoriaGastoDto, CategoriaGasto>();
+        CreateMap<ActualizarCategoriaGastoDto, CategoriaGasto>();
+
         // ProductoVariantes
         CreateMap<ProductoVariante, ProductoVarianteDto>()
             .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => BoliviaTimeZone.ToLocal(src.CreatedAt)));
@@ -121,7 +127,8 @@ public class MappingProfile : Profile
         // PagosCompra
         CreateMap<PagoCompra, PagoCompraDto>()
             .ForMember(dest => dest.FechaPago, opt => opt.MapFrom(src => BoliviaTimeZone.ToLocal(src.FechaPago)));
-        CreateMap<CrearPagoCompraDto, PagoCompra>();
+        CreateMap<CrearPagoCompraDto, PagoCompra>()
+            .ForMember(dest => dest.Monto, opt => opt.MapFrom(src => src.MontoCaja + src.MontoExterno));
 
         // TipoPresentacion
         CreateMap<TipoPresentacion, TipoPresentacionDto>()

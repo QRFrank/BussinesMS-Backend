@@ -304,6 +304,8 @@ public class SistemaDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Monto).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.MontoCaja).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.MontoExterno).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
             entity.Property(e => e.Observacion).HasMaxLength(255);
             entity.Property(e => e.PagadoPorUsuarioId).IsRequired();
 
@@ -513,24 +515,27 @@ public class SistemaDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Monto).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.MontoCaja).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.MontoExterno).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
             entity.Property(e => e.Descripcion).HasMaxLength(500);
+            // Default SQL para que las filas existentes queden con fecha válida
+            entity.Property(e => e.FechaGasto).IsRequired().HasDefaultValueSql("GETUTCDATE()");
 
             entity.HasIndex(e => e.SesionCajaId);
+            entity.HasIndex(e => e.FechaGasto);
+            entity.HasIndex(e => e.AlmacenId);
 
+            // SesionCaja opcional: null = gasto externo (fuera de caja)
             entity.HasOne(g => g.SesionCaja)
                 .WithMany()
                 .HasForeignKey(g => g.SesionCajaId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasOne(g => g.CategoriaGasto)
                 .WithMany()
                 .HasForeignKey(g => g.CategoriaGastoId)
                 .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne(g => g.PagoCompra)
-                .WithMany()
-                .HasForeignKey(g => g.PagoCompraId)
-                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

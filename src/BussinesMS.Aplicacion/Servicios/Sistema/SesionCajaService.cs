@@ -73,6 +73,11 @@ public class SesionCajaService : ISesionCajaService
             if (entidad.Estado != EstadoSesionCaja.Abierta)
                 throw new ValidacionException("Solo se pueden cerrar sesiones abiertas");
 
+            // Foto del cierre: los egresos se calculan desde GastoOperativo/PagoCompra (fuente de verdad)
+            var (egresosGastos, egresosPagoProveedor) = await CalcularEgresosAsync(entidad.Id);
+            entidad.EgresosGastos = egresosGastos;
+            entidad.EgresosPagoProveedor = egresosPagoProveedor;
+
             var montoEsperado = entidad.MontoInicial
                 + entidad.IngresosEfectivo
                 - entidad.EgresosGastos
@@ -85,7 +90,9 @@ public class SesionCajaService : ISesionCajaService
             entidad.Estado = EstadoSesionCaja.Cerrada;
 
             var resultado = await _repo.ActualizarAsync(entidad);
-            return _mapper.Map<SesionCajaDto>(resultado);
+            var dtoCierre = _mapper.Map<SesionCajaDto>(resultado);
+            dtoCierre.CantidadTransferencias = await ContarTransferenciasAsync(resultado.Id);
+            return dtoCierre;
         }
         catch (Exception ex)
         {
@@ -99,7 +106,7 @@ public class SesionCajaService : ISesionCajaService
         try
         {
             var entidad = await _repo.ObtenerPorIdAsync(id);
-            return entidad == null ? null : _mapper.Map<SesionCajaDto>(entidad);
+            return entidad == null ? null : await MapearConEgresosEnVivoAsync(entidad);
         }
         catch (Exception ex)
         {
@@ -113,7 +120,7 @@ public class SesionCajaService : ISesionCajaService
         try
         {
             var entidad = await _repo.ObtenerAbiertaPorUsuarioAsync(usuarioId, almacenId);
-            return entidad == null ? null : _mapper.Map<SesionCajaDto>(entidad);
+            return entidad == null ? null : await MapearConEgresosEnVivoAsync(entidad);
         }
         catch (Exception ex)
         {
@@ -154,6 +161,12 @@ public class SesionCajaService : ISesionCajaService
                 .Include(x => x.Ventas)
                 .ToListAsync();
 
+            // Abiertas: egresos en vivo. Cerradas: se usa la foto guardada al cerrar.
+            var egresosAbiertas = await _repo.CalcularEgresosAsync(
+                entidades.Where(e => e.Estado == EstadoSesionCaja.Abierta).Select(e => e.Id));
+
+            var transferencias = await _repo.ContarTransferenciasAsync(entidades.Select(e => e.Id));
+
             var items = entidades.Select(e => new SesionCajaListDto
             {
                 Id = e.Id,
@@ -164,8 +177,8 @@ public class SesionCajaService : ISesionCajaService
                 MontoInicial = e.MontoInicial,
                 IngresosEfectivo = e.IngresosEfectivo,
                 IngresosDigitales = e.IngresosDigitales,
-                EgresosGastos = e.EgresosGastos,
-                EgresosPagoProveedor = e.EgresosPagoProveedor,
+                EgresosGastos = egresosAbiertas.TryGetValue(e.Id, out var eg) ? eg.EgresosGastos : e.EgresosGastos,
+                EgresosPagoProveedor = egresosAbiertas.TryGetValue(e.Id, out var ep) ? ep.EgresosPagoProveedor : e.EgresosPagoProveedor,
                 MontoEsperadoEfectivo = e.MontoEsperadoEfectivo,
                 MontoRealEntregado = e.MontoRealEntregado,
                 Diferencia = e.Diferencia,
@@ -173,7 +186,8 @@ public class SesionCajaService : ISesionCajaService
                 IsActive = e.IsActive,
                 CreatedAt = BoliviaTimeZone.ToLocal(e.CreatedAt),
                 CantidadVentas = e.Ventas.Count,
-                VentaIds = e.Ventas.Select(v => v.Id).ToList()
+                VentaIds = e.Ventas.Select(v => v.Id).ToList(),
+                CantidadTransferencias = transferencias.GetValueOrDefault(e.Id)
             }).ToList();
 
             return new PagedResultDto<SesionCajaListDto>
@@ -189,5 +203,39 @@ public class SesionCajaService : ISesionCajaService
             _logger.LogError(ex, "Error al obtener sesiones de caja");
             throw;
         }
+    }
+
+    /// <summary>
+    /// Suma GastoOperativo y PagoCompra activos de la sesión (fuente de verdad de los egresos de caja).
+    /// </summary>
+    private async Task<(decimal EgresosGastos, decimal EgresosPagoProveedor)> CalcularEgresosAsync(int sesionCajaId)
+    {
+        var egresos = await _repo.CalcularEgresosAsync([sesionCajaId]);
+        return egresos.TryGetValue(sesionCajaId, out var valor) ? valor : (0m, 0m);
+    }
+
+    /// <summary>
+    /// Si la sesión está abierta, devuelve los egresos calculados en vivo; si está cerrada, la foto guardada al cerrar.
+    /// </summary>
+    private async Task<SesionCajaDto> MapearConEgresosEnVivoAsync(SesionCaja entidad)
+    {
+        var dto = _mapper.Map<SesionCajaDto>(entidad);
+        if (entidad.Estado == EstadoSesionCaja.Abierta)
+        {
+            var (egresosGastos, egresosPagoProveedor) = await CalcularEgresosAsync(entidad.Id);
+            dto.EgresosGastos = egresosGastos;
+            dto.EgresosPagoProveedor = egresosPagoProveedor;
+        }
+        dto.CantidadTransferencias = await ContarTransferenciasAsync(entidad.Id);
+        return dto;
+    }
+
+    /// <summary>
+    /// Cantidad de comprobantes de transferencia/QR (ventas activas con MontoTransferencia > 0) de la sesión.
+    /// </summary>
+    private async Task<int> ContarTransferenciasAsync(int sesionCajaId)
+    {
+        var conteo = await _repo.ContarTransferenciasAsync([sesionCajaId]);
+        return conteo.GetValueOrDefault(sesionCajaId);
     }
 }
