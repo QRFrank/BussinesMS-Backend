@@ -10,6 +10,11 @@ public class VentaFiltroDto : GenericPaginationQueryDto
     public MetodoPago? MetodoPago { get; set; }
     public DateTime? FechaDesde { get; set; }
     public DateTime? FechaHasta { get; set; }
+    // Si el usuario actual no es Admin, el back lo fuerza al id del usuario actual
+    public int? UsuarioId { get; set; }
+    public int? ClienteId { get; set; }
+    // null → solo activas (por defecto); false → solo anuladas
+    public bool? IsActive { get; set; }
 }
 
 public class VentaDto
@@ -32,6 +37,11 @@ public class VentaDto
     public DateTime CreatedAt { get; set; }
     public int ClienteId { get; set; }
     public string? ClienteNombre { get; set; }
+    public string? UsuarioNombre { get; set; }
+    public string? AlmacenNombre { get; set; }
+    public string? AlmacenDireccion { get; set; }
+    public string? ClienteCarnet { get; set; }
+    public string? ClienteTelefono { get; set; }
     public List<VentaDetalleDto> Detalles { get; set; } = [];
 }
 
@@ -55,6 +65,8 @@ public class VentaListDto
     public DateTime CreatedAt { get; set; }
     public int ClienteId { get; set; }
     public string? ClienteNombre { get; set; }
+    public string? UsuarioNombre { get; set; }
+    public string? AlmacenNombre { get; set; }
     public int CantidadDetalles { get; set; }
 }
 
@@ -81,6 +93,7 @@ public class VentaDetalleDto
     public string? VarianteNombre { get; set; }
     public int LoteId { get; set; }
     public string? CodigoLote { get; set; }
+    public string? CodigoBarras { get; set; }
     public int CantidadUnidades { get; set; }
     public decimal PrecioUnitarioCobrado { get; set; }
     public decimal CostoUnitarioLote { get; set; }

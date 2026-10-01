@@ -171,13 +171,16 @@ public class MappingProfile : Profile
         CreateMap<Venta, VentaDto>()
             .ForMember(dest => dest.FechaVenta, opt => opt.MapFrom(src => BoliviaTimeZone.ToLocal(src.FechaVenta)))
             .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => BoliviaTimeZone.ToLocal(src.CreatedAt)))
-            .ForMember(dest => dest.ClienteNombre, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.Nombre : null));
+            .ForMember(dest => dest.ClienteNombre, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.Nombre : null))
+            .ForMember(dest => dest.ClienteCarnet, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.NumeroCarnet : null))
+            .ForMember(dest => dest.ClienteTelefono, opt => opt.MapFrom(src => src.Cliente != null ? src.Cliente.Telefono : null));
         CreateMap<CrearVentaDto, Venta>()
             .ForMember(dest => dest.Detalles, opt => opt.Ignore())
             .ForMember(dest => dest.ClienteId, opt => opt.Ignore()); // lo resuelve VentaService (null → cliente genérico)
 
         // VentaDetalles
         CreateMap<VentaDetalle, VentaDetalleDto>()
+            .ForMember(dest => dest.CodigoBarras, opt => opt.MapFrom(src => src.Variante != null ? src.Variante.CodigoBarras : null))
             .AfterMap((src, dest) =>
             {
                 dest.VarianteNombre = src.Variante != null

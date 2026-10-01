@@ -5,6 +5,8 @@ using BussinesMS.Aplicacion.DTOs.Sistema;
 using BussinesMS.Aplicacion.Helpers;
 using BussinesMS.Aplicacion.Interfaces.Auth;
 using BussinesMS.Aplicacion.Interfaces.Sistema;
+using BussinesMS.Aplicacion.Comun;
+using BussinesMS.Aplicacion.Seguridad;
 using BussinesMS.Dominio.Entidades.Sistema;
 using BussinesMS.Dominio.Enums;
 using BussinesMS.Dominio.Excepciones;
@@ -27,6 +29,9 @@ public class VentaService : IVentaService
     private readonly ISistemaUnitOfWork _uow;
     private readonly IMapper _mapper;
     private readonly ILogger<VentaService> _logger;
+    private readonly IUsuarioRepository _usuarioRepo;
+    private readonly IRolRepository _rolRepo;
+    private readonly ICurrentUserService _currentUser;
 
     public VentaService(
         IVentaRepository ventaRepo,
@@ -40,8 +45,14 @@ public class VentaService : IVentaService
         IAlmacenRepository almacenRepo,
         ISistemaUnitOfWork uow,
         IMapper mapper,
-        ILogger<VentaService> logger)
+        ILogger<VentaService> logger,
+        IUsuarioRepository usuarioRepo,
+        IRolRepository rolRepo,
+        ICurrentUserService currentUser)
     {
+        _usuarioRepo = usuarioRepo;
+        _rolRepo = rolRepo;
+        _currentUser = currentUser;
         _ventaRepo = ventaRepo;
         _sesionRepo = sesionRepo;
         _loteAlmacenRepo = loteAlmacenRepo;
@@ -60,42 +71,67 @@ public class VentaService : IVentaService
     {
         try
         {
-            var todos = await _ventaRepo.ObtenerTodosAsync();
+            // Visibilidad: un usuario que no es Admin solo ve sus ventas (sin token no se restringe)
+            var usuarioActualId = _currentUser.GetUsuarioId();
+            if (usuarioActualId.HasValue && !await EsAdminAsync())
+                query.UsuarioId = usuarioActualId.Value;
+
+            var activo = query.IsActive ?? true;
+            var baseQuery = _ventaRepo.AsQueryable().Where(x => x.IsActive == activo);
 
             if (query.AlmacenId.HasValue)
-                todos = todos.Where(x => x.AlmacenId == query.AlmacenId.Value).ToList();
+                baseQuery = baseQuery.Where(x => x.AlmacenId == query.AlmacenId.Value);
 
             if (query.SesionCajaId.HasValue)
-                todos = todos.Where(x => x.SesionCajaId == query.SesionCajaId.Value).ToList();
+                baseQuery = baseQuery.Where(x => x.SesionCajaId == query.SesionCajaId.Value);
 
             if (query.MetodoPago.HasValue)
-                todos = todos.Where(x => x.MetodoPago == query.MetodoPago.Value).ToList();
+                baseQuery = baseQuery.Where(x => x.MetodoPago == query.MetodoPago.Value);
+
+            if (query.UsuarioId.HasValue)
+                baseQuery = baseQuery.Where(x => x.UsuarioId == query.UsuarioId.Value);
+
+            if (query.ClienteId.HasValue)
+                baseQuery = baseQuery.Where(x => x.ClienteId == query.ClienteId.Value);
 
             if (query.FechaDesde.HasValue)
             {
                 var (inicioUtc, _) = BoliviaTimeZone.RangoDiaUtc(DateOnly.FromDateTime(query.FechaDesde.Value));
-                todos = todos.Where(x => x.FechaVenta >= inicioUtc).ToList();
+                baseQuery = baseQuery.Where(x => x.FechaVenta >= inicioUtc);
             }
 
             if (query.FechaHasta.HasValue)
             {
                 var (_, finUtc) = BoliviaTimeZone.RangoDiaUtc(DateOnly.FromDateTime(query.FechaHasta.Value));
-                todos = todos.Where(x => x.FechaVenta < finUtc).ToList();
+                baseQuery = baseQuery.Where(x => x.FechaVenta < finUtc);
             }
 
             if (!string.IsNullOrWhiteSpace(query.Filter))
             {
                 var filtro = query.Filter.ToLower();
-                todos = todos.Where(x =>
-                    x.MotivoDescuento != null && x.MotivoDescuento.ToLower().Contains(filtro)
-                ).ToList();
+                baseQuery = baseQuery.Where(x =>
+                    x.MotivoDescuento != null && x.MotivoDescuento.ToLower().Contains(filtro));
             }
 
-            var totalCount = todos.Count;
-            var paginados = todos
-                .Skip((query.GetPageValue() - 1) * query.GetPageSizeValue())
-                .Take(query.GetPageSizeValue())
-                .ToList();
+            // Orden por defecto: más recientes primero (como antes, por FechaVenta)
+            var ordenarPorFecha = string.IsNullOrWhiteSpace(query.SortBy);
+            if (ordenarPorFecha)
+                baseQuery = baseQuery.OrderByDescending(x => x.FechaVenta);
+
+            (var filteredQuery, var totalCount) = baseQuery.ApplyFilters(query, skipSorting: ordenarPorFecha);
+
+            var paginados = await filteredQuery
+                .Include(x => x.Cliente)
+                .Include(x => x.Detalles)
+                .ToListAsync();
+
+            var nombresUsuarios = await ObtenerNombresUsuariosAsync(paginados.Select(v => v.UsuarioId));
+            var almacenIds = paginados.Select(v => v.AlmacenId).Distinct().ToList();
+            var nombresAlmacenes = almacenIds.Count == 0
+                ? new Dictionary<int, string>()
+                : await _almacenRepo.AsQueryable()
+                    .Where(a => almacenIds.Contains(a.Id))
+                    .ToDictionaryAsync(a => a.Id, a => a.Nombre);
 
             var listaDto = paginados.Select(v => new VentaListDto
             {
@@ -117,6 +153,8 @@ public class VentaService : IVentaService
                 CreatedAt = BoliviaTimeZone.ToLocal(v.CreatedAt),
                 ClienteId = v.ClienteId,
                 ClienteNombre = v.Cliente?.Nombre,
+                UsuarioNombre = nombresUsuarios.TryGetValue(v.UsuarioId, out var un) ? un : null,
+                AlmacenNombre = nombresAlmacenes.TryGetValue(v.AlmacenId, out var an) ? an : null,
                 CantidadDetalles = v.Detalles?.Count ?? 0
             }).ToList();
 
@@ -145,6 +183,13 @@ public class VentaService : IVentaService
             var dto = _mapper.Map<VentaDto>(entidad);
             dto.FechaVenta = BoliviaTimeZone.ToLocal(entidad.FechaVenta);
             dto.CreatedAt = BoliviaTimeZone.ToLocal(entidad.CreatedAt);
+
+            var nombres = await ObtenerNombresUsuariosAsync([entidad.UsuarioId]);
+            dto.UsuarioNombre = nombres.TryGetValue(entidad.UsuarioId, out var un) ? un : null;
+
+            var almacen = await _almacenRepo.ObtenerPorIdAsync(entidad.AlmacenId);
+            dto.AlmacenNombre = almacen?.Nombre;
+            dto.AlmacenDireccion = almacen?.Direccion;
             return dto;
         }
         catch (Exception ex)
@@ -573,5 +618,29 @@ public class VentaService : IVentaService
             _logger.LogError(ex, "Error al obtener variante para venta {VarianteId}", varianteId);
             throw;
         }
+    }
+
+    // Admin se identifica por el nombre del rol ("Admin") del RolId del token
+    private async Task<bool> EsAdminAsync()
+    {
+        var rolId = _currentUser.GetRolId();
+        if (!rolId.HasValue) return false;
+
+        var rol = await _rolRepo.ObtenerPorIdAsync(rolId.Value);
+        return rol != null && string.Equals(rol.Nombre, "Admin", StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Una sola consulta a la BD Auth para todos los usuarios pedidos (sin N+1), igual que GastoOperativoService
+    private async Task<Dictionary<int, string>> ObtenerNombresUsuariosAsync(IEnumerable<int> usuarioIds)
+    {
+        var ids = usuarioIds.Distinct().ToList();
+        if (ids.Count == 0) return new Dictionary<int, string>();
+
+        var usuarios = await _usuarioRepo.AsQueryable()
+            .Where(u => ids.Contains(u.Id))
+            .Select(u => new { u.Id, u.Nombre, u.Apellido })
+            .ToListAsync();
+
+        return usuarios.ToDictionary(u => u.Id, u => $"{u.Nombre} {u.Apellido}".Trim());
     }
 }

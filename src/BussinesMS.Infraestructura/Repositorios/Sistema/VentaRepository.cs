@@ -17,6 +17,9 @@ public class VentaRepository : IVentaRepository
         _currentUser = currentUser;
     }
 
+    public IQueryable<Venta> AsQueryable()
+        => _context.Ventas.AsQueryable();
+
     public async Task<List<Venta>> ObtenerTodosAsync()
         => await _context.Ventas
             .Include(x => x.Cliente)
@@ -35,6 +38,13 @@ public class VentaRepository : IVentaRepository
             .Include(x => x.Detalles)
                 .ThenInclude(d => d.Variante)
                     .ThenInclude(v => v!.Producto)
+                        .ThenInclude(p => p!.Fabricante)
+            .Include(x => x.Detalles)
+                .ThenInclude(d => d.Variante)
+                    .ThenInclude(v => v!.Sabor)
+            .Include(x => x.Detalles)
+                .ThenInclude(d => d.Variante)
+                    .ThenInclude(v => v!.Tamanio)
             .Include(x => x.Detalles)
                 .ThenInclude(d => d.Lote)
             .FirstOrDefaultAsync(x => x.Id == id);

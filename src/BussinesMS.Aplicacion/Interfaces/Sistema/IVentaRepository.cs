@@ -4,6 +4,7 @@ namespace BussinesMS.Aplicacion.Interfaces.Sistema;
 
 public interface IVentaRepository
 {
+    IQueryable<Venta> AsQueryable();
     Task<List<Venta>> ObtenerTodosAsync();
     Task<Venta?> ObtenerPorIdAsync(int id);
     Task<Venta?> ObtenerConDetallesAsync(int id);
