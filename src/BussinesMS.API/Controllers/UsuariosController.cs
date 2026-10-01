@@ -17,7 +17,7 @@ public class UsuariosController : BaseController
     }
 
     [HttpGet]
-    public async Task<IActionResult> ObtenerTodos([FromQuery] GenericPaginationQueryDto query)
+    public async Task<IActionResult> ObtenerTodos([FromQuery] UsuarioFiltroDto query)
     {
         var resultado = await _servicio.ObtenerTodosAsync(query);
         return RespuestaOk(resultado);
@@ -40,8 +40,10 @@ public class UsuariosController : BaseController
     [HttpPost]
     public async Task<IActionResult> Crear([FromBody] CrearUsuarioDto usuario)
     {
-        var resultado = await _servicio.CrearAsync(usuario);
-        return RespuestaOk(resultado, "Usuario creado");
+        var (entidad, fueReactivada) = await _servicio.CrearAsync(usuario);
+        return fueReactivada
+            ? RespuestaOk(new { mensaje = $"El usuario '{entidad.Username}' estaba desactivado y fue reactivado.", data = entidad })
+            : RespuestaCreado(entidad, "Usuario creado");
     }
 
     [HttpPut("{id}")]
@@ -56,6 +58,27 @@ public class UsuariosController : BaseController
     {
         var resultado = await _servicio.ActualizarMenusAsync(id, menus);
         return RespuestaOk(resultado, "Menús actualizados");
+    }
+
+    [HttpPut("{id}/password")]
+    public async Task<IActionResult> CambiarPassword(int id, [FromBody] CambiarPasswordUsuarioDto dto)
+    {
+        await _servicio.CambiarPasswordAsync(id, dto.Password);
+        return RespuestaOk(new { mensaje = "Contraseña actualizada" }, "Contraseña actualizada");
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Eliminar(int id)
+    {
+        await _servicio.EliminarAsync(id);
+        return RespuestaOk(new { mensaje = "Usuario desactivado" }, "Usuario desactivado");
+    }
+
+    [HttpPatch("{id}/reactivar")]
+    public async Task<IActionResult> Reactivar(int id)
+    {
+        await _servicio.ReactivarAsync(id);
+        return RespuestaOk(new { mensaje = "Usuario reactivado" }, "Usuario reactivado");
     }
 
     [HttpPost("login")]

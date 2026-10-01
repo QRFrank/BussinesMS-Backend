@@ -6,6 +6,7 @@ using BussinesMS.Aplicacion.DTOs.Plantillas;
 using BussinesMS.Aplicacion.Interfaces.Auth;
 using BussinesMS.Aplicacion.Seguridad;
 using BussinesMS.Dominio.Entidades.Auth;
+using BussinesMS.Dominio.Excepciones;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
@@ -21,26 +22,35 @@ public class UsuarioService : IUsuarioService
     private readonly IMapper _mapper;
     private readonly ILogger<UsuarioService> _logger;
     private readonly JwtHelper _jwtHelper;
+    private readonly IRolRepository _rolRepositorio;
+    private readonly ICurrentUserService _currentUser;
 
     public UsuarioService(
         IUsuarioRepository repositorio,
         IMenuRepository menuRepositorio,
         IMapper mapper,
         ILogger<UsuarioService> logger,
-        JwtHelper jwtHelper)
+        JwtHelper jwtHelper,
+        IRolRepository rolRepositorio,
+        ICurrentUserService currentUser)
     {
         _repositorio = repositorio;
         _menuRepositorio = menuRepositorio;
         _mapper = mapper;
         _logger = logger;
         _jwtHelper = jwtHelper;
+        _rolRepositorio = rolRepositorio;
+        _currentUser = currentUser;
     }
 
-    public async Task<PagedResultDto<UsuarioDto>> ObtenerTodosAsync(GenericPaginationQueryDto query)
+    public async Task<PagedResultDto<UsuarioDto>> ObtenerTodosAsync(UsuarioFiltroDto query)
     {
         try
         {
             var baseQuery = _repositorio.AsQueryable();
+
+            if (query.IsActive.HasValue)
+                baseQuery = baseQuery.Where(u => u.IsActive == query.IsActive.Value);
 
             if (!string.IsNullOrWhiteSpace(query.Filter))
             {
@@ -100,10 +110,22 @@ public class UsuarioService : IUsuarioService
         }
     }
 
-    public async Task<UsuarioDto> CrearAsync(CrearUsuarioDto dto)
+    public async Task<(UsuarioDto Entidad, bool FueReactivada)> CrearAsync(CrearUsuarioDto dto)
     {
         try
         {
+            var duplicado = await _repositorio.ObtenerPorUsernameAsync(dto.Username);
+
+            if (duplicado != null)
+            {
+                if (duplicado.IsActive)
+                    throw new InvalidOperationException($"El usuario '{dto.Username}' ya existe.");
+
+                var reactivado = await _repositorio.ReactivarAsync(duplicado.Id);
+                _logger.LogInformation("Usuario reactivado: {Username}", reactivado.Username);
+                return (_mapper.Map<UsuarioDto>(reactivado), true);
+            }
+
             var usuario = _mapper.Map<Usuario>(dto);
             usuario.PasswordHash = HashPassword(dto.Password);
             usuario.CreatedAt = DateTime.UtcNow;
@@ -153,7 +175,7 @@ public class UsuarioService : IUsuarioService
                 await _repositorio.AgregarMenusAsync(resultado.Id, menusEntidad);
             }
 
-            return _mapper.Map<UsuarioDto>(resultado);
+            return (_mapper.Map<UsuarioDto>(resultado), false);
         }
         catch (Exception ex)
         {
@@ -168,12 +190,25 @@ public class UsuarioService : IUsuarioService
         {
             var usuario = await _repositorio.ObtenerPorIdAsync(id);
             if (usuario == null)
-                throw new Exception("Usuario no encontrado");
+                throw new KeyNotFoundException("Usuario no encontrado");
+
+            if (string.IsNullOrWhiteSpace(dto.Username))
+                throw new ArgumentException("El username es obligatorio.");
+
+            var duplicado = await _repositorio.ObtenerPorUsernameAsync(dto.Username);
+            if (duplicado != null && duplicado.Id != id)
+                throw new InvalidOperationException($"El username '{dto.Username}' ya está en uso por otro usuario.");
+
+            var rol = await _rolRepositorio.ObtenerPorIdAsync(dto.RolId);
+            if (rol == null || !rol.IsActive)
+                throw new ArgumentException($"El rol {dto.RolId} no existe o está inactivo.");
 
             usuario.Nombre = dto.Nombre;
             usuario.Apellido = dto.Apellido;
             usuario.Email = dto.Email;
             usuario.SistemaIdDefault = dto.SistemaIdDefault;
+            usuario.Username = dto.Username;
+            usuario.RolId = dto.RolId;
             usuario.UpdatedAt = DateTime.UtcNow;
 
             var resultado = await _repositorio.ActualizarAsync(usuario);
@@ -256,6 +291,9 @@ public class UsuarioService : IUsuarioService
             if (!VerificarPassword(password, usuario.PasswordHash))
                 return null;
 
+            if (!usuario.IsActive)
+                throw new ExcepcionDominio("Usuario inactivo", 403, "USUARIO_INACTIVO");
+
             var token = _jwtHelper.GenerateToken(usuario.Id, usuario.Username, usuario.RolId);
             var menus = await ConstruirArbolMenusAsync(usuario.Id, usuario.SistemaIdDefault);
 
@@ -270,6 +308,75 @@ public class UsuarioService : IUsuarioService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al validar login para usuario {Username}", username);
+            throw;
+        }
+    }
+
+    public async Task CambiarPasswordAsync(int id, string password)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(password))
+                throw new ArgumentException("La contraseña es obligatoria.");
+
+            var usuario = await _repositorio.ObtenerPorIdAsync(id);
+            if (usuario == null)
+                throw new KeyNotFoundException("Usuario no encontrado");
+
+            usuario.PasswordHash = HashPassword(password);
+            usuario.UpdatedAt = DateTime.UtcNow;
+
+            await _repositorio.ActualizarAsync(usuario);
+            _logger.LogInformation("Contraseña reseteada para usuario {Id}", id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al cambiar la contraseña del usuario {Id}", id);
+            throw;
+        }
+    }
+
+    public async Task EliminarAsync(int id)
+    {
+        try
+        {
+            var usuario = await _repositorio.ObtenerPorIdAsync(id);
+            if (usuario == null)
+                throw new KeyNotFoundException("Usuario no encontrado");
+
+            if (_currentUser.GetUsuarioId() == id)
+                throw new InvalidOperationException("No puedes desactivar tu propio usuario.");
+
+            if (!usuario.IsActive)
+                throw new InvalidOperationException("El usuario ya está inactivo.");
+
+            await _repositorio.EliminarAsync(id);
+            _logger.LogInformation("Usuario desactivado: {Id}", id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al desactivar usuario {Id}", id);
+            throw;
+        }
+    }
+
+    public async Task ReactivarAsync(int id)
+    {
+        try
+        {
+            var usuario = await _repositorio.ObtenerPorIdAsync(id);
+            if (usuario == null)
+                throw new KeyNotFoundException("Usuario no encontrado");
+
+            if (usuario.IsActive)
+                throw new InvalidOperationException("El usuario ya está activo.");
+
+            await _repositorio.ReactivarAsync(id);
+            _logger.LogInformation("Usuario reactivado: {Id}", id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al reactivar usuario {Id}", id);
             throw;
         }
     }

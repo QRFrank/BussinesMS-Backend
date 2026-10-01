@@ -1,3 +1,5 @@
+using BussinesMS.Aplicacion.DTOs.Plantillas;
+
 namespace BussinesMS.Aplicacion.DTOs.Auth;
 
 public class UsuarioDto
@@ -31,6 +33,19 @@ public class ActualizarUsuarioDto
     public string Apellido { get; set; } = string.Empty;
     public string? Email { get; set; }
     public int SistemaIdDefault { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public int RolId { get; set; }
+}
+
+public class CambiarPasswordUsuarioDto
+{
+    public string Password { get; set; } = string.Empty;
+}
+
+public class UsuarioFiltroDto : GenericPaginationQueryDto
+{
+    // null → todos (activos e inactivos); true → solo activos; false → solo inactivos
+    public bool? IsActive { get; set; }
 }
 
 public class UsuarioConMenusDto

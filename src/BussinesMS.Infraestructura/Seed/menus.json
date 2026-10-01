@@ -30,7 +30,7 @@
   { "id": 21, "nombre": "Reportes de Productos","url": "/reportes/productos",          "icono": "solar:pie-chart-bold-duotone",                 "orden": 3, "isGroup": false, "parentId": 18,   "sistemaId": 1 },
 
   { "id": 22, "nombre": "Seguridad",           "url": null,                            "icono": "solar:shield-bold-duotone",                    "orden": 7, "isGroup": true,  "parentId": null, "sistemaId": 1 },
-  { "id": 23, "nombre": "Usuarios",            "url": "/usuarios",                     "icono": "solar:users-bold-duotone",                     "orden": 1, "isGroup": false, "parentId": 22,   "sistemaId": 1 },
+  { "id": 23, "nombre": "Usuarios",            "url": "/seguridad/usuarios",           "icono": "solar:users-bold-duotone",                     "orden": 1, "isGroup": false, "parentId": 22,   "sistemaId": 1 },
   { "id": 24, "nombre": "Menus y Roles",       "url": "/seguridad/roles",              "icono": "solar:shield-user-bold-duotone",               "orden": 2, "isGroup": false, "parentId": 22,   "sistemaId": 1 },
 
   { "id": 25, "nombre": "Configuración",       "url": null,                            "icono": "solar:settings-bold-duotone",                  "orden": 8, "isGroup": true,  "parentId": null, "sistemaId": 1 },

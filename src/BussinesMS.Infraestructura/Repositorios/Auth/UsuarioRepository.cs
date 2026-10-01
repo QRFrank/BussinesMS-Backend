@@ -59,4 +59,18 @@ public class UsuarioRepository : RepositorioBase<Usuario>, IUsuarioRepository
         contexto.UsuarioMenus.RemoveRange(menus);
         await contexto.SaveChangesAsync();
     }
+
+    public async Task<Usuario> ReactivarAsync(int id)
+    {
+        var entidad = await _dbSet.FindAsync(id);
+        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        entidad!.IsActive = true;
+        entidad.UpdatedAt = DateTime.UtcNow;
+        entidad.UpdatedByUsuarioId = usuarioId;
+        entidad.DeletedAt = null;
+        entidad.DeletedByUsuarioId = null;
+        _dbSet.Update(entidad);
+        await _contexto.SaveChangesAsync();
+        return entidad;
+    }
 }

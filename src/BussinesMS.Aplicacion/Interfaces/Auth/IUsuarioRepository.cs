@@ -12,4 +12,5 @@ public interface IUsuarioRepository : IRepositorio<Usuario>
     Task<List<UsuarioMenu>> ObtenerMenusAsync(int usuarioId);
     Task AgregarMenusAsync(int usuarioId, List<UsuarioMenu> menus);
     Task EliminarMenusAsync(int usuarioId);
+    Task<Usuario> ReactivarAsync(int id);
 }
