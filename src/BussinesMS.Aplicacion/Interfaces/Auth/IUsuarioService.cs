@@ -11,7 +11,7 @@ public interface IUsuarioService
     Task<UsuarioDto> ActualizarAsync(int id, ActualizarUsuarioDto dto);
     Task<List<MenuArbolDto>> ObtenerMenusAsync(int id);
     Task<UsuarioDto> ActualizarMenusAsync(int id, List<MenuPermisoSimpleDto> menus);
-    Task<LoginResponseDto?> ValidarLoginAsync(string username, string password);
+    Task<LoginResponseDto?> ValidarLoginAsync(string username, string password, int? sistemaId = null);
     Task CambiarPasswordAsync(int id, string password);
     Task EliminarAsync(int id);
     Task ReactivarAsync(int id);

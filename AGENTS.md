@@ -73,6 +73,17 @@ A.R.I.S. detecta automáticamente qué tipo de tarea vas a realizar y decide si 
 | Sistema | Venta | - | 🟡 funcional, falta confirmar/ajustar endpoint de productos para el POS (ver MEMORIA.md) |
 | Sistema | VentaDetalle | - | ✅ |
 | Sistema | CategoriaGasto / GastoOperativo | - | ✅ |
+| Navidad | Temporada (+ `ITemporadaActualService`) | 01/10/2026 | ✅ |
+| Navidad | Inversor | 01/10/2026 | ✅ |
+| Navidad | AporteCapital (+ resumen) | 01/10/2026 | ✅ |
+| Navidad | PagoInversor | 01/10/2026 | ✅ |
+| Navidad | CategoriaGastoNav / GastoNav | 01/10/2026 | ✅ |
+| Navidad | Proveedor (`ProveedorNavService`) / CodigoCliente | 01/10/2026 | ✅ |
+| Navidad | Producto + ProductoPresentacion (`ProductoNavService`, presentaciones en el mismo body) | 01/10/2026 | ✅ |
+| Navidad | Vendedor (`VendedorNavService`, + `usuarios-disponibles`) | 01/10/2026 | ✅ |
+| Navidad | ClienteNav (global) | 01/10/2026 | ✅ |
+| Navidad | CategoriaProductoNav (global, Ajuste 1) | 01/10/2026 | ✅ |
+| Navidad | Copiar catálogo (`CatalogoNavService`, `POST Temporadas/{id}/copiar-catalogo`) | 01/10/2026 | ✅ |
 
 > Auditado contra el código real el 22/09/2026. Ver `docs/ERD.md` para el detalle de esquema y `../MEMORIA.md` (raíz del proyecto) para deuda técnica pendiente.
 
@@ -447,12 +458,25 @@ The system uses 3 separate databases:
 |----------|--------|---------|
 | BussinesMS_Auth | ✅ Completo | Authentication, Users, Roles, Almacenes |
 | BussinesMS_Sistema | ✅ Completo | Core business (inventory, sales, purchases) |
-| BussinesMS_Navidad | ⏳ Pendiente | Holiday season (Oct-Dec) - En planificación |
+| BussinesMS_Navidad | 🟡 En construcción (módulos temporada-capital y catalogo listos) | Sistema Navideño (SistemaId = 2) |
 
 Each database has its own DbContext in BussinesMS.Infraestructura.Persistencia:
 - `AuthDbContext` - Authentication context
 - `SistemaDbContext` - Main system context
-- `NavidadDbContext` - Holiday system context (pendiente)
+- `NavidadDbContext` - Sistema Navideño (conexión `NavidadDB`)
+
+### Infraestructura navideña (reutilizar en todos los módulos Navidad)
+
+- Código en subcarpetas `Navidad/` de cada capa; entidades en `Dominio/Entidades/Navidad`, enums en `Dominio/Enums/Navidad`, mapeos en `Aplicacion/Mapeos/NavidadMappingProfile.cs` (no tocar `MappingProfile.cs`), controllers en `API/Controllers/Navidad` con ruta explícita `api/Navidad/<Recurso>`. Registros DI en el bloque `// ===== Navidad =====` de `Program.cs`.
+- Repositorios heredan `NavidadRepositorioBase<T>` (`Infraestructura/Repositorios/Navidad`, = `RepositorioBase<T>` sobre `NavidadDbContext`).
+- Transacciones: `INavidadUnitOfWork` / `NavidadUnitOfWork` (mismo patrón que `ISistemaUnitOfWork`).
+- Temporada: `ITemporadaActualService` → `ObtenerAbiertaAsync()` (409 `SIN_TEMPORADA_ABIERTA`), `ResolverTemporadaIdAsync(int? temporadaId)` (para GET de listas: el id pedido o la abierta), `VerificarEditableAsync(temporadaId)` / `VerificarEditable(temporada)` (409 `TEMPORADA_CERRADA`), `RequiereConteoAsync(temporadaId, almacenId)` (true si la tienda tiene apertura/cierre diario obligatorio en esa temporada). Al crear, el `TemporadaId` lo pone el servicio con la abierta, nunca el cliente.
+- Nombres de clases (DTOs/controllers) únicos en toda la solución: Swagger falla con schemaIds repetidos (por eso `CategoriaGastoNavDto`, `GastosNavController`, `ProveedorNavDto`, `ProductosNavController`).
+- Las entidades navideñas `Proveedor`, `Producto` y `ProductoPresentacion` se llaman igual que las del regular: en servicios usar alias (`using ProveedorNav = BussinesMS.Dominio.Entidades.Navidad.Proveedor;`) y nunca importar `Entidades.Sistema` en código Navidad.
+- Unicidad con borrado lógico: índices únicos filtrados `[IsActive] = 1`, más un chequeo en el servicio. Para borrar filas a mano con sqlcmd hace falta `-I` (QUOTED_IDENTIFIER ON) por esos índices.
+- Usuarios válidos para Navidad (AuthDB, solo lectura): `UsuarioNavidadFiltros.ValidosNavidad()` en `Aplicacion/Servicios/Navidad`.
+- Para correr una API temporal en otro puerto se usa la variable `PORT` (Program.cs ignora `ASPNETCORE_URLS`).
+- Migraciones: `dotnet ef migrations add <Nombre> --context NavidadDbContext --output-dir Migrations/NavidadDb --project src/BussinesMS.Infraestructura --startup-project src/BussinesMS.API` (factory de diseño: `NavidadDbContextFactory`).
 
 ## Modelo Entidad-Relación
 
@@ -467,7 +491,8 @@ Each database has its own DbContext in BussinesMS.Infraestructura.Persistencia:
 | Sistema | 1: Regular, 2: Navideño |
 | Rol | Admin, VendedorTienda, VendedorRuta, EncargadoAlmacen, Contador |
 | Usuario | Usuarios del sistema con JWT |
-| Almacen | 3 almacenes (Tienda Principal, Almacén 1, Almacén 2) |
+| Almacen | Almacenes por sistema (`SistemaId`, default 1 = Regular) |
+| UsuarioSistema | Sistemas a los que puede entrar cada usuario (login multisistema) |
 
 ### DB_Sistema (Completo) - Módulo Catálogo
 
@@ -515,19 +540,31 @@ Each database has its own DbContext in BussinesMS.Infraestructura.Persistencia:
 | CategoriaGasto | Categorías de gasto |
 | GastoOperativo | Gastos operativos y pagos a proveedores |
 
-### DB_Navidad (Pendiente - En Planificación)
+### DB_Navidad (En construcción) - Módulo temporada-capital
 
-Las siguientes entidades están en planificación:
+| Tabla | Descripción |
+|-------|-------------|
+| Temporada | Temporada anual; solo una abierta; tiendas con conteo diario en `TemporadaAlmacenConteo` (0..N) |
+| Inversor | Inversores (global) |
+| AporteCapital | Capital de la temporada: propio (`InversorId` null, 0%) o de inversor con % de comisión |
+| PagoInversor | Pagos a inversor: comisión o devolución de capital (anulación lógica) |
+| CategoriaGastoNav | Categorías de gasto navideñas (global) |
+| TemporadaAlmacenConteo | Tiendas navideñas con apertura y cierre diario en la temporada (PK TemporadaId+AlmacenId) |
+| GastoNav | Gastos de la temporada |
 
-```
-- CodigoProveedor (pertenece a proveedor: Sandra, Crispin, etc.)
-- PedidoNavideño (pedido inicial por código)
-- EntregaNavideña (entregas parciales por código)
-- VentaRuta (sacado - devuelto = vendido)
-- GastoVentaRuta (combustible, comida, peajes por día)
-- Inversionista (capital + interés % fijo)
-- GastosNavideños (gastos específicos de temporada)
-```
+### DB_Navidad (En construcción) - Módulo catalogo
+
+| Tabla | Descripción |
+|-------|-------------|
+| Proveedor | Proveedores de la temporada (`UsaCodigosCliente`) |
+| CodigoCliente | Códigos de cliente por proveedor (cada uno con su deuda en abastecimiento) |
+| Producto | Productos de la temporada: categoría, precio de compra por unidad y precio de catálogo (referencia) |
+| CategoriaProductoNav | Categorías de producto (global): Panetones, Galletas… |
+| ProductoPresentacion | Presentaciones (Unidad=1 obligatoria, una principal, unidades únicas) |
+| Vendedor | Vendedor de la temporada vinculado a un usuario de AuthDB (Tienda con sueldo / Ruta). El sistema no calcula comisiones |
+| ClienteNav | Clientes navideños (global) |
+
+Los módulos siguientes (abastecimiento, inventario, ventas-tienda, ruta, pagos-vendedores, reportes) están definidos en `../docs/navidad/SPEC-navidad.md`. Detalle de esquema en `docs/ERD.md` → "DB_NAVIDAD".
 
 ## 📦 Datos Iniciales - BDMS.csv
 

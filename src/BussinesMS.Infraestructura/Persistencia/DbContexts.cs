@@ -16,6 +16,7 @@ public class AuthDbContext : DbContext
     public DbSet<Almacen> Almacenes => Set<Almacen>();
     public DbSet<Menu> Menus => Set<Menu>();
     public DbSet<UsuarioMenu> UsuarioMenus => Set<UsuarioMenu>();
+    public DbSet<UsuarioSistema> UsuarioSistemas => Set<UsuarioSistema>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -55,6 +56,27 @@ public class AuthDbContext : DbContext
             entity.Property(e => e.Nombre).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Codigo).IsRequired().HasMaxLength(20);
             entity.HasIndex(e => e.Codigo).IsUnique();
+            entity.Property(e => e.SistemaId).HasDefaultValue(1);
+
+            entity.HasOne(a => a.Sistema)
+                .WithMany()
+                .HasForeignKey(a => a.SistemaId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<UsuarioSistema>(entity =>
+        {
+            entity.HasKey(e => new { e.UsuarioId, e.SistemaId });
+
+            entity.HasOne(us => us.Usuario)
+                .WithMany(u => u.UsuarioSistemas)
+                .HasForeignKey(us => us.UsuarioId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(us => us.Sistema)
+                .WithMany()
+                .HasForeignKey(us => us.SistemaId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Menu>(entity =>
@@ -546,8 +568,258 @@ public class NavidadDbContext : DbContext
     {
     }
 
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.Temporada> Temporadas => Set<BussinesMS.Dominio.Entidades.Navidad.Temporada>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.Inversor> Inversores => Set<BussinesMS.Dominio.Entidades.Navidad.Inversor>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.AporteCapital> AportesCapital => Set<BussinesMS.Dominio.Entidades.Navidad.AporteCapital>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.PagoInversor> PagosInversor => Set<BussinesMS.Dominio.Entidades.Navidad.PagoInversor>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.CategoriaGastoNav> CategoriasGasto => Set<BussinesMS.Dominio.Entidades.Navidad.CategoriaGastoNav>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.CategoriaProductoNav> CategoriasProducto => Set<BussinesMS.Dominio.Entidades.Navidad.CategoriaProductoNav>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.GastoNav> Gastos => Set<BussinesMS.Dominio.Entidades.Navidad.GastoNav>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.TemporadaAlmacenConteo> TemporadaAlmacenesConteo => Set<BussinesMS.Dominio.Entidades.Navidad.TemporadaAlmacenConteo>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.Proveedor> Proveedores => Set<BussinesMS.Dominio.Entidades.Navidad.Proveedor>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.CodigoCliente> CodigosCliente => Set<BussinesMS.Dominio.Entidades.Navidad.CodigoCliente>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.Producto> Productos => Set<BussinesMS.Dominio.Entidades.Navidad.Producto>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.ProductoPresentacion> ProductoPresentaciones => Set<BussinesMS.Dominio.Entidades.Navidad.ProductoPresentacion>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.Vendedor> Vendedores => Set<BussinesMS.Dominio.Entidades.Navidad.Vendedor>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.ClienteNav> ClientesNav => Set<BussinesMS.Dominio.Entidades.Navidad.ClienteNav>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.Temporada>(entity =>
+        {
+            entity.ToTable("Temporada");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Nombre).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.FechaInicio).HasColumnType("date");
+            entity.Property(e => e.FechaCierre).HasColumnType("date");
+            entity.Property(e => e.Estado).HasConversion<int>();
+            // Garantiza en BD que solo exista una temporada abierta
+            entity.HasIndex(e => e.Estado)
+                .IsUnique()
+                .HasFilter("[Estado] = 1")
+                .HasDatabaseName("UX_Temporada_UnaAbierta");
+            entity.HasIndex(e => e.Anio);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.TemporadaAlmacenConteo>(entity =>
+        {
+            entity.ToTable("TemporadaAlmacenConteo");
+            entity.HasKey(e => new { e.TemporadaId, e.AlmacenId });
+            // AlmacenId sin FK: Almacen vive en AuthDB
+            entity.HasOne(e => e.Temporada)
+                .WithMany(t => t.AlmacenesConteo)
+                .HasForeignKey(e => e.TemporadaId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.AlmacenId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.Inversor>(entity =>
+        {
+            entity.ToTable("Inversor");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Nombre).IsRequired().HasMaxLength(150);
+            entity.Property(e => e.Documento).HasMaxLength(50);
+            entity.Property(e => e.Telefono).HasMaxLength(50);
+            entity.HasIndex(e => e.Nombre);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.AporteCapital>(entity =>
+        {
+            entity.ToTable("AporteCapital");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Monto).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Fecha).HasColumnType("date");
+            entity.Property(e => e.PorcentajeComision).HasColumnType("decimal(5,2)");
+            entity.Property(e => e.Observacion).HasMaxLength(500);
+            entity.HasOne(e => e.Temporada)
+                .WithMany()
+                .HasForeignKey(e => e.TemporadaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            // InversorId null = capital propio
+            entity.HasOne(e => e.Inversor)
+                .WithMany()
+                .HasForeignKey(e => e.InversorId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.TemporadaId);
+            entity.HasIndex(e => e.InversorId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.PagoInversor>(entity =>
+        {
+            entity.ToTable("PagoInversor");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Monto).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Fecha).HasColumnType("date");
+            entity.Property(e => e.Tipo).HasConversion<int>();
+            entity.Property(e => e.Observacion).HasMaxLength(500);
+            entity.HasOne(e => e.Temporada)
+                .WithMany()
+                .HasForeignKey(e => e.TemporadaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.AporteCapital)
+                .WithMany(a => a.Pagos)
+                .HasForeignKey(e => e.AporteCapitalId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.TemporadaId);
+            entity.HasIndex(e => e.AporteCapitalId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.CategoriaGastoNav>(entity =>
+        {
+            entity.ToTable("CategoriaGastoNav");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Nombre).IsRequired().HasMaxLength(100);
+            // Único también entre inactivos (igual que CategoriaGasto del regular)
+            entity.HasIndex(e => e.Nombre).IsUnique();
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.GastoNav>(entity =>
+        {
+            entity.ToTable("GastoNav");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Fecha).HasColumnType("date");
+            entity.Property(e => e.Descripcion).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.Monto).HasColumnType("decimal(18,2)");
+            entity.HasOne(e => e.Temporada)
+                .WithMany()
+                .HasForeignKey(e => e.TemporadaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Categoria)
+                .WithMany()
+                .HasForeignKey(e => e.CategoriaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.TemporadaId);
+            entity.HasIndex(e => e.CategoriaId);
+            entity.HasIndex(e => e.Fecha);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.CategoriaProductoNav>(entity =>
+        {
+            entity.ToTable("CategoriaProductoNav");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Nombre).IsRequired().HasMaxLength(100);
+            // Único también entre inactivos (igual que CategoriaGastoNav)
+            entity.HasIndex(e => e.Nombre).IsUnique();
+        });
+
+        // ===== Catálogo =====
+        // Índices únicos filtrados por activos: permiten recrear tras borrado lógico
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.Proveedor>(entity =>
+        {
+            entity.ToTable("Proveedor");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Nombre).IsRequired().HasMaxLength(150);
+            entity.Property(e => e.Telefono).HasMaxLength(50);
+            entity.Property(e => e.Observacion).HasMaxLength(500);
+            entity.HasOne(e => e.Temporada)
+                .WithMany()
+                .HasForeignKey(e => e.TemporadaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.TemporadaId, e.Nombre })
+                .IsUnique()
+                .HasFilter("[IsActive] = 1")
+                .HasDatabaseName("UX_Proveedor_Temporada_Nombre");
+            entity.HasIndex(e => e.TemporadaId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.CodigoCliente>(entity =>
+        {
+            entity.ToTable("CodigoCliente");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Codigo).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Titular).IsRequired().HasMaxLength(150);
+            entity.HasOne(e => e.Temporada)
+                .WithMany()
+                .HasForeignKey(e => e.TemporadaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Proveedor)
+                .WithMany(p => p.Codigos)
+                .HasForeignKey(e => e.ProveedorId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.ProveedorId, e.Codigo })
+                .IsUnique()
+                .HasFilter("[IsActive] = 1")
+                .HasDatabaseName("UX_CodigoCliente_Proveedor_Codigo");
+            entity.HasIndex(e => e.TemporadaId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.Producto>(entity =>
+        {
+            entity.ToTable("Producto");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Nombre).IsRequired().HasMaxLength(150);
+            entity.Property(e => e.PrecioCompraUnidad).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.PrecioCatalogo).HasColumnType("decimal(18,2)");
+            entity.HasOne(e => e.Temporada)
+                .WithMany()
+                .HasForeignKey(e => e.TemporadaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Proveedor)
+                .WithMany(p => p.Productos)
+                .HasForeignKey(e => e.ProveedorId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Categoria)
+                .WithMany()
+                .HasForeignKey(e => e.CategoriaProductoId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.ProveedorId, e.Nombre })
+                .IsUnique()
+                .HasFilter("[IsActive] = 1")
+                .HasDatabaseName("UX_Producto_Proveedor_Nombre");
+            entity.HasIndex(e => e.TemporadaId);
+            entity.HasIndex(e => e.CategoriaProductoId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.ProductoPresentacion>(entity =>
+        {
+            entity.ToTable("ProductoPresentacion");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Nombre).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PrecioUnitario).HasColumnType("decimal(18,2)");
+            entity.HasOne(e => e.Producto)
+                .WithMany(p => p.Presentaciones)
+                .HasForeignKey(e => e.ProductoId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.ProductoId, e.Unidades })
+                .IsUnique()
+                .HasFilter("[IsActive] = 1")
+                .HasDatabaseName("UX_ProductoPresentacion_Producto_Unidades");
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.Vendedor>(entity =>
+        {
+            entity.ToTable("Vendedor");
+            entity.HasKey(e => e.Id);
+            // UsuarioId sin FK: Usuario vive en AuthDB
+            entity.Property(e => e.Tipo).HasConversion<int>();
+            entity.Property(e => e.SueldoMensual).HasColumnType("decimal(18,2)");
+            entity.HasOne(e => e.Temporada)
+                .WithMany()
+                .HasForeignKey(e => e.TemporadaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.TemporadaId, e.UsuarioId })
+                .IsUnique()
+                .HasFilter("[IsActive] = 1")
+                .HasDatabaseName("UX_Vendedor_Temporada_Usuario");
+            entity.HasIndex(e => e.UsuarioId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.ClienteNav>(entity =>
+        {
+            entity.ToTable("ClienteNav");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Nombre).IsRequired().HasMaxLength(150);
+            entity.Property(e => e.Documento).HasMaxLength(50);
+            entity.Property(e => e.Telefono).HasMaxLength(50);
+            entity.Property(e => e.Direccion).HasMaxLength(250);
+            entity.HasIndex(e => e.Documento)
+                .IsUnique()
+                .HasFilter("[Documento] IS NOT NULL AND [IsActive] = 1")
+                .HasDatabaseName("UX_ClienteNav_Documento");
+            entity.HasIndex(e => e.Nombre);
+        });
     }
 }

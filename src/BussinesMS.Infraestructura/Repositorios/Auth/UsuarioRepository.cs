@@ -73,4 +73,26 @@ public class UsuarioRepository : RepositorioBase<Usuario>, IUsuarioRepository
         await _contexto.SaveChangesAsync();
         return entidad;
     }
+
+    public async Task<List<int>> ObtenerSistemaIdsAsync(int usuarioId)
+    {
+        return await ((AuthDbContext)_contexto).UsuarioSistemas
+            .Where(us => us.UsuarioId == usuarioId)
+            .Select(us => us.SistemaId)
+            .OrderBy(id => id)
+            .ToListAsync();
+    }
+
+    public async Task ReemplazarSistemasAsync(int usuarioId, List<int> sistemaIds)
+    {
+        var contexto = (AuthDbContext)_contexto;
+        var nuevos = sistemaIds.Distinct().ToList();
+        var actuales = await contexto.UsuarioSistemas.Where(us => us.UsuarioId == usuarioId).ToListAsync();
+
+        contexto.UsuarioSistemas.RemoveRange(actuales.Where(us => !nuevos.Contains(us.SistemaId)));
+        await contexto.UsuarioSistemas.AddRangeAsync(nuevos
+            .Where(sistemaId => actuales.All(us => us.SistemaId != sistemaId))
+            .Select(sistemaId => new UsuarioSistema { UsuarioId = usuarioId, SistemaId = sistemaId }));
+        await contexto.SaveChangesAsync();
+    }
 }

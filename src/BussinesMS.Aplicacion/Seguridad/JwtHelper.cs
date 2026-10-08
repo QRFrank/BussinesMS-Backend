@@ -22,7 +22,7 @@ public class JwtHelper
         _settings = settings;
     }
 
-    public string GenerateToken(int usuarioId, string username, int rolId)
+    public string GenerateToken(int usuarioId, string username, int rolId, int sistemaId)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.SecretKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -32,6 +32,7 @@ public class JwtHelper
             new Claim(JwtRegisteredClaimNames.Sub, usuarioId.ToString()),
             new Claim(JwtRegisteredClaimNames.UniqueName, username),
             new Claim("rolId", rolId.ToString()),
+            new Claim("sistemaId", sistemaId.ToString()),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
@@ -92,5 +93,11 @@ public class JwtHelper
     {
         var rolIdClaim = claims?.FindFirst("rolId")?.Value;
         return int.TryParse(rolIdClaim, out var rolId) ? rolId : null;
+    }
+
+    public int? GetSistemaId(ClaimsPrincipal? claims)
+    {
+        var sistemaIdClaim = claims?.FindFirst("sistemaId")?.Value;
+        return int.TryParse(sistemaIdClaim, out var sistemaId) ? sistemaId : null;
     }
 }

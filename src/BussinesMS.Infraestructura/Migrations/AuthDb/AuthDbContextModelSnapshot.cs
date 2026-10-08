@@ -61,6 +61,11 @@ namespace BussinesMS.Infraestructura.Migrations.AuthDb
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<int>("SistemaId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -71,6 +76,8 @@ namespace BussinesMS.Infraestructura.Migrations.AuthDb
 
                     b.HasIndex("Codigo")
                         .IsUnique();
+
+                    b.HasIndex("SistemaId");
 
                     b.ToTable("Almacenes");
                 });
@@ -313,6 +320,32 @@ namespace BussinesMS.Infraestructura.Migrations.AuthDb
                     b.ToTable("UsuarioMenus");
                 });
 
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Auth.UsuarioSistema", b =>
+                {
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SistemaId")
+                        .HasColumnType("int");
+
+                    b.HasKey("UsuarioId", "SistemaId");
+
+                    b.HasIndex("SistemaId");
+
+                    b.ToTable("UsuarioSistemas");
+                });
+
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Auth.Almacen", b =>
+                {
+                    b.HasOne("BussinesMS.Dominio.Entidades.Auth.Sistema", "Sistema")
+                        .WithMany()
+                        .HasForeignKey("SistemaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Sistema");
+                });
+
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Auth.Menu", b =>
                 {
                     b.HasOne("BussinesMS.Dominio.Entidades.Auth.Menu", "Parent")
@@ -360,6 +393,25 @@ namespace BussinesMS.Infraestructura.Migrations.AuthDb
                     b.Navigation("Usuario");
                 });
 
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Auth.UsuarioSistema", b =>
+                {
+                    b.HasOne("BussinesMS.Dominio.Entidades.Auth.Sistema", "Sistema")
+                        .WithMany()
+                        .HasForeignKey("SistemaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BussinesMS.Dominio.Entidades.Auth.Usuario", "Usuario")
+                        .WithMany("UsuarioSistemas")
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Sistema");
+
+                    b.Navigation("Usuario");
+                });
+
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Auth.Menu", b =>
                 {
                     b.Navigation("Children");
@@ -373,6 +425,8 @@ namespace BussinesMS.Infraestructura.Migrations.AuthDb
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Auth.Usuario", b =>
                 {
                     b.Navigation("UsuarioMenus");
+
+                    b.Navigation("UsuarioSistemas");
                 });
 #pragma warning restore 612, 618
         }

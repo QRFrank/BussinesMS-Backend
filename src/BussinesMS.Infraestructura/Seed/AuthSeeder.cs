@@ -31,6 +31,7 @@ public class AuthSeeder
             await SeedMenusAsync();
             await SeedRolesAsync();
             await SeedUsuariosAsync();
+            await SeedAccesoNavidadAdminAsync();
         }
         catch (Exception ex)
         {
@@ -66,11 +67,14 @@ public class AuthSeeder
 
     private async Task SeedMenusAsync()
     {
-        if (await _context.Menus.AnyAsync()) return;
-
         var json = await File.ReadAllTextAsync(Path.Combine(SeedPath, "menus.json"));
         var items = JsonSerializer.Deserialize<List<MenuSeedDto>>(json,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+
+        // Idempotente: solo inserta los menús del json cuyo Id todavía no existe (ej. menús navideños nuevos)
+        var idsExistentes = await _context.Menus.Select(m => m.Id).ToListAsync();
+        items = items.Where(m => !idsExistentes.Contains(m.Id)).ToList();
+        if (items.Count == 0) return;
 
         var sinPadre = items.Where(m => m.ParentId == null).ToList();
         var conPadre = items.Where(m => m.ParentId != null).ToList();
@@ -159,10 +163,59 @@ public class AuthSeeder
                 });
 
             _context.UsuarioMenus.AddRange(menusDicts);
+            _context.UsuarioSistemas.Add(new UsuarioSistema { UsuarioId = usuario.Id, SistemaId = usuario.SistemaIdDefault });
             await _context.SaveChangesAsync();
         }
 
         _logger.LogInformation("Usuarios insertados: {Count}", items.Count);
+    }
+
+    /// <summary>
+    /// Idempotente: el admin del seed tiene acceso al sistema Navideño (2) y a todos sus menús activos.
+    /// </summary>
+    private async Task SeedAccesoNavidadAdminAsync()
+    {
+        const int sistemaNavidadId = 2;
+        const string adminUsername = "admin";
+
+        var admin = await _context.Usuarios.FirstOrDefaultAsync(u => u.Username == adminUsername);
+        if (admin == null) return;
+        if (!await _context.Sistemas.AnyAsync(s => s.Id == sistemaNavidadId)) return;
+
+        var sistemasAdmin = await _context.UsuarioSistemas
+            .Where(us => us.UsuarioId == admin.Id)
+            .Select(us => us.SistemaId)
+            .ToListAsync();
+
+        foreach (var sistemaId in new[] { admin.SistemaIdDefault, sistemaNavidadId }.Distinct())
+        {
+            if (!sistemasAdmin.Contains(sistemaId))
+                _context.UsuarioSistemas.Add(new UsuarioSistema { UsuarioId = admin.Id, SistemaId = sistemaId });
+        }
+
+        var menusNavidad = await _context.Menus
+            .Where(m => m.SistemaId == sistemaNavidadId && m.IsActive && !m.IsGroup)
+            .Select(m => m.Id)
+            .ToListAsync();
+        var menusAdmin = await _context.UsuarioMenus
+            .Where(um => um.UsuarioId == admin.Id)
+            .Select(um => um.MenuId)
+            .ToListAsync();
+
+        foreach (var menuId in menusNavidad.Where(id => !menusAdmin.Contains(id)))
+        {
+            _context.UsuarioMenus.Add(new UsuarioMenu
+            {
+                UsuarioId = admin.Id,
+                MenuId = menuId,
+                Leer = true,
+                Crear = true,
+                Editar = true,
+                Eliminar = true
+            });
+        }
+
+        await _context.SaveChangesAsync();
     }
 
     private static Menu MapMenu(MenuSeedDto dto) => new()

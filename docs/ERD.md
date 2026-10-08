@@ -17,7 +17,8 @@
 | Sistema | 1: Regular, 2: Navideño |
 | Rol | Admin, VendedorTienda, VendedorRuta, EncargadoAlmacen, Contador |
 | Usuario | Usuarios del sistema con JWT |
-| Almacen | 3 almacenes (Tienda Principal, Almacén 1, Almacén 2) |
+| Almacen | Almacenes por sistema (`SistemaId`, default 1 = Regular). Seed: Tienda Principal, Almacén 1, Almacén 2 |
+| UsuarioSistema | A qué sistemas puede entrar cada usuario (login multisistema) |
 
 ### Esquema
 
@@ -55,10 +56,19 @@ Table Almacen {
   EsTienda bit [not null, default: false,
     note: 'true = Tienda Principal, false = Deposito']
   Direccion nvarchar(255) [null]
+  SistemaId int [not null, default: 1, note: 'FK a Sistema. GET /Almacenes filtra por query param sistemaId → claim sistemaId → 1']
   IsActive bit [not null, default: true]
 }
 
+Table UsuarioSistema {
+  UsuarioId int [pk, note: 'FK a Usuario (cascade)']
+  SistemaId int [pk, note: 'FK a Sistema. Backfill: una fila por usuario con su SistemaIdDefault']
+}
+
 Ref: Usuario.RolId > Rol.Id
+Ref: Almacen.SistemaId > Sistema.Id
+Ref: UsuarioSistema.UsuarioId > Usuario.Id
+Ref: UsuarioSistema.SistemaId > Sistema.Id
 ```
 
 ---
@@ -532,6 +542,199 @@ Ref: GastoOperativo.PagoCompraId > PagoCompra.Id
 
 ---
 
+## DB_NAVIDAD — Sistema Navideño (temporada de fin de año)
+
+**Propósito**: venta de panetones de fin de año (`SistemaId = 2` en AuthDB). BD `BussinesMS_Navidad`, conexión `NavidadDB`, contexto `NavidadDbContext`, migraciones en `src/BussinesMS.Infraestructura/Migrations/NavidadDb/` (factory de diseño `NavidadDbContextFactory`). Spec: `../docs/navidad/SPEC-navidad.md` (raíz del proyecto).
+
+**Reglas comunes**:
+- Todas las tablas heredan `EntidadBase` (`Id`, `IsActive`, `CreatedAt` UTC, `UpdatedAt`, `DeletedAt`, `CreatedByUsuarioId`, `UpdatedByUsuarioId`, `DeletedByUsuarioId`). Borrado siempre lógico.
+- Todo dato de temporada lleva `TemporadaId` y el backend trabaja siempre sobre la **temporada abierta** (`ITemporadaActualService`). Una temporada cerrada es de solo lectura.
+- Fechas de negocio (`Fecha`, `FechaInicio`, `FechaCierre`) son columnas `date`: se guardan tal cual las manda el cliente (fecha local Bolivia), sin conversión de zona horaria.
+- Las referencias a AuthDB (`TemporadaAlmacenConteo.AlmacenId`, `CreatedByUsuarioId`) van sin FK física.
+
+### MÓDULO temporada-capital
+
+#### Tablas
+
+| Tabla | Estado | Descripción |
+|-------|--------|-------------|
+| Temporada | ✅ | Temporada anual. Solo una abierta (índice único filtrado `UX_Temporada_UnaAbierta`) |
+| Inversor | ✅ | Inversores (global, no por temporada) |
+| AporteCapital | ✅ | Capital aportado en la temporada (propio o de inversor) con % de comisión |
+| PagoInversor | ✅ | Pagos a inversores: comisión o devolución de capital |
+| CategoriaGastoNav | ✅ | Categorías de gasto navideñas (global) |
+| GastoNav | ✅ | Gastos de la temporada |
+| TemporadaAlmacenConteo | ✅ | Tiendas navideñas con apertura y cierre diario obligatorios en la temporada (0..N, opción B 2026-10-01) |
+
+> Migraciones: `20261001163014_InicialTemporadaCapital` (crea la BD y las 6 tablas) y `20261001191956_TemporadaAlmacenConteo` (crea `TemporadaAlmacenConteo`, migra la antigua `TiendaPrincipalAlmacenId` como una fila y borra esa columna).
+
+#### Esquema
+
+```
+Table Temporada {
+  Id int [pk, increment]
+  Anio int [not null]
+  Nombre nvarchar(100) [not null]
+  FechaInicio date [not null]
+  FechaCierre date [null, note: 'Se completa al cerrar']
+  Estado int [not null, note: 'EstadoTemporada: 1 Abierta, 2 Cerrada. Índice único filtrado [Estado] = 1']
+}
+
+Table TemporadaAlmacenConteo {
+  TemporadaId int [pk, note: 'FK a Temporada (cascade)']
+  AlmacenId int [pk, note: 'Almacen de AuthDB con SistemaId=2, EsTienda=true y activo, sin FK']
+  CreatedAt datetime2 [not null]
+  CreatedByUsuarioId int [not null]
+  Note: 'Tabla puente sin EntidadBase. Tiendas que requieren apertura y cierre diario en la temporada'
+}
+
+Table Inversor {
+  Id int [pk, increment]
+  Nombre nvarchar(150) [not null]
+  Documento nvarchar(50) [null]
+  Telefono nvarchar(50) [null]
+}
+
+Table AporteCapital {
+  Id int [pk, increment]
+  TemporadaId int [not null]
+  InversorId int [null, note: 'null = capital propio']
+  Monto decimal(18,2) [not null]
+  Fecha date [not null]
+  PorcentajeComision decimal(5,2) [not null, note: '0 para capital propio. Comisión = Monto × % / 100']
+  Observacion nvarchar(500) [null]
+}
+
+Table PagoInversor {
+  Id int [pk, increment]
+  TemporadaId int [not null, note: 'Copiado del aporte']
+  AporteCapitalId int [not null]
+  Monto decimal(18,2) [not null]
+  Fecha date [not null]
+  Tipo int [not null, note: 'TipoPagoInversor: 1 Comision, 2 DevolucionCapital']
+  Observacion nvarchar(500) [null]
+}
+
+Table CategoriaGastoNav {
+  Id int [pk, increment]
+  Nombre nvarchar(100) [not null, unique]
+}
+
+Table GastoNav {
+  Id int [pk, increment]
+  TemporadaId int [not null]
+  CategoriaId int [not null]
+  Fecha date [not null]
+  Descripcion nvarchar(500) [not null]
+  Monto decimal(18,2) [not null]
+}
+
+Ref: AporteCapital.TemporadaId > Temporada.Id
+Ref: AporteCapital.InversorId > Inversor.Id
+Ref: PagoInversor.TemporadaId > Temporada.Id
+Ref: PagoInversor.AporteCapitalId > AporteCapital.Id
+Ref: GastoNav.TemporadaId > Temporada.Id
+Ref: GastoNav.CategoriaId > CategoriaGastoNav.Id
+Ref: TemporadaAlmacenConteo.TemporadaId > Temporada.Id
+```
+
+### MÓDULO catalogo
+
+#### Tablas
+
+| Tabla | Estado | Descripción |
+|-------|--------|-------------|
+| Proveedor | ✅ | Proveedores de la temporada |
+| CodigoCliente | ✅ | Códigos de cliente de un proveedor con `UsaCodigosCliente` |
+| Producto | ✅ | Productos de la temporada, por proveedor |
+| ProductoPresentacion | ✅ | Presentaciones del producto (Unidad, Java, Caja…) |
+| Vendedor | ✅ | Vendedores de la temporada (usuario de AuthDB) |
+| ClienteNav | ✅ | Clientes navideños (global) |
+| CategoriaProductoNav | ✅ | Categorías de producto (global): Panetones, Galletas… |
+
+> Migraciones:
+> - `20261001233759_Catalogo`: crea las 6 tablas, sin tocar las existentes.
+> - `20261002010339_CatalogoAjuste1`:
+>   - crea `CategoriaProductoNav` y carga Panetones (1) y Galletas (2);
+>   - renombra `ProductoPresentacion.PrecioVenta` a `PrecioUnitario`, conservando los valores;
+>   - agrega `Producto.PrecioCatalogo` (se inicializa con `PrecioCompraUnidad`) y `Producto.CategoriaProductoId` (los productos existentes quedan en Panetones);
+>   - borra `Producto.ComisionRutaPorUnidad`, `Vendedor.TipoComision` y `Vendedor.PorcentajeComision`.
+> - El sistema no calcula comisiones de vendedores: solo registrará el pago (módulo `pagos-vendedores`).
+> Unicidad con índices únicos **filtrados por `[IsActive] = 1`**, para que se pueda recrear un registro después de un borrado lógico. Para hacer DML a mano con sqlcmd hace falta `-I`.
+> El catálogo de una temporada anterior se copia a la abierta con `POST api/Navidad/Temporadas/{destinoId}/copiar-catalogo`: copia proveedores, códigos, productos con presentaciones activas y vendedores válidos.
+
+#### Esquema
+
+```
+Table Proveedor {
+  Id int [pk, increment]
+  TemporadaId int [not null]
+  Nombre nvarchar(150) [not null, note: 'Único por temporada entre activos (UX_Proveedor_Temporada_Nombre)']
+  UsaCodigosCliente bit [not null, note: 'No se puede apagar si tiene códigos activos']
+  Telefono nvarchar(50) [null]
+  Observacion nvarchar(500) [null]
+}
+
+Table CodigoCliente {
+  Id int [pk, increment]
+  TemporadaId int [not null, note: 'Copiado del proveedor']
+  ProveedorId int [not null, note: 'Solo proveedores con UsaCodigosCliente = 1']
+  Codigo nvarchar(50) [not null, note: 'Único por proveedor entre activos (UX_CodigoCliente_Proveedor_Codigo)']
+  Titular nvarchar(150) [not null]
+}
+
+Table Producto {
+  Id int [pk, increment]
+  TemporadaId int [not null]
+  ProveedorId int [not null]
+  Nombre nvarchar(150) [not null, note: 'Único por proveedor entre activos (UX_Producto_Proveedor_Nombre)']
+  CategoriaProductoId int [not null, note: 'FK a CategoriaProductoNav (global)']
+  PrecioCompraUnidad decimal(18,2) [not null, note: '> 0. Precio vigente; cada recepción guardará su copia']
+  PrecioCatalogo decimal(18,2) [not null, note: '> 0. Precio mayorista por unidad, solo de referencia (no bloquea)']
+}
+
+Table CategoriaProductoNav {
+  Id int [pk, increment]
+  Nombre nvarchar(100) [not null, unique, note: 'Único también entre inactivas (igual que CategoriaGastoNav)']
+}
+
+Table ProductoPresentacion {
+  Id int [pk, increment]
+  ProductoId int [not null]
+  Nombre nvarchar(50) [not null, note: '"Unidad" por defecto para Unidades = 1']
+  Unidades int [not null, note: '>= 1. Única por producto entre activas (UX_ProductoPresentacion_Producto_Unidades). Siempre existe la de 1']
+  PrecioUnitario decimal(18,2) [not null, note: '> 0. Precio de referencia por unidad en esa presentación; total = Unidades × PrecioUnitario (calculado en el DTO, no se guarda)']
+  EsPrincipal bit [not null, note: 'Exactamente una por producto (validado en el servicio)']
+}
+
+Table Vendedor {
+  Id int [pk, increment]
+  TemporadaId int [not null]
+  UsuarioId int [not null, note: 'Usuario de AuthDB, sin FK. Único por temporada entre activos (UX_Vendedor_Temporada_Usuario)']
+  Tipo int [not null, note: 'TipoVendedor: 1 Tienda, 2 Ruta']
+  SueldoMensual decimal(18,2) [null, note: 'Obligatorio > 0 en Tienda; null en Ruta. Sin campos de comisión: el sistema no las calcula']
+}
+
+Table ClienteNav {
+  Id int [pk, increment]
+  Nombre nvarchar(150) [not null]
+  Documento nvarchar(50) [null, note: 'Único entre activos si viene (UX_ClienteNav_Documento)']
+  Telefono nvarchar(50) [null]
+  Direccion nvarchar(250) [null]
+}
+
+Ref: Proveedor.TemporadaId > Temporada.Id
+Ref: CodigoCliente.TemporadaId > Temporada.Id
+Ref: CodigoCliente.ProveedorId > Proveedor.Id
+Ref: Producto.TemporadaId > Temporada.Id
+Ref: Producto.ProveedorId > Proveedor.Id
+Ref: Producto.CategoriaProductoId > CategoriaProductoNav.Id
+Ref: ProductoPresentacion.ProductoId > Producto.Id
+Ref: Vendedor.TemporadaId > Temporada.Id
+```
+
+---
+
 ## Estado de Implementación
 
 | Módulo | Tabla | Estado Backend |
@@ -563,6 +766,22 @@ Ref: GastoOperativo.PagoCompraId > PagoCompra.Id
 | | VentaDetalle | ✅ |
 | | CategoriaGasto | ✅ |
 | | GastoOperativo | ✅ |
+| **Navidad — temporada-capital** (DB_NAVIDAD) | | |
+| | Temporada | ✅ |
+| | Inversor | ✅ |
+| | AporteCapital | ✅ |
+| | PagoInversor | ✅ |
+| | CategoriaGastoNav | ✅ |
+| | GastoNav | ✅ |
+| | TemporadaAlmacenConteo | ✅ |
+| **Navidad — catalogo** (DB_NAVIDAD) | | |
+| | Proveedor | ✅ |
+| | CodigoCliente | ✅ |
+| | Producto | ✅ |
+| | ProductoPresentacion | ✅ |
+| | Vendedor | ✅ |
+| | ClienteNav | ✅ |
+| | CategoriaProductoNav | ✅ |
 
 ---
 
@@ -588,3 +807,6 @@ El backend trabaja **siempre en unidades base**. La conversión de "cantidad en 
 | `TipoMovimiento` | 1:EntradaCompra, 2:SalidaVenta, 3:Traslado, 4:AjustePositivo, 5:AjusteNegativo | MovimientoInventario.TipoMovimiento |
 | `MetodoPago` | 1:Efectivo, 2:TransferenciaQR, 3:Mixto | Venta.MetodoPago |
 | `EstadoSesionCaja` | 1:Abierta, 2:Cerrada, 3:Ajustada | SesionCaja.Estado |
+| `EstadoTemporada` (Navidad) | 1:Abierta, 2:Cerrada | Temporada.Estado |
+| `TipoPagoInversor` (Navidad) | 1:Comision, 2:DevolucionCapital | PagoInversor.Tipo |
+| `TipoVendedor` (Navidad) | 1:Tienda, 2:Ruta | Vendedor.Tipo |

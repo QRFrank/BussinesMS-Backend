@@ -35,5 +35,18 @@
 
   { "id": 25, "nombre": "Configuración",       "url": null,                            "icono": "solar:settings-bold-duotone",                  "orden": 8, "isGroup": true,  "parentId": null, "sistemaId": 1 },
   { "id": 26, "nombre": "Almacenes",           "url": "/configuracion/almacenes",      "icono": "solar:archive-bold-duotone",                   "orden": 1, "isGroup": false, "parentId": 25,   "sistemaId": 1 },
-  { "id": 27, "nombre": "Sistemas",            "url": "/configuracion/sistemas",       "icono": "solar:settings-minimalistic-bold-duotone",     "orden": 2, "isGroup": false, "parentId": 25,   "sistemaId": 1 }
+  { "id": 27, "nombre": "Sistemas",            "url": "/configuracion/sistemas",       "icono": "solar:settings-minimalistic-bold-duotone",     "orden": 2, "isGroup": false, "parentId": 25,   "sistemaId": 1 },
+
+  { "id": 100, "nombre": "Sistema",            "url": null,                            "icono": "solar:gift-bold-duotone",                      "orden": 2, "isGroup": true,  "parentId": null, "sistemaId": 2 },
+  { "id": 101, "nombre": "Dashboard",          "url": "/navidad",                      "icono": "solar:home-smile-bold-duotone",                "orden": 1, "isGroup": false, "parentId": null, "sistemaId": 2 },
+  { "id": 102, "nombre": "Temporadas",         "url": "/navidad/temporadas",           "icono": "solar:calendar-bold-duotone",                  "orden": 2, "isGroup": false, "parentId": 100,  "sistemaId": 2 },
+  { "id": 103, "nombre": "Almacenes",          "url": "/navidad/almacenes",            "icono": "solar:archive-bold-duotone",                   "orden": 3, "isGroup": false, "parentId": 100,  "sistemaId": 2 },
+  { "id": 104, "nombre": "Capital e inversores","url": "/navidad/capital",             "icono": "solar:wallet-money-bold-duotone",              "orden": 4, "isGroup": false, "parentId": 100,  "sistemaId": 2 },
+  { "id": 105, "nombre": "Gastos",             "url": "/navidad/gastos",               "icono": "solar:bill-list-bold-duotone",                 "orden": 5, "isGroup": false, "parentId": 100,  "sistemaId": 2 },
+
+  { "id": 110, "nombre": "Catálogo",           "url": null,                            "icono": "solar:box-bold-duotone",                       "orden": 3, "isGroup": true,  "parentId": null, "sistemaId": 2 },
+  { "id": 111, "nombre": "Proveedores",        "url": "/navidad/proveedores",          "icono": "solar:users-group-bold-duotone",               "orden": 1, "isGroup": false, "parentId": 110,  "sistemaId": 2 },
+  { "id": 112, "nombre": "Productos",          "url": "/navidad/productos",            "icono": "solar:box-minimalistic-bold-duotone",          "orden": 2, "isGroup": false, "parentId": 110,  "sistemaId": 2 },
+  { "id": 113, "nombre": "Vendedores",         "url": "/navidad/vendedores",           "icono": "solar:user-id-bold-duotone",                   "orden": 3, "isGroup": false, "parentId": 110,  "sistemaId": 2 },
+  { "id": 114, "nombre": "Clientes",           "url": "/navidad/clientes",             "icono": "solar:users-group-rounded-bold-duotone",       "orden": 4, "isGroup": false, "parentId": 110,  "sistemaId": 2 }
 ]

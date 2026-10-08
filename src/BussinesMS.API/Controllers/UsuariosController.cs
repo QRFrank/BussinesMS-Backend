@@ -84,7 +84,7 @@ public class UsuariosController : BaseController
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto login)
     {
-        var resultado = await _servicio.ValidarLoginAsync(login.Username, login.Password);
+        var resultado = await _servicio.ValidarLoginAsync(login.Username, login.Password, login.SistemaId);
         if (resultado == null)
             return RespuestaError("Credenciales inválidas", 401);
 

@@ -204,6 +204,36 @@ builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IGastoOperat
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IPagoCompraService, BussinesMS.Aplicacion.Servicios.Sistema.PagoCompraService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Sistema.IVencimientoLoteService, BussinesMS.Aplicacion.Servicios.Sistema.VencimientoLoteService>();
 
+// ===== Navidad =====
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.INavidadUnitOfWork, BussinesMS.Infraestructura.Persistencia.NavidadUnitOfWork>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ITemporadaRepository, BussinesMS.Infraestructura.Repositorios.Navidad.TemporadaRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ITemporadaActualService, BussinesMS.Aplicacion.Servicios.Navidad.TemporadaActualService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ITemporadaService, BussinesMS.Aplicacion.Servicios.Navidad.TemporadaService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IInversorRepository, BussinesMS.Infraestructura.Repositorios.Navidad.InversorRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IAporteCapitalRepository, BussinesMS.Infraestructura.Repositorios.Navidad.AporteCapitalRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IPagoInversorRepository, BussinesMS.Infraestructura.Repositorios.Navidad.PagoInversorRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IInversorService, BussinesMS.Aplicacion.Servicios.Navidad.InversorService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IAporteCapitalService, BussinesMS.Aplicacion.Servicios.Navidad.AporteCapitalService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IPagoInversorService, BussinesMS.Aplicacion.Servicios.Navidad.PagoInversorService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICategoriaGastoNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.CategoriaGastoNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IGastoNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.GastoNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICategoriaGastoNavService, BussinesMS.Aplicacion.Servicios.Navidad.CategoriaGastoNavService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IGastoNavService, BussinesMS.Aplicacion.Servicios.Navidad.GastoNavService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IProveedorNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.ProveedorNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICodigoClienteRepository, BussinesMS.Infraestructura.Repositorios.Navidad.CodigoClienteRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IClienteNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.ClienteNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IProveedorNavService, BussinesMS.Aplicacion.Servicios.Navidad.ProveedorNavService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICodigoClienteService, BussinesMS.Aplicacion.Servicios.Navidad.CodigoClienteService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IClienteNavService, BussinesMS.Aplicacion.Servicios.Navidad.ClienteNavService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IProductoNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.ProductoNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IProductoPresentacionNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.ProductoPresentacionNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IProductoNavService, BussinesMS.Aplicacion.Servicios.Navidad.ProductoNavService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IVendedorNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.VendedorNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IVendedorNavService, BussinesMS.Aplicacion.Servicios.Navidad.VendedorNavService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICatalogoNavService, BussinesMS.Aplicacion.Servicios.Navidad.CatalogoNavService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICategoriaProductoNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.CategoriaProductoNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICategoriaProductoNavService, BussinesMS.Aplicacion.Servicios.Navidad.CategoriaProductoNavService>();
+
 // Background Services
 builder.Services.AddHostedService<BussinesMS.Infraestructura.Jobs.VencimientoLotesJob>();
 

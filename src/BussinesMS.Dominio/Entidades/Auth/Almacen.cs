@@ -8,4 +8,6 @@ public class Almacen : EntidadBase
     public string Codigo { get; set; } = string.Empty;
     public bool EsTienda { get; set; } = false;
     public string? Direccion { get; set; }
+    public int SistemaId { get; set; } = 1;
+    public Sistema? Sistema { get; set; }
 }

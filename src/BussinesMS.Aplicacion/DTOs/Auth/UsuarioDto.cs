@@ -25,6 +25,7 @@ public class CrearUsuarioDto
     public int SistemaIdDefault { get; set; } = 1;
     public int RolId { get; set; }
     public List<MenuPermisoSimpleDto>? Menus { get; set; }
+    public List<int>? SistemaIds { get; set; }
 }
 
 public class ActualizarUsuarioDto
@@ -35,6 +36,7 @@ public class ActualizarUsuarioDto
     public int SistemaIdDefault { get; set; }
     public string Username { get; set; } = string.Empty;
     public int RolId { get; set; }
+    public List<int>? SistemaIds { get; set; }
 }
 
 public class CambiarPasswordUsuarioDto
@@ -56,6 +58,7 @@ public class UsuarioConMenusDto
     public string? Email { get; set; }
     public string Username { get; set; } = string.Empty;
     public int SistemaIdDefault { get; set; }
+    public List<int> SistemaIds { get; set; } = [];
     public int RolId { get; set; }
     public string? RolNombre { get; set; }
     public bool IsActive { get; set; }

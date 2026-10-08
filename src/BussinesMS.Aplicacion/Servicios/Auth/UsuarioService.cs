@@ -24,6 +24,7 @@ public class UsuarioService : IUsuarioService
     private readonly JwtHelper _jwtHelper;
     private readonly IRolRepository _rolRepositorio;
     private readonly ICurrentUserService _currentUser;
+    private readonly ISistemaRepository _sistemaRepositorio;
 
     public UsuarioService(
         IUsuarioRepository repositorio,
@@ -32,7 +33,8 @@ public class UsuarioService : IUsuarioService
         ILogger<UsuarioService> logger,
         JwtHelper jwtHelper,
         IRolRepository rolRepositorio,
-        ICurrentUserService currentUser)
+        ICurrentUserService currentUser,
+        ISistemaRepository sistemaRepositorio)
     {
         _repositorio = repositorio;
         _menuRepositorio = menuRepositorio;
@@ -41,6 +43,7 @@ public class UsuarioService : IUsuarioService
         _jwtHelper = jwtHelper;
         _rolRepositorio = rolRepositorio;
         _currentUser = currentUser;
+        _sistemaRepositorio = sistemaRepositorio;
     }
 
     public async Task<PagedResultDto<UsuarioDto>> ObtenerTodosAsync(UsuarioFiltroDto query)
@@ -86,7 +89,12 @@ public class UsuarioService : IUsuarioService
             var usuario = await _repositorio.ObtenerConRolAsync(id);
             if (usuario == null) return null;
 
-            var menus = await ConstruirArbolMenusAsync(usuario.Id, usuario.SistemaIdDefault);
+            var sistemaIds = await ObtenerSistemaIdsUsuarioAsync(usuario);
+
+            // Menús asignados de todos los sistemas del usuario, para que el editor no pierda los de otro sistema
+            var menus = new List<MenuArbolDto>();
+            foreach (var sistemaId in sistemaIds)
+                menus.AddRange(await ConstruirArbolMenusAsync(usuario.Id, sistemaId));
 
             return new UsuarioConMenusDto
             {
@@ -96,6 +104,7 @@ public class UsuarioService : IUsuarioService
                 Email = usuario.Email,
                 Username = usuario.Username,
                 SistemaIdDefault = usuario.SistemaIdDefault,
+                SistemaIds = sistemaIds,
                 RolId = usuario.RolId,
                 RolNombre = usuario.Rol?.Nombre,
                 IsActive = usuario.IsActive,
@@ -126,11 +135,14 @@ public class UsuarioService : IUsuarioService
                 return (_mapper.Map<UsuarioDto>(reactivado), true);
             }
 
+            var sistemaIds = await ResolverSistemaIdsAsync(dto.SistemaIds, dto.SistemaIdDefault);
+
             var usuario = _mapper.Map<Usuario>(dto);
             usuario.PasswordHash = HashPassword(dto.Password);
             usuario.CreatedAt = DateTime.UtcNow;
 
             var resultado = await _repositorio.CrearAsync(usuario);
+            await _repositorio.ReemplazarSistemasAsync(resultado.Id, sistemaIds);
 
             List<MenuPermisoSimpleDto> menusAsignar;
 
@@ -211,7 +223,14 @@ public class UsuarioService : IUsuarioService
             usuario.RolId = dto.RolId;
             usuario.UpdatedAt = DateTime.UtcNow;
 
+            // Si no vienen SistemaIds se conservan los actuales (más el default), para no quitar accesos
+            // a un usuario editado desde un front que todavía no manda el campo.
+            var sistemaIds = dto.SistemaIds is { Count: > 0 }
+                ? await ResolverSistemaIdsAsync(dto.SistemaIds, dto.SistemaIdDefault)
+                : await ResolverSistemaIdsAsync(await _repositorio.ObtenerSistemaIdsAsync(id), dto.SistemaIdDefault);
+
             var resultado = await _repositorio.ActualizarAsync(usuario);
+            await _repositorio.ReemplazarSistemasAsync(id, sistemaIds);
             return _mapper.Map<UsuarioDto>(resultado);
         }
         catch (Exception ex)
@@ -246,7 +265,9 @@ public class UsuarioService : IUsuarioService
             if (usuario == null)
                 throw new Exception("Usuario no encontrado");
 
-            var menusDelSistema = await _menuRepositorio.ObtenerActivosAsync(usuario.SistemaIdDefault);
+            var sistemaIds = await ObtenerSistemaIdsUsuarioAsync(usuario);
+            var menusDelSistema = (await _menuRepositorio.ObtenerActivosAsync())
+                .Where(m => m.SistemaId.HasValue && sistemaIds.Contains(m.SistemaId.Value));
             var menuIdsDelSistema = menusDelSistema.Select(m => m.Id).ToHashSet();
 
             var menusValidos = menus.Where(m => menuIdsDelSistema.Contains(m.MenuId)).ToList();
@@ -254,7 +275,7 @@ public class UsuarioService : IUsuarioService
             if (menusValidos.Count != menus.Count)
             {
                 var menusInvalidos = menus.Where(m => !menuIdsDelSistema.Contains(m.MenuId)).Select(m => m.MenuId).ToList();
-                throw new Exception($"Los siguientes menús no pertenecen al sistema {usuario.SistemaIdDefault}: {string.Join(", ", menusInvalidos)}");
+                throw new Exception($"Los siguientes menús no pertenecen a los sistemas del usuario ({string.Join(", ", sistemaIds)}): {string.Join(", ", menusInvalidos)}");
             }
 
             await _repositorio.EliminarMenusAsync(id);
@@ -281,7 +302,7 @@ public class UsuarioService : IUsuarioService
         }
     }
 
-    public async Task<LoginResponseDto?> ValidarLoginAsync(string username, string password)
+    public async Task<LoginResponseDto?> ValidarLoginAsync(string username, string password, int? sistemaId = null)
     {
         try
         {
@@ -294,14 +315,27 @@ public class UsuarioService : IUsuarioService
             if (!usuario.IsActive)
                 throw new ExcepcionDominio("Usuario inactivo", 403, "USUARIO_INACTIVO");
 
-            var token = _jwtHelper.GenerateToken(usuario.Id, usuario.Username, usuario.RolId);
-            var menus = await ConstruirArbolMenusAsync(usuario.Id, usuario.SistemaIdDefault);
+            // Sin sistema elegido se usa el default, igual que antes
+            var sistemaElegido = sistemaId ?? usuario.SistemaIdDefault;
+            if (sistemaId.HasValue)
+            {
+                var sistemaIds = await _repositorio.ObtenerSistemaIdsAsync(usuario.Id);
+                if (!sistemaIds.Contains(sistemaId.Value))
+                    throw new ExcepcionDominio("No tiene acceso a este sistema", 403, "SISTEMA_SIN_ACCESO");
+            }
+
+            var sistema = await _sistemaRepositorio.ObtenerPorIdAsync(sistemaElegido);
+
+            var token = _jwtHelper.GenerateToken(usuario.Id, usuario.Username, usuario.RolId, sistemaElegido);
+            var menus = await ConstruirArbolMenusAsync(usuario.Id, sistemaElegido);
 
             return new LoginResponseDto
             {
                 Usuario = _mapper.Map<UsuarioDto>(usuario),
                 Token = token,
                 RolNombre = usuario.Rol?.Nombre,
+                SistemaId = sistemaElegido,
+                SistemaNombre = sistema?.Nombre,
                 Menus = menus
             };
         }
@@ -379,6 +413,35 @@ public class UsuarioService : IUsuarioService
             _logger.LogError(ex, "Error al reactivar usuario {Id}", id);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Sistemas a los que tiene acceso el usuario (UsuarioSistema). Si no tiene filas, cae al SistemaIdDefault.
+    /// </summary>
+    private async Task<List<int>> ObtenerSistemaIdsUsuarioAsync(Usuario usuario)
+    {
+        var sistemaIds = await _repositorio.ObtenerSistemaIdsAsync(usuario.Id);
+        return sistemaIds.Count > 0 ? sistemaIds : new List<int> { usuario.SistemaIdDefault };
+    }
+
+    /// <summary>
+    /// Normaliza la lista de sistemas: si no viene usa [SistemaIdDefault], siempre incluye el default
+    /// y valida que todos existan y estén activos.
+    /// </summary>
+    private async Task<List<int>> ResolverSistemaIdsAsync(List<int>? sistemaIds, int sistemaIdDefault)
+    {
+        var resultado = sistemaIds is { Count: > 0 } ? sistemaIds.Distinct().ToList() : new List<int>();
+        if (!resultado.Contains(sistemaIdDefault))
+            resultado.Insert(0, sistemaIdDefault);
+
+        foreach (var sistemaId in resultado)
+        {
+            var sistema = await _sistemaRepositorio.ObtenerPorIdAsync(sistemaId);
+            if (sistema == null || !sistema.IsActive)
+                throw new ArgumentException($"El sistema {sistemaId} no existe o está inactivo.");
+        }
+
+        return resultado.OrderBy(id => id).ToList();
     }
 
     private async Task<List<MenuArbolDto>> ConstruirArbolMenusAsync(int usuarioId, int sistemaId)

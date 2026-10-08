@@ -15,4 +15,5 @@ public class Usuario : EntidadBase
     public Rol? Rol { get; set; }
 
     public ICollection<UsuarioMenu> UsuarioMenus { get; set; } = new List<UsuarioMenu>();
+    public ICollection<UsuarioSistema> UsuarioSistemas { get; set; } = new List<UsuarioSistema>();
 }
