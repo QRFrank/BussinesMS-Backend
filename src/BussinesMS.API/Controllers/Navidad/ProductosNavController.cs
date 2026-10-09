@@ -46,6 +46,13 @@ public class ProductosNavController : BaseController
         return RespuestaOk(resultado, "Producto actualizado exitosamente.");
     }
 
+    [HttpPut("precios")]
+    public async Task<IActionResult> ActualizarPrecios([FromBody] List<ActualizarPrecioProductoNavDto> items)
+    {
+        var resultado = await _servicio.ActualizarPreciosAsync(items);
+        return RespuestaOk(resultado, "Precios actualizados");
+    }
+
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Eliminar(int id)
     {

@@ -48,5 +48,17 @@
   { "id": 111, "nombre": "Proveedores",        "url": "/navidad/proveedores",          "icono": "solar:users-group-bold-duotone",               "orden": 1, "isGroup": false, "parentId": 110,  "sistemaId": 2 },
   { "id": 112, "nombre": "Productos",          "url": "/navidad/productos",            "icono": "solar:box-minimalistic-bold-duotone",          "orden": 2, "isGroup": false, "parentId": 110,  "sistemaId": 2 },
   { "id": 113, "nombre": "Vendedores",         "url": "/navidad/vendedores",           "icono": "solar:user-id-bold-duotone",                   "orden": 3, "isGroup": false, "parentId": 110,  "sistemaId": 2 },
-  { "id": 114, "nombre": "Clientes",           "url": "/navidad/clientes",             "icono": "solar:users-group-rounded-bold-duotone",       "orden": 4, "isGroup": false, "parentId": 110,  "sistemaId": 2 }
+  { "id": 114, "nombre": "Clientes",           "url": "/navidad/clientes",             "icono": "solar:users-group-rounded-bold-duotone",       "orden": 4, "isGroup": false, "parentId": 110,  "sistemaId": 2 },
+
+  { "id": 130, "nombre": "Abastecimiento",     "url": null,                            "icono": "solar:delivery-bold-duotone",                  "orden": 4, "isGroup": true,  "parentId": null, "sistemaId": 2 },
+  { "id": 131, "nombre": "Pedidos",            "url": "/navidad/pedidos",              "icono": "solar:clipboard-list-bold-duotone",            "orden": 1, "isGroup": false, "parentId": 130,  "sistemaId": 2 },
+  { "id": 132, "nombre": "Recepciones",        "url": "/navidad/recepciones",          "icono": "solar:inbox-in-bold-duotone",                  "orden": 2, "isGroup": false, "parentId": 130,  "sistemaId": 2 },
+  { "id": 137, "nombre": "Compras",            "url": "/navidad/compras",              "icono": "solar:cart-large-2-bold-duotone",              "orden": 2, "isGroup": false, "parentId": 130,  "sistemaId": 2 },
+  { "id": 133, "nombre": "Faltantes",          "url": "/navidad/faltantes",            "icono": "solar:clipboard-remove-bold-duotone",          "orden": 3, "isGroup": false, "parentId": 130,  "sistemaId": 2 },
+  { "id": 134, "nombre": "Pagos a proveedores","url": "/navidad/pagos-proveedor",      "icono": "solar:card-transfer-bold-duotone",             "orden": 4, "isGroup": false, "parentId": 130,  "sistemaId": 2 },
+  { "id": 135, "nombre": "Deudas",             "url": "/navidad/deudas",               "icono": "solar:bill-check-bold-duotone",                "orden": 5, "isGroup": false, "parentId": 130,  "sistemaId": 2 },
+  { "id": 136, "nombre": "Stock",              "url": "/navidad/stock",                "icono": "solar:box-bold-duotone",                       "orden": 6, "isGroup": false, "parentId": 130,  "sistemaId": 2 },
+
+  { "id": 120, "nombre": "Seguridad",          "url": null,                            "icono": "solar:shield-bold-duotone",                    "orden": 9, "isGroup": true,  "parentId": null, "sistemaId": 2 },
+  { "id": 121, "nombre": "Usuarios",           "url": "/navidad/usuarios",             "icono": "solar:users-bold-duotone",                     "orden": 1, "isGroup": false, "parentId": 120,  "sistemaId": 2 }
 ]

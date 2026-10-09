@@ -3,23 +3,6 @@ using FluentValidation;
 
 namespace BussinesMS.Aplicacion.Validadores.Navidad;
 
-public class GuardarPresentacionNavDtoValidator : AbstractValidator<GuardarPresentacionNavDto>
-{
-    public GuardarPresentacionNavDtoValidator()
-    {
-        RuleFor(x => x.Unidades)
-            .GreaterThanOrEqualTo(1).WithMessage("Las unidades de cada presentación deben ser al menos 1");
-        RuleFor(x => x.PrecioUnitario)
-            .GreaterThan(0).WithMessage("El precio unitario de cada presentación debe ser mayor a 0");
-        RuleFor(x => x.Nombre)
-            .MaximumLength(50).WithMessage("El nombre de la presentación no puede superar 50 caracteres");
-        // Solo la presentación de 1 unidad puede venir sin nombre (se guarda "Unidad")
-        RuleFor(x => x.Nombre)
-            .NotEmpty().When(x => x.Unidades != 1)
-            .WithMessage(x => $"La presentación de {x.Unidades} unidades debe tener nombre");
-    }
-}
-
 public class CrearProductoNavDtoValidator : AbstractValidator<CrearProductoNavDto>
 {
     public CrearProductoNavDtoValidator()
@@ -28,17 +11,26 @@ public class CrearProductoNavDtoValidator : AbstractValidator<CrearProductoNavDt
             .GreaterThan(0).WithMessage("El proveedor es obligatorio");
         RuleFor(x => x.CategoriaProductoId)
             .GreaterThan(0).WithMessage("La categoría es obligatoria");
+        RuleFor(x => x.Descripcion)
+            .NotEmpty().WithMessage("La descripción es obligatoria")
+            .MaximumLength(150).WithMessage("La descripción no puede superar 150 caracteres");
         RuleFor(x => x.Nombre)
-            .NotEmpty().WithMessage("El nombre es obligatorio")
-            .MaximumLength(150).WithMessage("El nombre no puede superar 150 caracteres");
+            .MaximumLength(150).WithMessage("El nombre no puede superar 150 caracteres")
+            .When(x => x.Nombre != null);
         RuleFor(x => x.PrecioCompraUnidad)
-            .GreaterThan(0).WithMessage("El precio de compra por unidad debe ser mayor a 0");
+            .GreaterThanOrEqualTo(0).WithMessage("El precio de compra por unidad no puede ser negativo");
         RuleFor(x => x.PrecioCatalogo)
-            .GreaterThan(0).WithMessage("El precio de catálogo debe ser mayor a 0");
-        RuleFor(x => x.Presentaciones)
-            .NotEmpty().WithMessage("Debe registrar al menos una presentación");
-        RuleForEach(x => x.Presentaciones)
-            .SetValidator(new GuardarPresentacionNavDtoValidator());
+            .GreaterThanOrEqualTo(0).WithMessage("El precio de catálogo no puede ser negativo");
+        // Empaque: NombreEmpaque vacío o solo espacios cuenta como null
+        RuleFor(x => x.UnidadesPorEmpaque)
+            .Must((dto, u) => u.HasValue == !string.IsNullOrWhiteSpace(dto.NombreEmpaque))
+            .WithMessage("Las unidades por empaque y el nombre del empaque van juntos");
+        RuleFor(x => x.UnidadesPorEmpaque)
+            .GreaterThan(1).WithMessage("Las unidades por empaque deben ser mayores a 1")
+            .When(x => x.UnidadesPorEmpaque.HasValue);
+        RuleFor(x => x.NombreEmpaque)
+            .Must(n => n == null || n.Trim().Length <= 20)
+            .WithMessage("El nombre del empaque no puede superar 20 caracteres");
     }
 }
 
@@ -52,16 +44,25 @@ public class ActualizarProductoNavDtoValidator : AbstractValidator<ActualizarPro
             .GreaterThan(0).WithMessage("El proveedor es obligatorio");
         RuleFor(x => x.CategoriaProductoId)
             .GreaterThan(0).WithMessage("La categoría es obligatoria");
+        RuleFor(x => x.Descripcion)
+            .NotEmpty().WithMessage("La descripción es obligatoria")
+            .MaximumLength(150).WithMessage("La descripción no puede superar 150 caracteres");
         RuleFor(x => x.Nombre)
-            .NotEmpty().WithMessage("El nombre es obligatorio")
-            .MaximumLength(150).WithMessage("El nombre no puede superar 150 caracteres");
+            .MaximumLength(150).WithMessage("El nombre no puede superar 150 caracteres")
+            .When(x => x.Nombre != null);
         RuleFor(x => x.PrecioCompraUnidad)
-            .GreaterThan(0).WithMessage("El precio de compra por unidad debe ser mayor a 0");
+            .GreaterThanOrEqualTo(0).WithMessage("El precio de compra por unidad no puede ser negativo");
         RuleFor(x => x.PrecioCatalogo)
-            .GreaterThan(0).WithMessage("El precio de catálogo debe ser mayor a 0");
-        RuleFor(x => x.Presentaciones)
-            .NotEmpty().WithMessage("Debe registrar al menos una presentación");
-        RuleForEach(x => x.Presentaciones)
-            .SetValidator(new GuardarPresentacionNavDtoValidator());
+            .GreaterThanOrEqualTo(0).WithMessage("El precio de catálogo no puede ser negativo");
+        // Empaque: NombreEmpaque vacío o solo espacios cuenta como null
+        RuleFor(x => x.UnidadesPorEmpaque)
+            .Must((dto, u) => u.HasValue == !string.IsNullOrWhiteSpace(dto.NombreEmpaque))
+            .WithMessage("Las unidades por empaque y el nombre del empaque van juntos");
+        RuleFor(x => x.UnidadesPorEmpaque)
+            .GreaterThan(1).WithMessage("Las unidades por empaque deben ser mayores a 1")
+            .When(x => x.UnidadesPorEmpaque.HasValue);
+        RuleFor(x => x.NombreEmpaque)
+            .Must(n => n == null || n.Trim().Length <= 20)
+            .WithMessage("El nombre del empaque no puede superar 20 caracteres");
     }
 }

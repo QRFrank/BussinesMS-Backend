@@ -12,7 +12,6 @@ public class CopiaCatalogoResultadoDto
     public int Proveedores { get; set; }
     public int CodigosCliente { get; set; }
     public int Productos { get; set; }
-    public int Presentaciones { get; set; }
     public int Vendedores { get; set; }
     public int VendedoresOmitidos { get; set; }
 }

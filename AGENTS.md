@@ -79,11 +79,18 @@ A.R.I.S. detecta automáticamente qué tipo de tarea vas a realizar y decide si 
 | Navidad | PagoInversor | 01/10/2026 | ✅ |
 | Navidad | CategoriaGastoNav / GastoNav | 01/10/2026 | ✅ |
 | Navidad | Proveedor (`ProveedorNavService`) / CodigoCliente | 01/10/2026 | ✅ |
-| Navidad | Producto + ProductoPresentacion (`ProductoNavService`, presentaciones en el mismo body) | 01/10/2026 | ✅ |
+| Navidad | Producto (`ProductoNavService`: descripción + alias `nombre?` + `nombreMostrar`, empaque `unidadesPorEmpaque`/`nombreEmpaque`; sin presentaciones desde 08/10/2026) | 01/10/2026 | ✅ |
 | Navidad | Vendedor (`VendedorNavService`, + `usuarios-disponibles`) | 01/10/2026 | ✅ |
 | Navidad | ClienteNav (global) | 01/10/2026 | ✅ |
 | Navidad | CategoriaProductoNav (global, Ajuste 1) | 01/10/2026 | ✅ |
-| Navidad | Copiar catálogo (`CatalogoNavService`, `POST Temporadas/{id}/copiar-catalogo`) | 01/10/2026 | ✅ |
+| Navidad | Copiar catálogo (`CatalogoNavService`, `POST Temporadas/{id}/copiar-catalogo`; precios en 0 desde 08/10/2026) | 01/10/2026 | ✅ |
+| Navidad | Precios masivos de producto (`PUT Productos/precios`), precios >= 0 (Fase 0 abastecimiento; `Proveedor.PreciosFijos` eliminado en el Ajuste 2) | 08/10/2026 | ✅ |
+| Navidad | Pedido / PedidoDetalle (`PedidoNavService`; Ajuste 2: solo proveedores con `TrabajaConPedido`, uno por código por temporada (409 `PEDIDO_YA_EXISTE`), precio de compra por línea obligatorio, no toca el producto, no bajar de lo recibido, sin DELETE) | 08/10/2026 | ✅ |
+| Navidad | Recepcion / RecepcionDetalle / RecepcionDistribucion (`RecepcionNavService`; Ajuste 2: solo proveedores con pedido, precio del pedido, sin deuda, anular con 409 `STOCK_INSUFICIENTE` si el stock no alcanza) | 08/10/2026 | ✅ |
+| Navidad | StockAlmacen / MovimientoNav (`StockNavService`, Ajuste 2: `RegistrarEntradaAsync`, `RegistrarSalidaAsync`, `ObtenerDisponibleAsync`, `ObtenerCostosPromedioAsync`, `GET Stock` con costo promedio y valorizado; sin lotes ni FIFO) | 08/10/2026 | ✅ |
+| Navidad | Compra / CompraDetalle / CompraDistribucion (`CompraNavService`, `api/Navidad/Compras`, Ajuste 2: cualquier proveedor y producto, al contado con pago automático o a crédito, anular revierte stock y pago) | 08/10/2026 | ✅ |
+| Navidad | PagoProveedor (`PagoProveedorNavService`; `compraId` en el DTO, el pago automático de una compra no se anula por separado) | 08/10/2026 | ✅ |
+| Navidad | Faltantes y deudas (`AbastecimientoNavService`; Ajuste 2: deuda = pedidos + compras − pagos) | 08/10/2026 | ✅ |
 
 > Auditado contra el código real el 22/09/2026. Ver `docs/ERD.md` para el detalle de esquema y `../MEMORIA.md` (raíz del proyecto) para deuda técnica pendiente.
 
@@ -458,7 +465,7 @@ The system uses 3 separate databases:
 |----------|--------|---------|
 | BussinesMS_Auth | ✅ Completo | Authentication, Users, Roles, Almacenes |
 | BussinesMS_Sistema | ✅ Completo | Core business (inventory, sales, purchases) |
-| BussinesMS_Navidad | 🟡 En construcción (módulos temporada-capital y catalogo listos) | Sistema Navideño (SistemaId = 2) |
+| BussinesMS_Navidad | 🟡 En construcción (módulos temporada-capital, catalogo y abastecimiento listos) | Sistema Navideño (SistemaId = 2) |
 
 Each database has its own DbContext in BussinesMS.Infraestructura.Persistencia:
 - `AuthDbContext` - Authentication context
@@ -472,10 +479,16 @@ Each database has its own DbContext in BussinesMS.Infraestructura.Persistencia:
 - Transacciones: `INavidadUnitOfWork` / `NavidadUnitOfWork` (mismo patrón que `ISistemaUnitOfWork`).
 - Temporada: `ITemporadaActualService` → `ObtenerAbiertaAsync()` (409 `SIN_TEMPORADA_ABIERTA`), `ResolverTemporadaIdAsync(int? temporadaId)` (para GET de listas: el id pedido o la abierta), `VerificarEditableAsync(temporadaId)` / `VerificarEditable(temporada)` (409 `TEMPORADA_CERRADA`), `RequiereConteoAsync(temporadaId, almacenId)` (true si la tienda tiene apertura/cierre diario obligatorio en esa temporada). Al crear, el `TemporadaId` lo pone el servicio con la abierta, nunca el cliente.
 - Nombres de clases (DTOs/controllers) únicos en toda la solución: Swagger falla con schemaIds repetidos (por eso `CategoriaGastoNavDto`, `GastosNavController`, `ProveedorNavDto`, `ProductosNavController`).
-- Las entidades navideñas `Proveedor`, `Producto` y `ProductoPresentacion` se llaman igual que las del regular: en servicios usar alias (`using ProveedorNav = BussinesMS.Dominio.Entidades.Navidad.Proveedor;`) y nunca importar `Entidades.Sistema` en código Navidad.
+- **Producto navideño en otros DTOs (regla, Ajuste 2):** todo DTO futuro que incluya un producto (pedidos, recepciones, stock, kardex, ventas, rutas, reportes) expone `productoNombreMostrar` = `Producto.Nombre ?? Producto.Descripcion` (alias si existe; si no, la descripción del proveedor). Las búsquedas por producto filtran por `Descripcion` y por `Nombre`. En `ProductoNavDto` el campo se llama `nombreMostrar`.
+- Producto navideño **sin presentaciones** (desde 08/10/2026): el empaque está en el propio producto (`UnidadesPorEmpaque` > 1 y `NombreEmpaque`, juntos o los dos null) y no tiene precio propio. Las cantidades se guardan siempre en unidades (cantidad en empaques × `UnidadesPorEmpaque` + sueltas).
+- Las entidades navideñas `Proveedor` y `Producto` se llaman igual que las del regular: en servicios usar alias (`using ProveedorNav = BussinesMS.Dominio.Entidades.Navidad.Proveedor;`) y nunca importar `Entidades.Sistema` en código Navidad.
 - Unicidad con borrado lógico: índices únicos filtrados `[IsActive] = 1`, más un chequeo en el servicio. Para borrar filas a mano con sqlcmd hace falta `-I` (QUOTED_IDENTIFIER ON) por esos índices.
 - Usuarios válidos para Navidad (AuthDB, solo lectura): `UsuarioNavidadFiltros.ValidosNavidad()` en `Aplicacion/Servicios/Navidad`.
 - Para correr una API temporal en otro puerto se usa la variable `PORT` (Program.cs ignora `ASPNETCORE_URLS`).
+- **Stock navideño (Ajuste 2, reutilizar en inventario, ventas y ruta):** sin lotes ni FIFO. El saldo vive en `StockAlmacen` (producto × almacén, check `Cantidad >= 0`) y cada cambio va con un `MovimientoNav` en la misma transacción. Entradas con `IStockNavService.RegistrarEntradaAsync(temporadaId, almacenId, productoId, unidades, tipo, referenciaTipo, referenciaId, motivo?)` y salidas con `RegistrarSalidaAsync(...)` (409 `STOCK_INSUFICIENTE` si no alcanza), siempre dentro de la transacción del llamador (`INavidadUnitOfWork`). El costo es el **promedio ponderado por producto y temporada** (Σ cantidad × precio / Σ cantidad de las líneas de recepción y compra no anuladas): `ObtenerCostosPromedioAsync(temporadaId, productoIds?)` (sin redondear; usarlo para guardar el costo en ventas y para la ganancia). Nunca tocar `StockAlmacen` sin movimiento.
+- Regla de código de cliente (pedidos, recepciones, pagos): si el proveedor `UsaCodigosCliente`, el código es obligatorio y del proveedor; si no, tiene que venir null. Las compras no llevan código (su deuda va en la fila sin código del proveedor).
+- **Dos caminos de entrada (Ajuste 2):** (1) **Pedido + Recepción**, solo proveedores con `TrabajaConPedido` (SOALPRO, CARSA): un pedido por código (o por proveedor sin códigos) por temporada, con el precio de compra de la nota por línea; la deuda nace del pedido (Σ `MontoTotalProveedor`); la recepción no supera lo pedido por código + producto, toma el precio del pedido y no genera deuda. El pedido no modifica el producto. (2) **Compra** (`api/Navidad/Compras`): cualquier proveedor y cualquier producto activo de la temporada, precio editable (> 0) con check opcional que actualiza `Producto.PrecioCompraUnidad`; al contado crea un `PagoProveedor` automático en la misma transacción, a crédito genera deuda. `Producto.ProveedorId` = proveedor principal (pedidos y filtros). Anular recepción o compra solo si el stock de cada almacén alcanza.
+- Si `bin\Debug`/`bin\Release` están bloqueados por APIs corriendo, compilar con otra configuración: `dotnet build src/BussinesMS.API/BussinesMS.API.csproj -c Abast` (sirve también para `dotnet ef ... --configuration Abast`). La solución no define esa configuración: usar el csproj. Borrar `bin/Abast` y `obj/Abast` al terminar.
 - Migraciones: `dotnet ef migrations add <Nombre> --context NavidadDbContext --output-dir Migrations/NavidadDb --project src/BussinesMS.Infraestructura --startup-project src/BussinesMS.API` (factory de diseño: `NavidadDbContextFactory`).
 
 ## Modelo Entidad-Relación
@@ -558,13 +571,24 @@ Each database has its own DbContext in BussinesMS.Infraestructura.Persistencia:
 |-------|-------------|
 | Proveedor | Proveedores de la temporada (`UsaCodigosCliente`) |
 | CodigoCliente | Códigos de cliente por proveedor (cada uno con su deuda en abastecimiento) |
-| Producto | Productos de la temporada: categoría, precio de compra por unidad y precio de catálogo (referencia) |
+| Producto | Productos de la temporada: `Descripcion` (catálogo del proveedor), `Nombre?` (alias), categoría, precio de compra, precio de catálogo (único precio, referencia) y empaque opcional (`UnidadesPorEmpaque`/`NombreEmpaque`) |
 | CategoriaProductoNav | Categorías de producto (global): Panetones, Galletas… |
-| ProductoPresentacion | Presentaciones (Unidad=1 obligatoria, una principal, unidades únicas) |
 | Vendedor | Vendedor de la temporada vinculado a un usuario de AuthDB (Tienda con sueldo / Ruta). El sistema no calcula comisiones |
 | ClienteNav | Clientes navideños (global) |
 
-Los módulos siguientes (abastecimiento, inventario, ventas-tienda, ruta, pagos-vendedores, reportes) están definidos en `../docs/navidad/SPEC-navidad.md`. Detalle de esquema en `docs/ERD.md` → "DB_NAVIDAD".
+### DB_Navidad (En construcción) - Módulo abastecimiento
+
+| Tabla | Descripción |
+| Pedido / PedidoDetalle | Pedido a proveedor con `TrabajaConPedido`, uno por código (o por proveedor) por temporada, en unidades, con precio de compra por línea y `MontoTotalProveedor` (origen de la deuda). Sin borrado (solo edición); PUT reemplaza detalles sin bajar de lo recibido. No modifica el producto |
+| Recepcion | Llegada de un pedido (`NroFactura?`, `Anulada`). No genera deuda. No se edita: se anula si el stock actual alcanza |
+| RecepcionDetalle | Entrada: producto, unidades y precio (de la línea del pedido) |
+| RecepcionDistribucion | Reparto de la línea por almacén navideño (AuthDB, sin FK) |
+| Compra / CompraDetalle / CompraDistribucion | (Ajuste 2) Compra a cualquier proveedor y producto, al contado (`PagoProveedorId` automático) o a crédito; reparto por almacén. Se anula si el stock alcanza |
+| StockAlmacen | (Ajuste 2, reemplaza a `LoteAlmacen`) Stock por producto × almacén (saldo materializado, nunca negativo) |
+| MovimientoNav | Kardex navideño (± unidades por producto y almacén, tipo, referencia, usuario; sin `LoteId` desde el Ajuste 2) |
+| PagoProveedor | Pagos a proveedor o código (Transferencia / Efectivo), anulación lógica |
+
+Los módulos siguientes (inventario, ventas-tienda, ruta, pagos-vendedores, reportes) están definidos en `../docs/navidad/SPEC-navidad.md`. Detalle de esquema en `docs/ERD.md` → "DB_NAVIDAD".
 
 ## 📦 Datos Iniciales - BDMS.csv
 

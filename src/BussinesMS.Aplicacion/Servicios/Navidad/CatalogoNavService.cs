@@ -7,13 +7,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using CodigoClienteNav = BussinesMS.Dominio.Entidades.Navidad.CodigoCliente;
 using ProductoNav = BussinesMS.Dominio.Entidades.Navidad.Producto;
-using ProductoPresentacionNav = BussinesMS.Dominio.Entidades.Navidad.ProductoPresentacion;
 using ProveedorNav = BussinesMS.Dominio.Entidades.Navidad.Proveedor;
 using VendedorNav = BussinesMS.Dominio.Entidades.Navidad.Vendedor;
 
 namespace BussinesMS.Aplicacion.Servicios.Navidad;
 
-// Copia el catálogo (proveedores, códigos, productos, presentaciones y vendedores) de una temporada a la abierta.
+// Copia el catálogo (proveedores, códigos, productos y vendedores) de una temporada a la abierta.
 // No copia stock, pedidos, deudas ni movimientos.
 public class CatalogoNavService : ICatalogoNavService
 {
@@ -21,7 +20,6 @@ public class CatalogoNavService : ICatalogoNavService
     private readonly IProveedorNavRepository _proveedorRepo;
     private readonly ICodigoClienteRepository _codigoRepo;
     private readonly IProductoNavRepository _productoRepo;
-    private readonly IProductoPresentacionNavRepository _presentacionRepo;
     private readonly IVendedorNavRepository _vendedorRepo;
     private readonly IUsuarioRepository _usuarioRepo;
     private readonly INavidadUnitOfWork _uow;
@@ -32,7 +30,6 @@ public class CatalogoNavService : ICatalogoNavService
         IProveedorNavRepository proveedorRepo,
         ICodigoClienteRepository codigoRepo,
         IProductoNavRepository productoRepo,
-        IProductoPresentacionNavRepository presentacionRepo,
         IVendedorNavRepository vendedorRepo,
         IUsuarioRepository usuarioRepo,
         INavidadUnitOfWork uow,
@@ -42,7 +39,6 @@ public class CatalogoNavService : ICatalogoNavService
         _proveedorRepo = proveedorRepo;
         _codigoRepo = codigoRepo;
         _productoRepo = productoRepo;
-        _presentacionRepo = presentacionRepo;
         _vendedorRepo = vendedorRepo;
         _usuarioRepo = usuarioRepo;
         _uow = uow;
@@ -72,7 +68,7 @@ public class CatalogoNavService : ICatalogoNavService
 
             // Origen cargado sin tracking: se crean entidades nuevas, nunca se reutilizan estas instancias
             var proveedores = await _proveedorRepo.ObtenerActivosConCodigosPorTemporadaAsync(temporadaOrigenId);
-            var productos = await _productoRepo.ObtenerActivosConPresentacionesPorTemporadaAsync(temporadaOrigenId);
+            var productos = await _productoRepo.ObtenerActivosPorTemporadaAsync(temporadaOrigenId);
             var vendedores = await _vendedorRepo.ObtenerActivosPorTemporadaAsync(temporadaOrigenId);
 
             // Usuarios que siguen siendo válidos (AuthDB, solo lectura) y los que ya son vendedores en destino
@@ -105,6 +101,7 @@ public class CatalogoNavService : ICatalogoNavService
                         TemporadaId = destinoId,
                         Nombre = p.Nombre,
                         UsaCodigosCliente = p.UsaCodigosCliente,
+                        TrabajaConPedido = p.TrabajaConPedido,
                         Telefono = p.Telefono,
                         Observacion = p.Observacion
                     });
@@ -124,36 +121,27 @@ public class CatalogoNavService : ICatalogoNavService
                     }
                 }
 
-                // Productos (solo de proveedores copiados) y sus presentaciones activas
+                // Productos (solo de proveedores copiados)
                 foreach (var prod in productos)
                 {
                     if (!mapaProveedores.TryGetValue(prod.ProveedorId, out var nuevoProveedorId))
                         continue;
 
-                    var nuevoProducto = await _productoRepo.CrearAsync(new ProductoNav
+                    await _productoRepo.CrearAsync(new ProductoNav
                     {
                         TemporadaId = destinoId,
                         ProveedorId = nuevoProveedorId,
                         // Categoría global: se reutiliza la misma
                         CategoriaProductoId = prod.CategoriaProductoId,
+                        Descripcion = prod.Descripcion,
                         Nombre = prod.Nombre,
-                        PrecioCompraUnidad = prod.PrecioCompraUnidad,
-                        PrecioCatalogo = prod.PrecioCatalogo
+                        // Precios en 0: se cargan para la nueva temporada (PUT Productos/precios)
+                        PrecioCompraUnidad = 0,
+                        PrecioCatalogo = 0,
+                        UnidadesPorEmpaque = prod.UnidadesPorEmpaque,
+                        NombreEmpaque = prod.NombreEmpaque
                     });
                     resultado.Productos++;
-
-                    foreach (var pres in prod.Presentaciones.Where(x => x.IsActive))
-                    {
-                        await _presentacionRepo.CrearAsync(new ProductoPresentacionNav
-                        {
-                            ProductoId = nuevoProducto.Id,
-                            Nombre = pres.Nombre,
-                            Unidades = pres.Unidades,
-                            PrecioUnitario = pres.PrecioUnitario,
-                            EsPrincipal = pres.EsPrincipal
-                        });
-                        resultado.Presentaciones++;
-                    }
                 }
 
                 // Vendedores: solo usuarios aún válidos y que no sean ya vendedores activos en destino

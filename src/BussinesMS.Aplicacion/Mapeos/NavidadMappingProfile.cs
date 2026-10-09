@@ -71,15 +71,12 @@ public class NavidadMappingProfile : Profile
             .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => BoliviaTimeZone.ToLocal(src.CreatedAt)));
         CreateMap<CrearClienteNavDto, ClienteNav>();
 
-        // Productos de temporada (solo presentaciones activas, ordenadas por Unidades)
-        CreateMap<ProductoPresentacion, PresentacionNavDto>()
-            .ForMember(dest => dest.PrecioTotal, opt => opt.MapFrom(src => src.Unidades * src.PrecioUnitario));
+        // Productos de temporada
         CreateMap<Producto, ProductoNavDto>()
             .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => BoliviaTimeZone.ToLocal(src.CreatedAt)))
             .ForMember(dest => dest.ProveedorNombre, opt => opt.MapFrom(src => src.Proveedor != null ? src.Proveedor.Nombre : string.Empty))
             .ForMember(dest => dest.CategoriaNombre, opt => opt.MapFrom(src => src.Categoria != null ? src.Categoria.Nombre : string.Empty))
-            .ForMember(dest => dest.Presentaciones, opt => opt.MapFrom(src =>
-                src.Presentaciones.Where(p => p.IsActive).OrderBy(p => p.Unidades)));
+            .ForMember(dest => dest.NombreMostrar, opt => opt.MapFrom(src => src.Nombre ?? src.Descripcion));
 
         // Vendedores de temporada (nombre y username de AuthDB los llena el servicio)
         CreateMap<Vendedor, VendedorNavDto>()

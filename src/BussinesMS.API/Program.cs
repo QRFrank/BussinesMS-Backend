@@ -226,13 +226,27 @@ builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IProveedorNa
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICodigoClienteService, BussinesMS.Aplicacion.Servicios.Navidad.CodigoClienteService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IClienteNavService, BussinesMS.Aplicacion.Servicios.Navidad.ClienteNavService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IProductoNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.ProductoNavRepository>();
-builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IProductoPresentacionNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.ProductoPresentacionNavRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IProductoNavService, BussinesMS.Aplicacion.Servicios.Navidad.ProductoNavService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IVendedorNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.VendedorNavRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IVendedorNavService, BussinesMS.Aplicacion.Servicios.Navidad.VendedorNavService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICatalogoNavService, BussinesMS.Aplicacion.Servicios.Navidad.CatalogoNavService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICategoriaProductoNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.CategoriaProductoNavRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICategoriaProductoNavService, BussinesMS.Aplicacion.Servicios.Navidad.CategoriaProductoNavService>();
+// Abastecimiento: stock y recepciones
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IMovimientoNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.MovimientoNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IStockNavService, BussinesMS.Aplicacion.Servicios.Navidad.StockNavService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IRecepcionNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.RecepcionNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IRecepcionNavService, BussinesMS.Aplicacion.Servicios.Navidad.RecepcionNavService>();
+// Abastecimiento: pedidos, pagos a proveedor y reportes (faltantes/deudas)
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IPedidoNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.PedidoNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IPedidoNavService, BussinesMS.Aplicacion.Servicios.Navidad.PedidoNavService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IPagoProveedorNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.PagoProveedorNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IPagoProveedorNavService, BussinesMS.Aplicacion.Servicios.Navidad.PagoProveedorNavService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IAbastecimientoNavService, BussinesMS.Aplicacion.Servicios.Navidad.AbastecimientoNavService>();
+// Abastecimiento — Ajuste 2: stock por almacén y compras
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IStockAlmacenNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.StockAlmacenNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICompraNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.CompraNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICompraNavService, BussinesMS.Aplicacion.Servicios.Navidad.CompraNavService>();
 
 // Background Services
 builder.Services.AddHostedService<BussinesMS.Infraestructura.Jobs.VencimientoLotesJob>();

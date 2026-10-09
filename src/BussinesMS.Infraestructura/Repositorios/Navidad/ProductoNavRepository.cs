@@ -16,26 +16,34 @@ public class ProductoNavRepository : NavidadRepositorioBase<Producto>, IProducto
         => await _dbSet
             .Include(p => p.Proveedor)
             .Include(p => p.Categoria)
-            .Include(p => p.Presentaciones.Where(x => x.IsActive).OrderBy(x => x.Unidades))
             .FirstOrDefaultAsync(p => p.Id == id);
 
-    public async Task<bool> ExisteNombreAsync(int proveedorId, string nombre, int? excluirId = null)
+    public async Task<bool> ExisteDescripcionAsync(int proveedorId, string descripcion, int? excluirId = null)
     {
-        var n = nombre.Trim().ToLower();
+        var d = descripcion.Trim().ToLower();
         return await _dbSet.AnyAsync(p => p.ProveedorId == proveedorId
             && p.IsActive
+            && p.Descripcion.ToLower() == d
+            && (!excluirId.HasValue || p.Id != excluirId.Value));
+    }
+
+    public async Task<bool> ExisteNombreEnTemporadaAsync(int temporadaId, string nombre, int? excluirId = null)
+    {
+        var n = nombre.Trim().ToLower();
+        return await _dbSet.AnyAsync(p => p.TemporadaId == temporadaId
+            && p.IsActive
+            && p.Nombre != null
             && p.Nombre.ToLower() == n
             && (!excluirId.HasValue || p.Id != excluirId.Value));
     }
 
-    public async Task<List<Producto>> ObtenerActivosConPresentacionesPorTemporadaAsync(int temporadaId)
+    public async Task<List<Producto>> ObtenerActivosPorTemporadaAsync(int temporadaId)
         => await _dbSet
             .AsNoTracking()
-            .Include(p => p.Presentaciones.Where(x => x.IsActive).OrderBy(x => x.Unidades))
             .Where(p => p.TemporadaId == temporadaId
                 && p.IsActive
                 && p.Proveedor != null && p.Proveedor.IsActive)
-            .OrderBy(p => p.Nombre)
+            .OrderBy(p => p.Descripcion)
             .ToListAsync();
 
     public async Task<bool> TieneProductosActivosPorCategoriaAsync(int categoriaId)

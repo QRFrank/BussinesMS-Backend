@@ -7,7 +7,6 @@ using BussinesMS.Dominio.Excepciones;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ProductoNav = BussinesMS.Dominio.Entidades.Navidad.Producto;
-using ProductoPresentacionNav = BussinesMS.Dominio.Entidades.Navidad.ProductoPresentacion;
 using ProveedorNav = BussinesMS.Dominio.Entidades.Navidad.Proveedor;
 
 namespace BussinesMS.Aplicacion.Servicios.Navidad;
@@ -15,10 +14,7 @@ namespace BussinesMS.Aplicacion.Servicios.Navidad;
 // Nota: CreatedAt se convierte a hora de Bolivia en NavidadMappingProfile (no reconvertir aquí).
 public class ProductoNavService : IProductoNavService
 {
-    private const string NombreUnidadPorDefecto = "Unidad";
-
     private readonly IProductoNavRepository _repo;
-    private readonly IProductoPresentacionNavRepository _presentacionRepo;
     private readonly IProveedorNavRepository _proveedorRepo;
     private readonly ICategoriaProductoNavRepository _categoriaRepo;
     private readonly ITemporadaActualService _temporadaActual;
@@ -28,7 +24,6 @@ public class ProductoNavService : IProductoNavService
 
     public ProductoNavService(
         IProductoNavRepository repo,
-        IProductoPresentacionNavRepository presentacionRepo,
         IProveedorNavRepository proveedorRepo,
         ICategoriaProductoNavRepository categoriaRepo,
         ITemporadaActualService temporadaActual,
@@ -37,7 +32,6 @@ public class ProductoNavService : IProductoNavService
         ILogger<ProductoNavService> logger)
     {
         _repo = repo;
-        _presentacionRepo = presentacionRepo;
         _proveedorRepo = proveedorRepo;
         _categoriaRepo = categoriaRepo;
         _temporadaActual = temporadaActual;
@@ -55,7 +49,6 @@ public class ProductoNavService : IProductoNavService
             var baseQuery = _repo.AsQueryable()
                 .Include(x => x.Proveedor)
                 .Include(x => x.Categoria)
-                .Include(x => x.Presentaciones.Where(p => p.IsActive).OrderBy(p => p.Unidades))
                 .Where(x => x.IsActive && x.TemporadaId == temporadaId);
 
             if (query.ProveedorId.HasValue)
@@ -68,7 +61,8 @@ public class ProductoNavService : IProductoNavService
             {
                 var f = query.Filter.ToLower();
                 baseQuery = baseQuery.Where(x =>
-                    x.Nombre.ToLower().Contains(f) ||
+                    x.Descripcion.ToLower().Contains(f) ||
+                    (x.Nombre != null && x.Nombre.ToLower().Contains(f)) ||
                     (x.Proveedor != null && x.Proveedor.Nombre.ToLower().Contains(f)) ||
                     (x.Categoria != null && x.Categoria.Nombre.ToLower().Contains(f)));
             }
@@ -76,8 +70,7 @@ public class ProductoNavService : IProductoNavService
             var sinOrden = string.IsNullOrWhiteSpace(query.SortBy);
             if (sinOrden)
                 baseQuery = baseQuery
-                    .OrderBy(x => x.Proveedor != null ? x.Proveedor.Nombre : string.Empty)
-                    .ThenBy(x => x.Nombre)
+                    .OrderBy(x => x.Nombre ?? x.Descripcion) // nombreMostrar
                     .ThenBy(x => x.Id);
 
             (var filteredQuery, var totalCount) = baseQuery.ApplyFilters(query, skipSorting: sinOrden);
@@ -119,42 +112,29 @@ public class ProductoNavService : IProductoNavService
         {
             var temporada = await _temporadaActual.ObtenerAbiertaAsync();
 
-            var nombre = ValidarNombre(dto.Nombre);
+            var descripcion = ValidarDescripcion(dto.Descripcion);
+            var nombre = NormalizarNombre(dto.Nombre);
             ValidarMontos(dto.PrecioCompraUnidad, dto.PrecioCatalogo);
-            // En POST se ignora el Id de las presentaciones
-            var presentaciones = NormalizarPresentaciones(dto.Presentaciones, ignorarIds: true);
+            var (unidadesPorEmpaque, nombreEmpaque) = NormalizarEmpaque(dto.UnidadesPorEmpaque, dto.NombreEmpaque);
 
             await ObtenerProveedorValidoAsync(dto.ProveedorId, temporada.Id);
             await ValidarCategoriaAsync(dto.CategoriaProductoId);
 
-            if (await _repo.ExisteNombreAsync(dto.ProveedorId, nombre))
-                throw new EntidadDuplicadaException("un producto para este proveedor", nombre);
+            await ValidarUnicidadAsync(dto.ProveedorId, temporada.Id, descripcion, nombre, excluirId: null);
 
-            int productoId;
-            await _uow.BeginTransactionAsync();
-            try
+            var creado = await _repo.CrearAsync(new ProductoNav
             {
-                var creado = await _repo.CrearAsync(new ProductoNav
-                {
-                    TemporadaId = temporada.Id,
-                    ProveedorId = dto.ProveedorId,
-                    CategoriaProductoId = dto.CategoriaProductoId,
-                    Nombre = nombre,
-                    PrecioCompraUnidad = dto.PrecioCompraUnidad,
-                    PrecioCatalogo = dto.PrecioCatalogo
-                });
-                productoId = creado.Id;
-
-                foreach (var p in presentaciones)
-                    await _presentacionRepo.CrearAsync(NuevaPresentacion(productoId, p));
-
-                await _uow.CommitAsync();
-            }
-            catch
-            {
-                await _uow.RollbackAsync();
-                throw;
-            }
+                TemporadaId = temporada.Id,
+                ProveedorId = dto.ProveedorId,
+                CategoriaProductoId = dto.CategoriaProductoId,
+                Descripcion = descripcion,
+                Nombre = nombre,
+                PrecioCompraUnidad = dto.PrecioCompraUnidad,
+                PrecioCatalogo = dto.PrecioCatalogo,
+                UnidadesPorEmpaque = unidadesPorEmpaque,
+                NombreEmpaque = nombreEmpaque
+            });
+            var productoId = creado.Id;
 
             _logger.LogInformation("Producto de temporada creado: {Id} (temporada {TemporadaId})", productoId, temporada.Id);
 
@@ -177,66 +157,26 @@ public class ProductoNavService : IProductoNavService
 
             await _temporadaActual.VerificarEditableAsync(existente.TemporadaId);
 
-            var nombre = ValidarNombre(dto.Nombre);
+            var descripcion = ValidarDescripcion(dto.Descripcion);
+            var nombre = NormalizarNombre(dto.Nombre);
             ValidarMontos(dto.PrecioCompraUnidad, dto.PrecioCatalogo);
-            var presentaciones = NormalizarPresentaciones(dto.Presentaciones, ignorarIds: false);
+            var (unidadesPorEmpaque, nombreEmpaque) = NormalizarEmpaque(dto.UnidadesPorEmpaque, dto.NombreEmpaque);
 
             // El proveedor debe ser de la misma temporada que el producto
             await ObtenerProveedorValidoAsync(dto.ProveedorId, existente.TemporadaId);
             await ValidarCategoriaAsync(dto.CategoriaProductoId);
 
-            if (await _repo.ExisteNombreAsync(dto.ProveedorId, nombre, existente.Id))
-                throw new EntidadDuplicadaException("un producto para este proveedor", nombre);
+            await ValidarUnicidadAsync(dto.ProveedorId, existente.TemporadaId, descripcion, nombre, existente.Id);
 
-            var activas = await _presentacionRepo.ObtenerActivasPorProductoAsync(existente.Id);
-            var activasPorId = activas.ToDictionary(x => x.Id);
-
-            // Cada Id recibido debe ser una presentación activa de este producto
-            foreach (var p in presentaciones.Where(x => x.Id.HasValue))
-            {
-                if (!activasPorId.ContainsKey(p.Id!.Value))
-                    throw new ValidacionException($"La presentación {p.Id.Value} no pertenece al producto");
-            }
-
-            var idsRecibidos = presentaciones.Where(x => x.Id.HasValue).Select(x => x.Id!.Value).ToHashSet();
-
-            await _uow.BeginTransactionAsync();
-            try
-            {
-                existente.ProveedorId = dto.ProveedorId;
-                existente.CategoriaProductoId = dto.CategoriaProductoId;
-                existente.Nombre = nombre;
-                existente.PrecioCompraUnidad = dto.PrecioCompraUnidad;
-                existente.PrecioCatalogo = dto.PrecioCatalogo;
-                await _repo.ActualizarAsync(existente);
-
-                // Orden para no chocar con el índice único filtrado (ProductoId, Unidades):
-                // 1) desactivar las activas que no vienen
-                foreach (var quitada in activas.Where(x => !idsRecibidos.Contains(x.Id)))
-                    await _presentacionRepo.EliminarAsync(quitada.Id);
-
-                // 2) actualizar las que traen Id
-                foreach (var p in presentaciones.Where(x => x.Id.HasValue))
-                {
-                    var actual = activasPorId[p.Id!.Value];
-                    actual.Nombre = p.Nombre!;
-                    actual.Unidades = p.Unidades;
-                    actual.PrecioUnitario = p.PrecioUnitario;
-                    actual.EsPrincipal = p.EsPrincipal;
-                    await _presentacionRepo.ActualizarAsync(actual);
-                }
-
-                // 3) crear las nuevas
-                foreach (var p in presentaciones.Where(x => !x.Id.HasValue))
-                    await _presentacionRepo.CrearAsync(NuevaPresentacion(existente.Id, p));
-
-                await _uow.CommitAsync();
-            }
-            catch
-            {
-                await _uow.RollbackAsync();
-                throw;
-            }
+            existente.ProveedorId = dto.ProveedorId;
+            existente.CategoriaProductoId = dto.CategoriaProductoId;
+            existente.Descripcion = descripcion;
+            existente.Nombre = nombre;
+            existente.PrecioCompraUnidad = dto.PrecioCompraUnidad;
+            existente.PrecioCatalogo = dto.PrecioCatalogo;
+            existente.UnidadesPorEmpaque = unidadesPorEmpaque;
+            existente.NombreEmpaque = nombreEmpaque;
+            await _repo.ActualizarAsync(existente);
 
             _logger.LogInformation("Producto de temporada actualizado: {Id}", existente.Id);
 
@@ -259,7 +199,7 @@ public class ProductoNavService : IProductoNavService
 
             await _temporadaActual.VerificarEditableAsync(existente.TemporadaId);
 
-            // Borrado lógico solo del producto; las presentaciones quedan
+            // Borrado lógico
             await _repo.EliminarAsync(id);
             _logger.LogInformation("Producto de temporada eliminado: {Id}", id);
         }
@@ -270,7 +210,65 @@ public class ProductoNavService : IProductoNavService
         }
     }
 
-    // Recarga con proveedor y presentaciones; el mapeo filtra activas y ordena por Unidades
+    // Actualización masiva de precios de productos de la temporada abierta (todo o nada)
+    public async Task<ActualizarPreciosResultadoNavDto> ActualizarPreciosAsync(List<ActualizarPrecioProductoNavDto> items)
+    {
+        try
+        {
+            if (items == null || items.Count == 0)
+                throw new ValidacionException("Debe enviar al menos un producto");
+
+            if (items.Select(i => i.Id).Distinct().Count() != items.Count)
+                throw new ValidacionException("Hay productos repetidos en la lista");
+
+            foreach (var item in items)
+                ValidarMontos(item.PrecioCompraUnidad, item.PrecioCatalogo);
+
+            var temporada = await _temporadaActual.ObtenerAbiertaAsync();
+
+            var ids = items.Select(i => i.Id).ToList();
+            var productos = await _repo.AsQueryable()
+                .Where(p => ids.Contains(p.Id) && p.IsActive && p.TemporadaId == temporada.Id)
+                .ToListAsync();
+
+            var invalidos = ids.Except(productos.Select(p => p.Id)).ToList();
+            if (invalidos.Count > 0)
+                throw new ValidacionException(
+                    $"Los productos {string.Join(", ", invalidos)} no existen o no son de la temporada abierta");
+
+            var porId = productos.ToDictionary(p => p.Id);
+
+            await _uow.BeginTransactionAsync();
+            try
+            {
+                foreach (var item in items)
+                {
+                    var producto = porId[item.Id];
+                    producto.PrecioCompraUnidad = item.PrecioCompraUnidad;
+                    producto.PrecioCatalogo = item.PrecioCatalogo;
+                    await _repo.ActualizarAsync(producto);
+                }
+
+                await _uow.CommitAsync();
+            }
+            catch
+            {
+                await _uow.RollbackAsync();
+                throw;
+            }
+
+            _logger.LogInformation("Precios actualizados para {Cantidad} productos (temporada {TemporadaId})", items.Count, temporada.Id);
+
+            return new ActualizarPreciosResultadoNavDto { Actualizados = items.Count };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al actualizar precios de productos de temporada");
+            throw;
+        }
+    }
+
+    // Recarga con proveedor y categoría
     private async Task<ProductoNavDto> ObtenerDetalleDtoAsync(int id)
     {
         var entidad = await _repo.ObtenerConDetalleAsync(id)
@@ -301,88 +299,64 @@ public class ProductoNavService : IProductoNavService
             throw new ValidacionException("La categoría no existe o no está activa");
     }
 
-    private static ProductoPresentacionNav NuevaPresentacion(int productoId, GuardarPresentacionNavDto p)
-        => new()
-        {
-            ProductoId = productoId,
-            Nombre = p.Nombre!,
-            Unidades = p.Unidades,
-            PrecioUnitario = p.PrecioUnitario,
-            EsPrincipal = p.EsPrincipal
-        };
-
-    // Reglas de presentaciones (siempre en servicio, no solo en FluentValidation).
-    // Devuelve copias normalizadas: nombre recortado y "Unidad" por defecto para la de 1 unidad.
-    private static List<GuardarPresentacionNavDto> NormalizarPresentaciones(List<GuardarPresentacionNavDto>? entrada, bool ignorarIds)
+    // Empaque opcional (siempre en servicio, no solo en FluentValidation):
+    // NombreEmpaque recortado y vacío pasa a null; ambos van juntos; UnidadesPorEmpaque > 1.
+    private static (int? Unidades, string? Nombre) NormalizarEmpaque(int? unidadesPorEmpaque, string? nombreEmpaque)
     {
-        if (entrada == null || entrada.Count == 0)
-            throw new ValidacionException("Debe registrar al menos una presentación");
+        var nombre = nombreEmpaque?.Trim();
+        if (string.IsNullOrEmpty(nombre))
+            nombre = null;
 
-        if (entrada.Any(x => x == null))
-            throw new ValidacionException("Hay presentaciones vacías en la solicitud");
+        if (unidadesPorEmpaque.HasValue != (nombre != null))
+            throw new ValidacionException("Las unidades por empaque y el nombre del empaque van juntos");
 
-        var lista = entrada.Select(x => new GuardarPresentacionNavDto
-        {
-            Id = ignorarIds ? null : x.Id,
-            Nombre = x.Nombre?.Trim(),
-            Unidades = x.Unidades,
-            PrecioUnitario = x.PrecioUnitario,
-            EsPrincipal = x.EsPrincipal
-        }).ToList();
+        if (unidadesPorEmpaque.HasValue && unidadesPorEmpaque.Value <= 1)
+            throw new ValidacionException("Las unidades por empaque deben ser mayores a 1");
 
-        if (lista.Any(x => x.Unidades < 1))
-            throw new ValidacionException("Las unidades de cada presentación deben ser al menos 1");
+        if (nombre != null && nombre.Length > 20)
+            throw new ValidacionException("El nombre del empaque no puede superar 20 caracteres");
 
-        if (lista.Any(x => x.PrecioUnitario <= 0))
-            throw new ValidacionException("El precio unitario de cada presentación debe ser mayor a 0");
-
-        var repetidas = lista.GroupBy(x => x.Unidades).Where(g => g.Count() > 1).Select(g => g.Key).OrderBy(u => u).ToList();
-        if (repetidas.Count > 0)
-            throw new ValidacionException($"Unidades repetidas en las presentaciones: {string.Join(", ", repetidas)}");
-
-        if (!lista.Any(x => x.Unidades == 1))
-            throw new ValidacionException("Debe existir la presentación Unidad (1 unidad)");
-
-        foreach (var p in lista)
-        {
-            if (string.IsNullOrWhiteSpace(p.Nombre))
-            {
-                if (p.Unidades == 1)
-                    p.Nombre = NombreUnidadPorDefecto;
-                else
-                    throw new ValidacionException($"La presentación de {p.Unidades} unidades debe tener nombre");
-            }
-
-            if (p.Nombre!.Length > 50)
-                throw new ValidacionException("El nombre de la presentación no puede superar 50 caracteres");
-        }
-
-        if (lista.Count(x => x.EsPrincipal) != 1)
-            throw new ValidacionException("Debe haber exactamente una presentación principal");
-
-        var idsRepetidos = lista.Where(x => x.Id.HasValue).GroupBy(x => x.Id!.Value).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
-        if (idsRepetidos.Count > 0)
-            throw new ValidacionException($"La presentación {idsRepetidos[0]} está repetida en la solicitud");
-
-        return lista;
+        return (unidadesPorEmpaque, nombre);
     }
 
     // Reglas repetidas del validador por si FluentValidation no corre
     private static void ValidarMontos(decimal precioCompraUnidad, decimal precioCatalogo)
     {
-        if (precioCompraUnidad <= 0)
-            throw new ValidacionException("El precio de compra por unidad debe ser mayor a 0");
-        if (precioCatalogo <= 0)
-            throw new ValidacionException("El precio de catálogo debe ser mayor a 0");
+        if (precioCompraUnidad < 0)
+            throw new ValidacionException("El precio de compra por unidad no puede ser negativo");
+        if (precioCatalogo < 0)
+            throw new ValidacionException("El precio de catálogo no puede ser negativo");
     }
 
-    private static string ValidarNombre(string? nombre)
+    private static string ValidarDescripcion(string? descripcion)
     {
-        var n = nombre?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(n))
-            throw new ValidacionException("El nombre es obligatorio");
+        var d = descripcion?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(d))
+            throw new ValidacionException("La descripción es obligatoria");
+        if (d.Length > 150)
+            throw new ValidacionException("La descripción no puede superar 150 caracteres");
+        return d;
+    }
+
+    // Alias opcional: vacío o solo espacios se guarda como null
+    private static string? NormalizarNombre(string? nombre)
+    {
+        var n = nombre?.Trim();
+        if (string.IsNullOrEmpty(n))
+            return null;
         if (n.Length > 150)
             throw new ValidacionException("El nombre no puede superar 150 caracteres");
         return n;
+    }
+
+    // Descripción única por proveedor y alias único por temporada (entre activos, sin distinguir mayúsculas)
+    private async Task ValidarUnicidadAsync(int proveedorId, int temporadaId, string descripcion, string? nombre, int? excluirId)
+    {
+        if (await _repo.ExisteDescripcionAsync(proveedorId, descripcion, excluirId))
+            throw new ExcepcionDominio(
+                $"Ya existe un producto para este proveedor con la descripción '{descripcion}'", 409, "ENTIDAD_DUPLICADA");
+
+        if (nombre != null && await _repo.ExisteNombreEnTemporadaAsync(temporadaId, nombre, excluirId))
+            throw new EntidadDuplicadaException("un producto en esta temporada", nombre);
     }
 }

@@ -14,6 +14,7 @@ public class ProveedorNavDto
     public int TemporadaId { get; set; }
     public string Nombre { get; set; } = string.Empty;
     public bool UsaCodigosCliente { get; set; }
+    public bool TrabajaConPedido { get; set; }
     public string? Telefono { get; set; }
     public string? Observacion { get; set; }
     // Conteos de registros activos
@@ -29,6 +30,7 @@ public class CrearProveedorNavDto
 {
     public string Nombre { get; set; } = string.Empty;
     public bool UsaCodigosCliente { get; set; }
+    public bool TrabajaConPedido { get; set; }
     public string? Telefono { get; set; }
     public string? Observacion { get; set; }
 }
@@ -38,6 +40,7 @@ public class ActualizarProveedorNavDto
     public int Id { get; set; }
     public string Nombre { get; set; } = string.Empty;
     public bool UsaCodigosCliente { get; set; }
+    public bool TrabajaConPedido { get; set; }
     public string? Telefono { get; set; }
     public string? Observacion { get; set; }
 }

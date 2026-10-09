@@ -7,13 +7,17 @@ public class Producto : EntidadBase
     public int TemporadaId { get; set; }
     public int ProveedorId { get; set; }
     public int CategoriaProductoId { get; set; }
-    public string Nombre { get; set; } = string.Empty;
+    public string Descripcion { get; set; } = string.Empty;
+    // Alias opcional; único por temporada entre activos
+    public string? Nombre { get; set; }
     public decimal PrecioCompraUnidad { get; set; }
     // Solo referencia, no bloquea nada
     public decimal PrecioCatalogo { get; set; }
+    // Empaque opcional: van juntos; UnidadesPorEmpaque > 1
+    public int? UnidadesPorEmpaque { get; set; }
+    public string? NombreEmpaque { get; set; }
 
     public Temporada? Temporada { get; set; }
     public Proveedor? Proveedor { get; set; }
     public CategoriaProductoNav? Categoria { get; set; }
-    public ICollection<ProductoPresentacion> Presentaciones { get; set; } = new List<ProductoPresentacion>();
 }

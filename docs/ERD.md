@@ -646,8 +646,8 @@ Ref: TemporadaAlmacenConteo.TemporadaId > Temporada.Id
 |-------|--------|-------------|
 | Proveedor | ✅ | Proveedores de la temporada |
 | CodigoCliente | ✅ | Códigos de cliente de un proveedor con `UsaCodigosCliente` |
-| Producto | ✅ | Productos de la temporada, por proveedor |
-| ProductoPresentacion | ✅ | Presentaciones del producto (Unidad, Java, Caja…) |
+| Producto | ✅ | Productos de la temporada, por proveedor: descripción del proveedor, alias opcional y empaque (java/caja) opcional |
+| ~~ProductoPresentacion~~ | ❌ eliminada | Se borró en `ProductoAliasEmpaque` (2026-10-08); la reemplaza el empaque en `Producto` |
 | Vendedor | ✅ | Vendedores de la temporada (usuario de AuthDB) |
 | ClienteNav | ✅ | Clientes navideños (global) |
 | CategoriaProductoNav | ✅ | Categorías de producto (global): Panetones, Galletas… |
@@ -659,9 +659,15 @@ Ref: TemporadaAlmacenConteo.TemporadaId > Temporada.Id
 >   - renombra `ProductoPresentacion.PrecioVenta` a `PrecioUnitario`, conservando los valores;
 >   - agrega `Producto.PrecioCatalogo` (se inicializa con `PrecioCompraUnidad`) y `Producto.CategoriaProductoId` (los productos existentes quedan en Panetones);
 >   - borra `Producto.ComisionRutaPorUnidad`, `Vendedor.TipoComision` y `Vendedor.PorcentajeComision`.
+> - `20261008141622_ProductoAliasEmpaque` (Ajustes 2 y 3):
+>   - renombra `Producto.Nombre` a `Descripcion`, conservando los valores; el índice pasa a `UX_Producto_Proveedor_Descripcion`;
+>   - agrega `Producto.Nombre` (alias, nullable, con el índice único filtrado `UX_Producto_Temporada_Nombre`);
+>   - agrega `UnidadesPorEmpaque` y `NombreEmpaque`. El paso de datos copia, de cada producto, la presentación activa con `Unidades > 1`: la principal, o si no hay principal, la de más unidades;
+>   - **borra la tabla `ProductoPresentacion`**.
 > - El sistema no calcula comisiones de vendedores: solo registrará el pago (módulo `pagos-vendedores`).
+> - **Regla de visualización:** en todo el sistema un producto se muestra por `Nombre ?? Descripcion`. Los DTOs lo exponen como `nombreMostrar` (en Producto) o `productoNombreMostrar` (en cualquier otro DTO que incluya un producto).
 > Unicidad con índices únicos **filtrados por `[IsActive] = 1`**, para que se pueda recrear un registro después de un borrado lógico. Para hacer DML a mano con sqlcmd hace falta `-I`.
-> El catálogo de una temporada anterior se copia a la abierta con `POST api/Navidad/Temporadas/{destinoId}/copiar-catalogo`: copia proveedores, códigos, productos con presentaciones activas y vendedores válidos.
+> El catálogo de una temporada anterior se copia a la abierta con `POST api/Navidad/Temporadas/{destinoId}/copiar-catalogo`: copia proveedores, códigos, productos (con alias y empaque) y vendedores válidos.
 
 #### Esquema
 
@@ -671,6 +677,7 @@ Table Proveedor {
   TemporadaId int [not null]
   Nombre nvarchar(150) [not null, note: 'Único por temporada entre activos (UX_Proveedor_Temporada_Nombre)']
   UsaCodigosCliente bit [not null, note: 'No se puede apagar si tiene códigos activos']
+  TrabajaConPedido bit [not null, default: 0, note: 'Si es 1 (SOALPRO y CARSA): tiene pedidos (uno por código) y recepciones; la deuda nace del pedido. Compras: cualquier proveedor. (PreciosFijos se borró en el Ajuste 2)']
   Telefono nvarchar(50) [null]
   Observacion nvarchar(500) [null]
 }
@@ -687,24 +694,18 @@ Table Producto {
   Id int [pk, increment]
   TemporadaId int [not null]
   ProveedorId int [not null]
-  Nombre nvarchar(150) [not null, note: 'Único por proveedor entre activos (UX_Producto_Proveedor_Nombre)']
+  Descripcion nvarchar(150) [not null, note: 'Nombre en el catálogo del proveedor. Único por proveedor entre activos (UX_Producto_Proveedor_Descripcion)']
+  Nombre nvarchar(150) [null, note: 'Alias. Vacío = null. Único por temporada entre activos si viene (UX_Producto_Temporada_Nombre). Se muestra Nombre ?? Descripcion']
   CategoriaProductoId int [not null, note: 'FK a CategoriaProductoNav (global)']
-  PrecioCompraUnidad decimal(18,2) [not null, note: '> 0. Precio vigente; cada recepción guardará su copia']
-  PrecioCatalogo decimal(18,2) [not null, note: '> 0. Precio mayorista por unidad, solo de referencia (no bloquea)']
+  PrecioCompraUnidad decimal(18,2) [not null, note: '>= 0 (0 = sin precio). Sugerencia; cada lote (RecepcionDetalle) guarda su precio real. 0 al copiar catálogo']
+  PrecioCatalogo decimal(18,2) [not null, note: '>= 0 (0 = sin precio). Único precio de referencia (mayorista por unidad, no bloquea). 0 al copiar catálogo']
+  UnidadesPorEmpaque int [null, note: '> 1. Unidades por java/caja. Null = solo por unidad. Va junto con NombreEmpaque']
+  NombreEmpaque nvarchar(20) [null, note: 'Java / Caja (texto libre). Obligatorio si hay UnidadesPorEmpaque, null si no. Sin precio propio']
 }
 
 Table CategoriaProductoNav {
   Id int [pk, increment]
   Nombre nvarchar(100) [not null, unique, note: 'Único también entre inactivas (igual que CategoriaGastoNav)']
-}
-
-Table ProductoPresentacion {
-  Id int [pk, increment]
-  ProductoId int [not null]
-  Nombre nvarchar(50) [not null, note: '"Unidad" por defecto para Unidades = 1']
-  Unidades int [not null, note: '>= 1. Única por producto entre activas (UX_ProductoPresentacion_Producto_Unidades). Siempre existe la de 1']
-  PrecioUnitario decimal(18,2) [not null, note: '> 0. Precio de referencia por unidad en esa presentación; total = Unidades × PrecioUnitario (calculado en el DTO, no se guarda)']
-  EsPrincipal bit [not null, note: 'Exactamente una por producto (validado en el servicio)']
 }
 
 Table Vendedor {
@@ -729,8 +730,166 @@ Ref: CodigoCliente.ProveedorId > Proveedor.Id
 Ref: Producto.TemporadaId > Temporada.Id
 Ref: Producto.ProveedorId > Proveedor.Id
 Ref: Producto.CategoriaProductoId > CategoriaProductoNav.Id
-Ref: ProductoPresentacion.ProductoId > Producto.Id
 Ref: Vendedor.TemporadaId > Temporada.Id
+```
+
+### MÓDULO abastecimiento
+
+#### Tablas
+
+| Tabla | Estado | Descripción |
+|-------|--------|-------------|
+| Pedido | ✅ | Solo proveedores con `TrabajaConPedido` (Ajuste 2). Uno por código (o por proveedor sin códigos) por temporada (`UX_Pedido_Proveedor_Codigo`). `MontoTotalProveedor` = origen de la deuda. Sin borrado: solo se edita. No modifica el producto |
+| PedidoDetalle | ✅ | Producto, unidades (>= 0) y precio de compra de la nota del código. El PUT reemplaza los detalles sin bajar de lo recibido |
+| Recepcion | ✅ | Llegada de un pedido (solo proveedores con `TrabajaConPedido`). No genera deuda. No se edita: se anula si el stock actual de cada almacén alcanza |
+| RecepcionDetalle | ✅ | Entrada: producto, unidades y precio (de la línea del pedido). Ya no es lote |
+| RecepcionDistribucion | ✅ | Reparto de la línea por almacén navideño |
+| Compra | ✅ | (Ajuste 2) Compra a cualquier proveedor, sin código; al contado (`PagoProveedorId` = pago automático) o a crédito. Origen de deuda. Se anula si el stock alcanza |
+| CompraDetalle | ✅ | (Ajuste 2) Cualquier producto activo de la temporada, unidades y precio de compra (> 0) |
+| CompraDistribucion | ✅ | (Ajuste 2) Reparto de la línea por almacén navideño |
+| StockAlmacen | ✅ | (Ajuste 2, reemplaza a `LoteAlmacen`) Stock por producto × almacén, saldo materializado con check >= 0 |
+| MovimientoNav | ✅ | Kardex navideño (sin `LoteId` desde el Ajuste 2): cada cambio de `StockAlmacen` va con su movimiento en la misma transacción |
+| PagoProveedor | ✅ | Pagos a proveedor o código. Anulación lógica (el pago automático de una compra se anula anulando la compra) |
+
+> Migración `20261008193140_Abastecimiento`: agrega `Proveedor.PreciosFijos` (con un UPDATE que lo pone en 1 para SOALPRO y CARSA de la temporada abierta) y crea las 8 tablas, sin renombrar ni borrar nada.
+> Migración `20261008235545_AbastecimientoAjuste1`: agrega `Proveedor.TrabajaConPedido` (1 para SOALPRO y CARSA de la temporada abierta), `PedidoDetalle.PrecioCompraUnidad`/`PrecioCatalogo` (backfill = precio actual del producto) y `Pedido.MontoTotalProveedor` (backfill = Σ cantidad × precio). Solo AddColumn + UPDATE.
+> Migración `20261009004612_AbastecimientoAjuste2` (Up revisado a mano: crear → migrar datos → borrar): crea `Compra`, `CompraDetalle`, `CompraDistribucion`, `StockAlmacen` y el índice único `UX_Pedido_Proveedor_Codigo`; copia `LoteAlmacen` a `StockAlmacen` (suma por producto × almacén) y convierte las recepciones de proveedores sin `TrabajaConPedido` en compras a crédito (con sus movimientos); después borra `LoteAlmacen`, `MovimientoNav.LoteId`, `Proveedor.PreciosFijos` y `PedidoDetalle.PrecioCatalogo`. Al aplicarla las tablas del abastecimiento estaban vacías.
+> Faltante (Σ pedido − Σ recibido, sin anuladas) y deuda se calculan, no tienen tabla. **Deuda (Ajuste 2)** por proveedor + código = Σ `MontoTotalProveedor` de pedidos activos + Σ compras no anuladas (van en la fila sin código) − Σ pagos activos. Las recepciones no generan deuda.
+> Recepción: no puede superar lo pedido (proveedor + código + producto) y el precio sale de la línea del pedido.
+> **Costo promedio ponderado** por producto y temporada = Σ (cantidad × precio) / Σ cantidad de las líneas de recepción y de compra no anuladas (`IStockNavService.ObtenerCostosPromedioAsync`). Sin lotes ni FIFO: las salidas usan `IStockNavService.RegistrarSalidaAsync`.
+
+#### Esquema
+
+```
+Table Pedido {
+  Id int [pk, increment]
+  TemporadaId int [not null]
+  ProveedorId int [not null]
+  CodigoClienteId int [null, note: 'Obligatorio si el proveedor UsaCodigosCliente; null si no']
+  Fecha date [not null]
+  Observacion nvarchar(500) [null]
+  MontoTotalProveedor decimal(18,2) [not null, note: 'Monto que informa el proveedor; por defecto el calculado (Σ cantidad × PrecioCompraUnidad). Origen de la deuda si TrabajaConPedido']
+}
+
+Table PedidoDetalle {
+  Id int [pk, increment]
+  PedidoId int [not null, note: 'Cascade. Único (PedidoId, ProductoId)']
+  ProductoId int [not null, note: 'Del proveedor del pedido']
+  CantidadUnidades int [not null, note: '>= 0 (0 = el proveedor no lo tuvo). Con TrabajaConPedido, el total del código no baja de lo recibido']
+  PrecioCompraUnidad decimal(18,2) [not null, note: 'Obligatorio, de la nota del código (> 0 si hay cantidad). Lo usan las recepciones. No actualiza el producto']
+}
+
+Table Recepcion {
+  Id int [pk, increment]
+  TemporadaId int [not null]
+  ProveedorId int [not null]
+  CodigoClienteId int [null, note: 'Misma regla que en Pedido']
+  NroFactura nvarchar(50) [null]
+  Fecha date [not null]
+  Observacion nvarchar(500) [null]
+  Anulada bit [not null, note: 'Solo si el stock actual de cada almacén alcanza']
+}
+
+Table RecepcionDetalle {
+  Id int [pk, increment]
+  RecepcionId int [not null, note: 'Cascade']
+  ProductoId int [not null]
+  CantidadUnidades int [not null, note: 'Suma de su distribución']
+  PrecioCompraUnidad decimal(18,2) [not null, note: 'Precio de la línea del pedido']
+}
+
+Table RecepcionDistribucion {
+  Id int [pk, increment]
+  RecepcionDetalleId int [not null, note: 'Cascade. Único (RecepcionDetalleId, AlmacenId)']
+  AlmacenId int [not null, note: 'AuthDB (SistemaId = 2, activo), sin FK']
+  CantidadUnidades int [not null, note: '> 0']
+}
+
+Table Compra {
+  Id int [pk, increment]
+  TemporadaId int [not null]
+  ProveedorId int [not null, note: 'Cualquier proveedor activo de la temporada']
+  NroNota nvarchar(50) [null]
+  Fecha date [not null]
+  PagadaAlContado bit [not null]
+  PagoProveedorId int [null, note: 'FK PagoProveedor (Restrict): pago automático por el total si PagadaAlContado']
+  Observacion nvarchar(500) [null]
+  Anulada bit [not null, note: 'Solo si el stock actual de cada almacén alcanza; anula también el pago automático']
+}
+
+Table CompraDetalle {
+  Id int [pk, increment]
+  CompraId int [not null, note: 'Cascade. Único (CompraId, ProductoId)']
+  ProductoId int [not null, note: 'Cualquier producto activo de la temporada']
+  CantidadUnidades int [not null, note: 'Suma de su distribución']
+  PrecioCompraUnidad decimal(18,2) [not null, note: '> 0']
+}
+
+Table CompraDistribucion {
+  Id int [pk, increment]
+  CompraDetalleId int [not null, note: 'Cascade. Único (CompraDetalleId, AlmacenId)']
+  AlmacenId int [not null, note: 'AuthDB (SistemaId = 2, activo), sin FK']
+  CantidadUnidades int [not null, note: '> 0']
+}
+
+Table StockAlmacen {
+  Id int [pk, increment]
+  TemporadaId int [not null]
+  ProductoId int [not null, note: 'UX_StockAlmacen_Producto_Almacen (ProductoId, AlmacenId)']
+  AlmacenId int [not null, note: 'AuthDB, sin FK']
+  Cantidad int [not null, note: 'CK_StockAlmacen_CantidadNoNegativa: >= 0']
+}
+
+Table MovimientoNav {
+  Id int [pk, increment]
+  TemporadaId int [not null]
+  AlmacenId int [not null, note: 'AuthDB, sin FK']
+  ProductoId int [not null]
+  Cantidad int [not null, note: '+ entrada / − salida']
+  Tipo int [not null, note: 'TipoMovimientoNav: 1 Recepcion, 2 TrasladoSalida, 3 TrasladoEntrada, 4 Venta, 5 EntregaReserva, 6 Consumo, 7 SalidaRuta, 8 DevolucionRuta, 9 AjusteConteo, 10 AnulacionVenta, 11 AnulacionRecepcion, 12 Compra, 13 AnulacionCompra']
+  ReferenciaTipo nvarchar(30) [not null, note: 'Recepcion, Compra, Venta, Traslado…']
+  ReferenciaId int [not null]
+  UsuarioId int [not null, note: 'AuthDB, sin FK']
+  Fecha datetime2 [not null, note: 'UTC']
+  Motivo nvarchar(500) [null]
+}
+
+Table PagoProveedor {
+  Id int [pk, increment]
+  TemporadaId int [not null]
+  ProveedorId int [not null]
+  CodigoClienteId int [null, note: 'Misma regla que en Pedido']
+  Fecha date [not null]
+  Monto decimal(18,2) [not null, note: '> 0']
+  Medio int [not null, note: 'MedioPagoNav: 1 Transferencia, 2 Efectivo']
+  Comprobante nvarchar(100) [null]
+  Observacion nvarchar(500) [null]
+}
+
+Ref: Pedido.TemporadaId > Temporada.Id
+Ref: Pedido.ProveedorId > Proveedor.Id
+Ref: Pedido.CodigoClienteId > CodigoCliente.Id
+Ref: PedidoDetalle.PedidoId > Pedido.Id
+Ref: PedidoDetalle.ProductoId > Producto.Id
+Ref: Recepcion.TemporadaId > Temporada.Id
+Ref: Recepcion.ProveedorId > Proveedor.Id
+Ref: Recepcion.CodigoClienteId > CodigoCliente.Id
+Ref: RecepcionDetalle.RecepcionId > Recepcion.Id
+Ref: RecepcionDetalle.ProductoId > Producto.Id
+Ref: RecepcionDistribucion.RecepcionDetalleId > RecepcionDetalle.Id
+Ref: Compra.TemporadaId > Temporada.Id
+Ref: Compra.ProveedorId > Proveedor.Id
+Ref: Compra.PagoProveedorId > PagoProveedor.Id
+Ref: CompraDetalle.CompraId > Compra.Id
+Ref: CompraDetalle.ProductoId > Producto.Id
+Ref: CompraDistribucion.CompraDetalleId > CompraDetalle.Id
+Ref: StockAlmacen.TemporadaId > Temporada.Id
+Ref: StockAlmacen.ProductoId > Producto.Id
+Ref: MovimientoNav.TemporadaId > Temporada.Id
+Ref: MovimientoNav.ProductoId > Producto.Id
+Ref: PagoProveedor.TemporadaId > Temporada.Id
+Ref: PagoProveedor.ProveedorId > Proveedor.Id
+Ref: PagoProveedor.CodigoClienteId > CodigoCliente.Id
 ```
 
 ---
@@ -777,11 +936,17 @@ Ref: Vendedor.TemporadaId > Temporada.Id
 | **Navidad — catalogo** (DB_NAVIDAD) | | |
 | | Proveedor | ✅ |
 | | CodigoCliente | ✅ |
-| | Producto | ✅ |
-| | ProductoPresentacion | ✅ |
+| | Producto (con alias y empaque) | ✅ |
+| | ~~ProductoPresentacion~~ | eliminada (2026-10-08) |
 | | Vendedor | ✅ |
 | | ClienteNav | ✅ |
 | | CategoriaProductoNav | ✅ |
+| **Navidad — abastecimiento** (DB_NAVIDAD) | | |
+| | Pedido / PedidoDetalle | ✅ |
+| | Recepcion / RecepcionDetalle / RecepcionDistribucion | ✅ |
+| | Compra / CompraDetalle / CompraDistribucion (Ajuste 2) | ✅ |
+| | StockAlmacen (Ajuste 2, reemplaza LoteAlmacen) / MovimientoNav | ✅ |
+| | PagoProveedor | ✅ |
 
 ---
 

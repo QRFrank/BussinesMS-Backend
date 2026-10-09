@@ -115,6 +115,7 @@ public class ProveedorNavService : IProveedorNavService
                 TemporadaId = temporada.Id,
                 Nombre = nombre,
                 UsaCodigosCliente = dto.UsaCodigosCliente,
+                TrabajaConPedido = dto.TrabajaConPedido,
                 Telefono = Limpiar(dto.Telefono),
                 Observacion = Limpiar(dto.Observacion)
             };
@@ -152,6 +153,7 @@ public class ProveedorNavService : IProveedorNavService
 
             existente.Nombre = nombre;
             existente.UsaCodigosCliente = dto.UsaCodigosCliente;
+            existente.TrabajaConPedido = dto.TrabajaConPedido;
             existente.Telefono = Limpiar(dto.Telefono);
             existente.Observacion = Limpiar(dto.Observacion);
 

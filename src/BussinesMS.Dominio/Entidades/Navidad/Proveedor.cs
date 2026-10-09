@@ -7,6 +7,8 @@ public class Proveedor : EntidadBase
     public int TemporadaId { get; set; }
     public string Nombre { get; set; } = string.Empty;
     public bool UsaCodigosCliente { get; set; }
+    // La deuda nace con el pedido; la recepción se limita a lo pedido
+    public bool TrabajaConPedido { get; set; }
     public string? Telefono { get; set; }
     public string? Observacion { get; set; }
 
