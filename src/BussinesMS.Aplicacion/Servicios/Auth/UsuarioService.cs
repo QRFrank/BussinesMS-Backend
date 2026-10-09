@@ -62,10 +62,22 @@ public class UsuarioService : IUsuarioService
                                                  u.Nombre!.ToLower().Contains(filterLower));
             }
 
+            // Acceso a un sistema: fila en UsuarioSistema, o sin filas y ese sistema como default
+            if (query.SistemaId.HasValue)
+            {
+                var sistemaId = query.SistemaId.Value;
+                baseQuery = baseQuery.Where(u => u.UsuarioSistemas.Any(us => us.SistemaId == sistemaId) ||
+                                                 (!u.UsuarioSistemas.Any() && u.SistemaIdDefault == sistemaId));
+            }
+
             (var filteredQuery, var totalCount) = baseQuery.ApplyFilters(query);
 
             var usuarios = await filteredQuery.ToListAsync();
             var dtos = _mapper.Map<List<UsuarioDto>>(usuarios);
+
+            var sistemasPorUsuario = await _repositorio.ObtenerSistemaIdsPorUsuariosAsync(usuarios.Select(u => u.Id).ToList());
+            foreach (var dto in dtos)
+                dto.SistemaIds = sistemasPorUsuario.TryGetValue(dto.Id, out var ids) ? ids : new List<int> { dto.SistemaIdDefault };
 
             return new PagedResultDto<UsuarioDto>
             {
@@ -156,6 +168,14 @@ public class UsuarioService : IUsuarioService
                 if (rol?.Rol != null && !string.IsNullOrEmpty(rol.Rol.MenuIds))
                 {
                     var menuIds = JsonSerializer.Deserialize<List<int>>(rol.Rol.MenuIds) ?? new List<int>();
+
+                    // La plantilla del rol solo tiene menús del regular: se aplican solo los de los sistemas del usuario
+                    var menuIdsDeSistemas = (await _menuRepositorio.ObtenerTodosAsync())
+                        .Where(m => m.SistemaId.HasValue && sistemaIds.Contains(m.SistemaId.Value))
+                        .Select(m => m.Id)
+                        .ToHashSet();
+                    menuIds = menuIds.Where(menuIdsDeSistemas.Contains).ToList();
+
                     menusAsignar = menuIds.Select(menuId => new MenuPermisoSimpleDto
                     {
                         MenuId = menuId,
@@ -493,6 +513,7 @@ public class UsuarioService : IUsuarioService
                 Icono = menu.Icono,
                 Orden = menu.Orden,
                 IsGroup = true,
+                SistemaId = menu.SistemaId,
                 SistemaNombre = menu.Sistema?.Nombre,
                 SubMenus = hijos!
             };
@@ -509,6 +530,7 @@ public class UsuarioService : IUsuarioService
             Url = menu.Url,
             Icono = menu.Icono,
             Orden = menu.Orden,
+            SistemaId = menu.SistemaId,
             SistemaNombre = menu.Sistema?.Nombre,
             Leer = usuarioMenu?.Leer ?? false,
             Crear = usuarioMenu?.Crear ?? false,

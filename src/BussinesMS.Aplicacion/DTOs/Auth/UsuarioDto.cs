@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using BussinesMS.Aplicacion.DTOs.Plantillas;
 
 namespace BussinesMS.Aplicacion.DTOs.Auth;
@@ -13,6 +14,10 @@ public class UsuarioDto
     public int? RolId { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    // Solo lo llena el listado (GET /api/Usuarios); en el resto de respuestas queda null y no se serializa
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<int>? SistemaIds { get; set; }
 }
 
 public class CrearUsuarioDto
@@ -48,6 +53,9 @@ public class UsuarioFiltroDto : GenericPaginationQueryDto
 {
     // null → todos (activos e inactivos); true → solo activos; false → solo inactivos
     public bool? IsActive { get; set; }
+
+    // null → todos los sistemas; con valor → solo usuarios con acceso a ese sistema
+    public int? SistemaId { get; set; }
 }
 
 public class UsuarioConMenusDto

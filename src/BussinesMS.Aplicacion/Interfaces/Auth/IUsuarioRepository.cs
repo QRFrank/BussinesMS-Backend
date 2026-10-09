@@ -14,5 +14,6 @@ public interface IUsuarioRepository : IRepositorio<Usuario>
     Task EliminarMenusAsync(int usuarioId);
     Task<Usuario> ReactivarAsync(int id);
     Task<List<int>> ObtenerSistemaIdsAsync(int usuarioId);
+    Task<Dictionary<int, List<int>>> ObtenerSistemaIdsPorUsuariosAsync(List<int> usuarioIds);
     Task ReemplazarSistemasAsync(int usuarioId, List<int> sistemaIds);
 }

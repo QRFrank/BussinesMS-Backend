@@ -83,6 +83,20 @@ public class UsuarioRepository : RepositorioBase<Usuario>, IUsuarioRepository
             .ToListAsync();
     }
 
+    public async Task<Dictionary<int, List<int>>> ObtenerSistemaIdsPorUsuariosAsync(List<int> usuarioIds)
+    {
+        if (usuarioIds.Count == 0) return new Dictionary<int, List<int>>();
+
+        var filas = await ((AuthDbContext)_contexto).UsuarioSistemas
+            .Where(us => usuarioIds.Contains(us.UsuarioId))
+            .Select(us => new { us.UsuarioId, us.SistemaId })
+            .ToListAsync();
+
+        return filas
+            .GroupBy(f => f.UsuarioId)
+            .ToDictionary(g => g.Key, g => g.Select(f => f.SistemaId).OrderBy(id => id).ToList());
+    }
+
     public async Task ReemplazarSistemasAsync(int usuarioId, List<int> sistemaIds)
     {
         var contexto = (AuthDbContext)_contexto;

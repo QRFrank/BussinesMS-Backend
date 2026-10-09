@@ -174,6 +174,7 @@ public class MenuService : IMenuService
                         Icono = m.Icono,
                         Orden = m.Orden,
                         IsGroup = true,
+                        SistemaId = m.SistemaId,
                         SistemaNombre = m.Sistema?.Nombre,
                         SubMenus = hijos
                     };
@@ -186,6 +187,7 @@ public class MenuService : IMenuService
                     Url = m.Url,
                     Icono = m.Icono,
                     Orden = m.Orden,
+                    SistemaId = m.SistemaId,
                     SistemaNombre = m.Sistema?.Nombre,
                     Leer = true,
                     Crear = true,
