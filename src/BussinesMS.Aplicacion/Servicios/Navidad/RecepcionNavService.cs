@@ -208,8 +208,10 @@ public class RecepcionNavService : IRecepcionNavService
 
             foreach (var item in dto.Detalles)
             {
-                if (!productos.TryGetValue(item.ProductoId, out var producto) || !producto.IsActive)
-                    throw new ValidacionException($"El producto {item.ProductoId} no existe o está inactivo");
+                if (!productos.TryGetValue(item.ProductoId, out var producto))
+                    throw new ValidacionException($"El producto {item.ProductoId} no existe");
+                if (!producto.IsActive)
+                    throw new ValidacionException($"El producto {NombreMostrar(producto)} está inactivo");
                 if (producto.ProveedorId != proveedor.Id)
                     throw new ValidacionException($"El producto {NombreMostrar(producto)} no pertenece al proveedor");
 

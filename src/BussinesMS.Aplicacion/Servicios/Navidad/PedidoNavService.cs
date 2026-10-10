@@ -383,8 +383,10 @@ public class PedidoNavService : IPedidoNavService
 
         foreach (var id in ids)
         {
-            if (!productos.TryGetValue(id, out var producto) || !producto.IsActive)
-                throw new ValidacionException($"El producto {id} no existe o está inactivo");
+            if (!productos.TryGetValue(id, out var producto))
+                throw new ValidacionException($"El producto {id} no existe");
+            if (!producto.IsActive)
+                throw new ValidacionException($"El producto {NombreMostrar(producto)} está inactivo");
             if (producto.ProveedorId != proveedor.Id)
                 throw new ValidacionException($"El producto {NombreMostrar(producto)} no pertenece al proveedor");
         }

@@ -169,7 +169,8 @@ public class StockNavService : IStockNavService
                     s.Producto.ProveedorId,
                     ProveedorNombre = s.Producto.Proveedor != null ? s.Producto.Proveedor.Nombre : string.Empty,
                     s.Producto.UnidadesPorEmpaque,
-                    s.Producto.NombreEmpaque
+                    s.Producto.NombreEmpaque,
+                    s.Producto.Color
                 })
                 .ToListAsync();
 
@@ -190,6 +191,7 @@ public class StockNavService : IStockNavService
                         ProveedorNombre = f.ProveedorNombre,
                         UnidadesPorEmpaque = f.UnidadesPorEmpaque,
                         NombreEmpaque = f.NombreEmpaque,
+                        Color = f.Color,
                         AlmacenId = f.AlmacenId,
                         AlmacenNombre = nombresAlmacen.TryGetValue(f.AlmacenId, out var n) ? n : string.Empty,
                         Stock = f.Cantidad,

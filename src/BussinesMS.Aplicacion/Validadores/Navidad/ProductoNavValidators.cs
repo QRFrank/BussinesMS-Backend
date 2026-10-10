@@ -31,6 +31,9 @@ public class CrearProductoNavDtoValidator : AbstractValidator<CrearProductoNavDt
         RuleFor(x => x.NombreEmpaque)
             .Must(n => n == null || n.Trim().Length <= 20)
             .WithMessage("El nombre del empaque no puede superar 20 caracteres");
+        RuleFor(x => x.Color)
+            .Must(c => string.IsNullOrWhiteSpace(c) || System.Text.RegularExpressions.Regex.IsMatch(c.Trim(), "^#[0-9A-Fa-f]{6}$"))
+            .WithMessage("El color debe tener formato hexadecimal #RRGGBB");
     }
 }
 
@@ -64,5 +67,8 @@ public class ActualizarProductoNavDtoValidator : AbstractValidator<ActualizarPro
         RuleFor(x => x.NombreEmpaque)
             .Must(n => n == null || n.Trim().Length <= 20)
             .WithMessage("El nombre del empaque no puede superar 20 caracteres");
+        RuleFor(x => x.Color)
+            .Must(c => string.IsNullOrWhiteSpace(c) || System.Text.RegularExpressions.Regex.IsMatch(c.Trim(), "^#[0-9A-Fa-f]{6}$"))
+            .WithMessage("El color debe tener formato hexadecimal #RRGGBB");
     }
 }

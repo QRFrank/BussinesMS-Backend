@@ -14,4 +14,6 @@ public interface IProductoNavRepository : IRepositorio<Producto>
     // Sin tracking (copia de catálogo): productos activos de proveedores activos
     Task<List<Producto>> ObtenerActivosPorTemporadaAsync(int temporadaId);
     Task<bool> TieneProductosActivosPorCategoriaAsync(int categoriaId);
+    // Activa o desactiva con auditoría: al desactivar pone DeletedAt/DeletedBy; al activar los limpia; siempre UpdatedAt/UpdatedBy
+    Task CambiarEstadoAsync(Producto entidad, bool isActive);
 }

@@ -7,6 +7,9 @@ public class ProductoNavFiltroDto : GenericPaginationQueryDto
     public int? TemporadaId { get; set; }
     public int? ProveedorId { get; set; }
     public int? CategoriaProductoId { get; set; }
+    // Sin isActive ni incluirInactivos: solo activos. incluirInactivos=true: todos. isActive manda sobre incluirInactivos
+    public bool? IsActive { get; set; }
+    public bool? IncluirInactivos { get; set; }
 }
 
 public class ProductoNavDto
@@ -25,6 +28,8 @@ public class ProductoNavDto
     public decimal PrecioCatalogo { get; set; }
     public int? UnidadesPorEmpaque { get; set; }
     public string? NombreEmpaque { get; set; }
+    // Hex #RRGGBB o null
+    public string? Color { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
 }
@@ -40,6 +45,7 @@ public class CrearProductoNavDto
     // Opcionales, van juntos
     public int? UnidadesPorEmpaque { get; set; }
     public string? NombreEmpaque { get; set; }
+    public string? Color { get; set; }
 }
 
 public class ActualizarProductoNavDto
@@ -54,6 +60,7 @@ public class ActualizarProductoNavDto
     // Opcionales, van juntos
     public int? UnidadesPorEmpaque { get; set; }
     public string? NombreEmpaque { get; set; }
+    public string? Color { get; set; }
 }
 
 // Ítem de la actualización masiva de precios (PUT api/Navidad/Productos/precios)
@@ -67,4 +74,10 @@ public class ActualizarPrecioProductoNavDto
 public class ActualizarPreciosResultadoNavDto
 {
     public int Actualizados { get; set; }
+}
+
+// Body de PATCH api/Navidad/Productos/{id}/estado
+public class CambiarEstadoProductoNavDto
+{
+    public bool IsActive { get; set; }
 }

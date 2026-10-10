@@ -20,6 +20,8 @@ public class StockNavDto
     public string ProveedorNombre { get; set; } = string.Empty;
     public int? UnidadesPorEmpaque { get; set; }
     public string? NombreEmpaque { get; set; }
+    // Color de la tarjeta del producto (hex #RRGGBB o null)
+    public string? Color { get; set; }
     public int AlmacenId { get; set; }
     public string AlmacenNombre { get; set; } = string.Empty;
     public int Stock { get; set; }

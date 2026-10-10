@@ -11,4 +11,5 @@ public interface IProductoNavService
     Task<ProductoNavDto> ActualizarAsync(ActualizarProductoNavDto dto);
     Task EliminarAsync(int id);
     Task<ActualizarPreciosResultadoNavDto> ActualizarPreciosAsync(List<ActualizarPrecioProductoNavDto> items);
+    Task<ProductoNavDto> CambiarEstadoAsync(int id, bool isActive);
 }

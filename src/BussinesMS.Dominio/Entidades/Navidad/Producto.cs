@@ -16,6 +16,8 @@ public class Producto : EntidadBase
     // Empaque opcional: van juntos; UnidadesPorEmpaque > 1
     public int? UnidadesPorEmpaque { get; set; }
     public string? NombreEmpaque { get; set; }
+    // Color de la tarjeta en pantalla: hex "#RRGGBB" o null
+    public string? Color { get; set; }
 
     public Temporada? Temporada { get; set; }
     public Proveedor? Proveedor { get; set; }

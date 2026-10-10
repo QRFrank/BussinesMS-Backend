@@ -139,7 +139,8 @@ public class CatalogoNavService : ICatalogoNavService
                         PrecioCompraUnidad = 0,
                         PrecioCatalogo = 0,
                         UnidadesPorEmpaque = prod.UnidadesPorEmpaque,
-                        NombreEmpaque = prod.NombreEmpaque
+                        NombreEmpaque = prod.NombreEmpaque,
+                        Color = prod.Color
                     });
                     resultado.Productos++;
                 }

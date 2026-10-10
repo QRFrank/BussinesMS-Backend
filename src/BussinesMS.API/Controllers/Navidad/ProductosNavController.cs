@@ -53,6 +53,13 @@ public class ProductosNavController : BaseController
         return RespuestaOk(resultado, "Precios actualizados");
     }
 
+    [HttpPatch("{id:int}/estado")]
+    public async Task<IActionResult> CambiarEstado(int id, [FromBody] CambiarEstadoProductoNavDto dto)
+    {
+        var resultado = await _servicio.CambiarEstadoAsync(id, dto.IsActive);
+        return RespuestaOk(resultado, dto.IsActive ? "Producto activado" : "Producto desactivado");
+    }
+
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Eliminar(int id)
     {

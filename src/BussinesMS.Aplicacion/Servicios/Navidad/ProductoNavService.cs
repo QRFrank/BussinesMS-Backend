@@ -49,7 +49,13 @@ public class ProductoNavService : IProductoNavService
             var baseQuery = _repo.AsQueryable()
                 .Include(x => x.Proveedor)
                 .Include(x => x.Categoria)
-                .Where(x => x.IsActive && x.TemporadaId == temporadaId);
+                .Where(x => x.TemporadaId == temporadaId);
+
+            // isActive manda; si no viene, incluirInactivos=true trae todos; por defecto solo activos
+            if (query.IsActive.HasValue)
+                baseQuery = baseQuery.Where(x => x.IsActive == query.IsActive.Value);
+            else if (query.IncluirInactivos != true)
+                baseQuery = baseQuery.Where(x => x.IsActive);
 
             if (query.ProveedorId.HasValue)
                 baseQuery = baseQuery.Where(x => x.ProveedorId == query.ProveedorId.Value);
@@ -96,7 +102,7 @@ public class ProductoNavService : IProductoNavService
         try
         {
             var entidad = await _repo.ObtenerConDetalleAsync(id);
-            if (entidad == null || !entidad.IsActive) return null;
+            if (entidad == null) return null;
             return _mapper.Map<ProductoNavDto>(entidad);
         }
         catch (Exception ex)
@@ -116,6 +122,7 @@ public class ProductoNavService : IProductoNavService
             var nombre = NormalizarNombre(dto.Nombre);
             ValidarMontos(dto.PrecioCompraUnidad, dto.PrecioCatalogo);
             var (unidadesPorEmpaque, nombreEmpaque) = NormalizarEmpaque(dto.UnidadesPorEmpaque, dto.NombreEmpaque);
+            var color = NormalizarColor(dto.Color);
 
             await ObtenerProveedorValidoAsync(dto.ProveedorId, temporada.Id);
             await ValidarCategoriaAsync(dto.CategoriaProductoId);
@@ -132,7 +139,8 @@ public class ProductoNavService : IProductoNavService
                 PrecioCompraUnidad = dto.PrecioCompraUnidad,
                 PrecioCatalogo = dto.PrecioCatalogo,
                 UnidadesPorEmpaque = unidadesPorEmpaque,
-                NombreEmpaque = nombreEmpaque
+                NombreEmpaque = nombreEmpaque,
+                Color = color
             });
             var productoId = creado.Id;
 
@@ -161,6 +169,7 @@ public class ProductoNavService : IProductoNavService
             var nombre = NormalizarNombre(dto.Nombre);
             ValidarMontos(dto.PrecioCompraUnidad, dto.PrecioCatalogo);
             var (unidadesPorEmpaque, nombreEmpaque) = NormalizarEmpaque(dto.UnidadesPorEmpaque, dto.NombreEmpaque);
+            var color = NormalizarColor(dto.Color);
 
             // El proveedor debe ser de la misma temporada que el producto
             await ObtenerProveedorValidoAsync(dto.ProveedorId, existente.TemporadaId);
@@ -176,6 +185,7 @@ public class ProductoNavService : IProductoNavService
             existente.PrecioCatalogo = dto.PrecioCatalogo;
             existente.UnidadesPorEmpaque = unidadesPorEmpaque;
             existente.NombreEmpaque = nombreEmpaque;
+            existente.Color = color;
             await _repo.ActualizarAsync(existente);
 
             _logger.LogInformation("Producto de temporada actualizado: {Id}", existente.Id);
@@ -210,6 +220,46 @@ public class ProductoNavService : IProductoNavService
         }
     }
 
+    // Activa o desactiva un producto (PATCH /{id}/estado). Idempotente si ya está en ese estado.
+    public async Task<ProductoNavDto> CambiarEstadoAsync(int id, bool isActive)
+    {
+        try
+        {
+            var existente = await _repo.ObtenerPorIdAsync(id);
+            if (existente == null)
+                throw new EntidadNoEncontradaException("Producto", id);
+
+            await _temporadaActual.VerificarEditableAsync(existente.TemporadaId);
+
+            if (existente.IsActive != isActive)
+            {
+                // Al activar pueden chocar los índices únicos filtrados por IsActive
+                if (isActive)
+                {
+                    if (await _repo.ExisteDescripcionAsync(existente.ProveedorId, existente.Descripcion, existente.Id))
+                        throw new ExcepcionDominio(
+                            $"No se puede activar: ya existe un producto activo para este proveedor con la descripción '{existente.Descripcion}'",
+                            409, "ENTIDAD_DUPLICADA");
+
+                    if (existente.Nombre != null && await _repo.ExisteNombreEnTemporadaAsync(existente.TemporadaId, existente.Nombre, existente.Id))
+                        throw new ExcepcionDominio(
+                            $"No se puede activar: ya existe un producto activo en esta temporada con el nombre '{existente.Nombre}'",
+                            409, "ENTIDAD_DUPLICADA");
+                }
+
+                await _repo.CambiarEstadoAsync(existente, isActive);
+                _logger.LogInformation("Producto de temporada {Id} {Estado}", id, isActive ? "activado" : "desactivado");
+            }
+
+            return await ObtenerDetalleDtoAsync(id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al cambiar el estado del producto de temporada {Id}", id);
+            throw;
+        }
+    }
+
     // Actualización masiva de precios de productos de la temporada abierta (todo o nada)
     public async Task<ActualizarPreciosResultadoNavDto> ActualizarPreciosAsync(List<ActualizarPrecioProductoNavDto> items)
     {
@@ -228,13 +278,20 @@ public class ProductoNavService : IProductoNavService
 
             var ids = items.Select(i => i.Id).ToList();
             var productos = await _repo.AsQueryable()
-                .Where(p => ids.Contains(p.Id) && p.IsActive && p.TemporadaId == temporada.Id)
+                .Where(p => ids.Contains(p.Id) && p.TemporadaId == temporada.Id)
                 .ToListAsync();
 
             var invalidos = ids.Except(productos.Select(p => p.Id)).ToList();
             if (invalidos.Count > 0)
                 throw new ValidacionException(
                     $"Los productos {string.Join(", ", invalidos)} no existen o no son de la temporada abierta");
+
+            // Un producto inactivo no se puede usar: se rechaza todo el lote
+            var inactivos = productos.Where(p => !p.IsActive).Select(p => p.Nombre ?? p.Descripcion).ToList();
+            if (inactivos.Count > 0)
+                throw new ValidacionException(inactivos.Count == 1
+                    ? $"El producto {inactivos[0]} está inactivo"
+                    : $"Los productos {string.Join(", ", inactivos)} están inactivos");
 
             var porId = productos.ToDictionary(p => p.Id);
 
@@ -317,6 +374,17 @@ public class ProductoNavService : IProductoNavService
             throw new ValidacionException("El nombre del empaque no puede superar 20 caracteres");
 
         return (unidadesPorEmpaque, nombre);
+    }
+
+    // Color opcional: vacío o solo espacios pasa a null; si viene, hex #RRGGBB
+    private static string? NormalizarColor(string? color)
+    {
+        var c = color?.Trim();
+        if (string.IsNullOrEmpty(c))
+            return null;
+        if (!System.Text.RegularExpressions.Regex.IsMatch(c, "^#[0-9A-Fa-f]{6}$"))
+            throw new ValidacionException("El color debe tener formato hexadecimal #RRGGBB");
+        return c;
     }
 
     // Reglas repetidas del validador por si FluentValidation no corre

@@ -46,6 +46,19 @@ public class ProductoNavRepository : NavidadRepositorioBase<Producto>, IProducto
             .OrderBy(p => p.Descripcion)
             .ToListAsync();
 
+    public async Task CambiarEstadoAsync(Producto entidad, bool isActive)
+    {
+        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var ahora = DateTime.UtcNow;
+        entidad.IsActive = isActive;
+        entidad.UpdatedAt = ahora;
+        entidad.UpdatedByUsuarioId = usuarioId;
+        entidad.DeletedAt = isActive ? null : ahora;
+        entidad.DeletedByUsuarioId = isActive ? null : usuarioId;
+        _dbSet.Update(entidad);
+        await _contexto.SaveChangesAsync();
+    }
+
     public async Task<bool> TieneProductosActivosPorCategoriaAsync(int categoriaId)
         => await _dbSet.AnyAsync(p => p.CategoriaProductoId == categoriaId && p.IsActive);
 }
