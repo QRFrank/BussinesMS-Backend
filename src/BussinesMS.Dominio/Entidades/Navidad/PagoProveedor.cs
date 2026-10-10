@@ -9,6 +9,8 @@ public class PagoProveedor : EntidadBase
     public int TemporadaId { get; set; }
     public int ProveedorId { get; set; }
     public int? CodigoClienteId { get; set; }
+    // Compra a la que paga (null = pago suelto al proveedor o código)
+    public int? CompraId { get; set; }
     public DateTime Fecha { get; set; }
     public decimal Monto { get; set; }
     public MedioPagoNav Medio { get; set; }
@@ -18,4 +20,5 @@ public class PagoProveedor : EntidadBase
     public Temporada? Temporada { get; set; }
     public Proveedor? Proveedor { get; set; }
     public CodigoCliente? CodigoCliente { get; set; }
+    public Compra? Compra { get; set; }
 }

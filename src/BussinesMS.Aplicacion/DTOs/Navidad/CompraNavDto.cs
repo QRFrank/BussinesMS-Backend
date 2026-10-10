@@ -12,6 +12,8 @@ public class CompraNavFiltroDto : GenericPaginationQueryDto
     // null → todas; true → solo anuladas; false → solo vigentes
     public bool? Anuladas { get; set; }
     public bool? PagadaAlContado { get; set; }
+    // 1 Pagada (saldo 0) | 2 Pendiente (saldo > 0); las anuladas no entran en el filtro
+    public int? EstadoPago { get; set; }
 }
 
 public class CompraNavDto
@@ -32,6 +34,16 @@ public class CompraNavDto
     public int CantidadProductos { get; set; }
     public int TotalUnidades { get; set; }
     public decimal MontoTotal { get; set; }
+    // Solo el pago automático (el creado con la compra) si está activo (0 si se anuló o no hay)
+    public decimal MontoPagoInicial { get; set; }
+    // Σ de los pagos activos vinculados a la compra (el automático y los posteriores)
+    public decimal MontoPagado { get; set; }
+    // MontoTotal - MontoPagado
+    public decimal SaldoCompra { get; set; }
+    // 1 Pagada (saldo 0) | 2 Pendiente (saldo > 0); null si la compra está anulada
+    public int? EstadoPago { get; set; }
+    // Derivada de MontoPagado: "contado" | "inicial" | "credito"
+    public string FormaPago { get; set; } = string.Empty;
     // Vacío en la lista
     public List<CompraDetalleNavDto> Detalles { get; set; } = new();
     public bool IsActive { get; set; }
@@ -69,6 +81,8 @@ public class CrearCompraNavDto
     public bool PagadaAlContado { get; set; }
     // Obligatorio si PagadaAlContado
     public MedioPagoNav? MedioPago { get; set; }
+    // Solo a crédito: pago inicial parcial (< total, exige MedioPago). Con PagadaAlContado se ignora
+    public decimal? MontoPagoInicial { get; set; }
     public string? Observacion { get; set; }
     public List<CrearCompraDetalleNavDto> Detalles { get; set; } = new();
 }

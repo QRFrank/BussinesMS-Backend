@@ -132,13 +132,33 @@ public class PagoProveedorNavService : IPagoProveedorNavService
 
             var temporada = await _temporadaActual.ObtenerAbiertaAsync();
             var proveedor = await ObtenerProveedorValidoAsync(dto.ProveedorId, temporada.Id);
-            await ValidarCodigoClienteAsync(proveedor, dto.CodigoClienteId);
+
+            if (dto.CompraId.HasValue)
+            {
+                // Pago de una compra: sin código (las compras no llevan), misma compra vigente, proveedor y temporada abierta
+                if (dto.CodigoClienteId.HasValue)
+                    throw new ValidacionException("El pago de una compra no lleva código de cliente");
+                var (compra, _, saldo) = await ObtenerSaldoCompraAsync(dto.CompraId.Value, null);
+                if (!compra.IsActive || compra.Anulada)
+                    throw new ValidacionException("La compra está anulada");
+                if (compra.ProveedorId != proveedor.Id)
+                    throw new ValidacionException("La compra no es de ese proveedor");
+                if (compra.TemporadaId != temporada.Id)
+                    throw new ValidacionException("La compra no es de la temporada abierta");
+                if (dto.Monto > saldo)
+                    throw new ValidacionException($"El monto ({dto.Monto}) no puede superar el saldo de la compra #{compra.Id} ({saldo})");
+            }
+            else
+            {
+                await ValidarCodigoClienteAsync(proveedor, dto.CodigoClienteId);
+            }
 
             var entidad = new PagoProveedor
             {
                 TemporadaId = temporada.Id,
                 ProveedorId = proveedor.Id,
                 CodigoClienteId = dto.CodigoClienteId,
+                CompraId = dto.CompraId,
                 Fecha = dto.Fecha.Date,
                 Monto = dto.Monto,
                 Medio = dto.Medio,
@@ -160,6 +180,57 @@ public class PagoProveedorNavService : IPagoProveedorNavService
         }
     }
 
+    public async Task<PagoProveedorNavDto> ActualizarAsync(ActualizarPagoProveedorNavDto dto)
+    {
+        try
+        {
+            var pago = await _repo.ObtenerPorIdAsync(dto.Id);
+            if (pago == null)
+                throw new EntidadNoEncontradaException("Pago a proveedor", dto.Id);
+            if (!pago.IsActive)
+                throw new ValidacionException("El pago está anulado: no se puede editar");
+
+            await _temporadaActual.VerificarEditableAsync(pago.TemporadaId);
+
+            if (dto.Fecha == default)
+                throw new ValidacionException("La fecha es obligatoria");
+            if (dto.Monto <= 0)
+                throw new ValidacionException("El monto debe ser mayor a 0");
+            if (!Enum.IsDefined(typeof(MedioPagoNav), dto.Medio))
+                throw new ValidacionException("El medio de pago es inválido");
+            if (dto.Comprobante != null && dto.Comprobante.Trim().Length > 100)
+                throw new ValidacionException("El comprobante no puede superar 100 caracteres");
+            if (dto.Observacion != null && dto.Observacion.Trim().Length > 500)
+                throw new ValidacionException("La observación no puede superar 500 caracteres");
+
+            // Pago de una compra: no puede superar el total de la compra
+            if (pago.CompraId.HasValue)
+            {
+                var (compra, total, saldoSinEste) = await ObtenerSaldoCompraAsync(pago.CompraId.Value, pago.Id);
+                if (dto.Monto > saldoSinEste)
+                    throw new ValidacionException($"El monto ({dto.Monto}) no puede superar lo que admite la compra #{compra.Id}: {saldoSinEste} (total {total} menos los otros pagos)");
+            }
+
+            // No cambia proveedor, código ni compra vinculada
+            pago.Fecha = dto.Fecha.Date;
+            pago.Monto = dto.Monto;
+            pago.Medio = dto.Medio;
+            pago.Comprobante = NormalizarTexto(dto.Comprobante);
+            pago.Observacion = NormalizarTexto(dto.Observacion);
+            await _repo.ActualizarAsync(pago);
+
+            _logger.LogInformation("Pago a proveedor actualizado: {Id}", pago.Id);
+
+            return await ObtenerPorIdAsync(pago.Id)
+                ?? throw new EntidadNoEncontradaException("Pago a proveedor", pago.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al actualizar pago a proveedor {Id}", dto.Id);
+            throw;
+        }
+    }
+
     public async Task AnularAsync(int id)
     {
         try
@@ -172,11 +243,6 @@ public class PagoProveedorNavService : IPagoProveedorNavService
                 throw new ValidacionException("El pago ya está anulado");
 
             await _temporadaActual.VerificarEditableAsync(pago.TemporadaId);
-
-            // Ajuste 2: el pago automático de una compra al contado se anula anulando la compra
-            var compras = await ObtenerComprasDePagosAsync(new[] { id });
-            if (compras.TryGetValue(id, out var compraId) && compraId.HasValue)
-                throw new ValidacionException($"Este pago es el pago al contado de la compra #{compraId.Value}: anule la compra");
 
             await _repo.EliminarAsync(id);
             _logger.LogInformation("Pago a proveedor anulado: {Id}", id);
@@ -244,24 +310,41 @@ public class PagoProveedorNavService : IPagoProveedorNavService
             throw new ValidacionException("El código no pertenece al proveedor");
     }
 
-    // Pago → compra al contado que lo generó (solo los que tienen compra)
-    private async Task<Dictionary<int, int?>> ObtenerComprasDePagosAsync(IEnumerable<int> pagoIds)
+    // Pago → compra vinculada (solo los que tienen compra)
+    private async Task<Dictionary<int, CompraRef?>> ObtenerComprasDePagosAsync(IEnumerable<int> pagoIds)
     {
         var ids = pagoIds.Distinct().ToList();
-        if (ids.Count == 0) return new Dictionary<int, int?>();
-        var filas = await _compraRepo.AsQueryable()
+        if (ids.Count == 0) return new Dictionary<int, CompraRef?>();
+        var filas = await _repo.AsQueryable()
             .AsNoTracking()
-            .Where(c => c.PagoProveedorId.HasValue && ids.Contains(c.PagoProveedorId.Value))
-            .Select(c => new { PagoId = c.PagoProveedorId!.Value, c.Id })
+            .Where(p => ids.Contains(p.Id) && p.CompraId.HasValue)
+            .Select(p => new { p.Id, CompraId = p.CompraId!.Value, p.Compra!.NroNota })
             .ToListAsync();
-        return filas.GroupBy(f => f.PagoId).ToDictionary(g => g.Key, g => (int?)g.Max(f => f.Id));
+        return filas.ToDictionary(f => f.Id, f => (CompraRef?)new CompraRef(f.CompraId, f.NroNota));
+    }
+
+    private sealed record CompraRef(int Id, string? NroNota);
+
+    // Saldo de una compra = total - pagos activos vinculados (sin contar excluirPagoId)
+    private async Task<(Compra Compra, decimal Total, decimal Saldo)> ObtenerSaldoCompraAsync(int compraId, int? excluirPagoId)
+    {
+        var compra = await _compraRepo.AsQueryable()
+            .AsNoTracking()
+            .Include(c => c.Detalles)
+            .Include(c => c.Pagos)
+            .FirstOrDefaultAsync(c => c.Id == compraId)
+            ?? throw new ValidacionException("La compra no existe");
+        var total = Math.Round(compra.Detalles.Sum(d => d.CantidadUnidades * d.PrecioCompraUnidad), 2, MidpointRounding.AwayFromZero);
+        var pagado = compra.Pagos.Where(p => p.IsActive && p.Id != excluirPagoId).Sum(p => p.Monto);
+        return (compra, total, Math.Round(total - pagado, 2, MidpointRounding.AwayFromZero));
     }
 
     // ---------- Mapeo ----------
 
-    private static PagoProveedorNavDto Mapear(PagoProveedor e, int? compraId) => new()
+    private static PagoProveedorNavDto Mapear(PagoProveedor e, CompraRef? compra) => new()
     {
-        CompraId = compraId,
+        CompraId = compra?.Id,
+        CompraNroNota = compra?.NroNota,
         Id = e.Id,
         TemporadaId = e.TemporadaId,
         ProveedorId = e.ProveedorId,

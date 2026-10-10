@@ -4,6 +4,7 @@ using BussinesMS.Infraestructura.Persistencia;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BussinesMS.Infraestructura.Migrations.NavidadDb
 {
     [DbContext(typeof(NavidadDbContext))]
-    partial class NavidadDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261010222150_PagoCompraComprobanteBackfill")]
+    partial class PagoCompraComprobanteBackfill
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -318,6 +321,9 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                     b.Property<bool>("PagadaAlContado")
                         .HasColumnType("bit");
 
+                    b.Property<int?>("PagoProveedorId")
+                        .HasColumnType("int");
+
                     b.Property<int>("ProveedorId")
                         .HasColumnType("int");
 
@@ -333,6 +339,8 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                     b.HasKey("Id");
 
                     b.HasIndex("Fecha");
+
+                    b.HasIndex("PagoProveedorId");
 
                     b.HasIndex("ProveedorId");
 
@@ -687,9 +695,6 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                     b.Property<int?>("CodigoClienteId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("CompraId")
-                        .HasColumnType("int");
-
                     b.Property<string>("Comprobante")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -737,8 +742,6 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                     b.HasKey("Id");
 
                     b.HasIndex("CodigoClienteId");
-
-                    b.HasIndex("CompraId");
 
                     b.HasIndex("ProveedorId");
 
@@ -1397,6 +1400,11 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
 
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.Compra", b =>
                 {
+                    b.HasOne("BussinesMS.Dominio.Entidades.Navidad.PagoProveedor", "PagoProveedor")
+                        .WithMany()
+                        .HasForeignKey("PagoProveedorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("BussinesMS.Dominio.Entidades.Navidad.Proveedor", "Proveedor")
                         .WithMany()
                         .HasForeignKey("ProveedorId")
@@ -1408,6 +1416,8 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                         .HasForeignKey("TemporadaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("PagoProveedor");
 
                     b.Navigation("Proveedor");
 
@@ -1508,10 +1518,6 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                         .HasForeignKey("CodigoClienteId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("BussinesMS.Dominio.Entidades.Navidad.Compra", "Compra")
-                        .WithMany("Pagos")
-                        .HasForeignKey("CompraId");
-
                     b.HasOne("BussinesMS.Dominio.Entidades.Navidad.Proveedor", "Proveedor")
                         .WithMany()
                         .HasForeignKey("ProveedorId")
@@ -1525,8 +1531,6 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                         .IsRequired();
 
                     b.Navigation("CodigoCliente");
-
-                    b.Navigation("Compra");
 
                     b.Navigation("Proveedor");
 
@@ -1721,8 +1725,6 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.Compra", b =>
                 {
                     b.Navigation("Detalles");
-
-                    b.Navigation("Pagos");
                 });
 
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.CompraDetalle", b =>

@@ -20,6 +20,8 @@ public class CompraNavService : ICompraNavService
 {
     private const int SistemaNavidadId = 2;
     private const string ReferenciaCompra = "Compra";
+    private const string ObsPagoContado = "Pago al contado de compra";
+    private const string ObsPagoInicial = "Pago inicial de compra a crédito";
 
     private readonly ICompraNavRepository _repo;
     private readonly IPagoProveedorNavRepository _pagoRepo;
@@ -65,7 +67,7 @@ public class CompraNavService : ICompraNavService
             var baseQuery = _repo.AsQueryable()
                 .AsNoTracking()
                 .Include(x => x.Proveedor)
-                .Include(x => x.PagoProveedor)
+                .Include(x => x.Pagos)
                 .Include(x => x.Detalles)
                 .Where(x => x.IsActive && x.TemporadaId == temporadaId);
 
@@ -89,6 +91,16 @@ public class CompraNavService : ICompraNavService
 
             if (query.PagadaAlContado.HasValue)
                 baseQuery = baseQuery.Where(x => x.PagadaAlContado == query.PagadaAlContado.Value);
+
+            // Estado de pago en la consulta: total (redondeado) vs Σ pagos activos vinculados
+            if (query.EstadoPago == 1)
+                baseQuery = baseQuery.Where(x => !x.Anulada
+                    && Math.Round(x.Detalles.Sum(d => d.CantidadUnidades * d.PrecioCompraUnidad), 2)
+                       - x.Pagos.Where(p => p.IsActive).Sum(p => p.Monto) <= 0);
+            else if (query.EstadoPago == 2)
+                baseQuery = baseQuery.Where(x => !x.Anulada
+                    && Math.Round(x.Detalles.Sum(d => d.CantidadUnidades * d.PrecioCompraUnidad), 2)
+                       - x.Pagos.Where(p => p.IsActive).Sum(p => p.Monto) > 0);
 
             if (!string.IsNullOrWhiteSpace(query.Filter))
             {
@@ -173,11 +185,13 @@ public class CompraNavService : ICompraNavService
             foreach (var item in dto.Detalles)
             {
                 // No se exige que el producto sea del proveedor de la compra
-                if (!productos.TryGetValue(item.ProductoId, out var producto) || !producto.IsActive || producto.TemporadaId != temporada.Id)
+                if (!productos.TryGetValue(item.ProductoId, out var producto) || producto.TemporadaId != temporada.Id)
                 {
                     var nombre = producto != null ? NombreMostrar(producto) : item.ProductoId.ToString();
-                    throw new ValidacionException($"El producto {nombre} no existe, está inactivo o no es de la temporada abierta");
+                    throw new ValidacionException($"El producto {nombre} no existe o no es de la temporada abierta");
                 }
+                if (!producto.IsActive)
+                    throw new ValidacionException($"El producto {NombreMostrar(producto)} está inactivo");
                 if (item.PrecioCompraUnidad <= 0)
                     throw new ValidacionException($"El precio de compra de {NombreMostrar(producto)} debe ser mayor a 0");
 
@@ -214,27 +228,33 @@ public class CompraNavService : ICompraNavService
 
             total = Redondear(total);
 
+            // Crédito con pago inicial parcial: tiene que ser menor al total (si no, al contado)
+            var pagoInicial = dto.PagadaAlContado ? 0 : Redondear(dto.MontoPagoInicial ?? 0);
+            if (pagoInicial > 0 && pagoInicial >= total)
+                throw new ValidacionException($"El pago inicial ({pagoInicial}) debe ser menor al total de la compra ({total}); si se paga todo, registre la compra al contado");
+
             await _uow.BeginTransactionAsync();
             try
             {
-                // Pago automático al contado, antes de la compra (la compra apunta al pago)
-                if (dto.PagadaAlContado)
+                var creada = await _repo.CrearAsync(compra);
+
+                // Pago automático (contado o pago inicial), vinculado por PagoProveedor.CompraId.
+                // Comprobante: nº de nota, o "Compra #id" si no hay.
+                if (dto.PagadaAlContado || pagoInicial > 0)
                 {
-                    var pago = await _pagoRepo.CrearAsync(new PagoProveedor
+                    await _pagoRepo.CrearAsync(new PagoProveedor
                     {
                         TemporadaId = temporada.Id,
                         ProveedorId = proveedor.Id,
                         CodigoClienteId = null,
+                        CompraId = creada.Id,
                         Fecha = compra.Fecha,
-                        Monto = total,
+                        Monto = dto.PagadaAlContado ? total : pagoInicial,
                         Medio = dto.MedioPago!.Value,
-                        Comprobante = compra.NroNota,
-                        Observacion = "Pago al contado de compra"
+                        Comprobante = compra.NroNota ?? $"Compra #{creada.Id}",
+                        Observacion = dto.PagadaAlContado ? ObsPagoContado : ObsPagoInicial
                     });
-                    compra.PagoProveedorId = pago.Id;
                 }
-
-                var creada = await _repo.CrearAsync(compra);
 
                 // Stock por almacén + movimiento (+), en la misma transacción
                 foreach (var detalle in creada.Detalles)
@@ -312,9 +332,9 @@ public class CompraNavService : ICompraNavService
                 entidad.Anulada = true;
                 await _repo.ActualizarAsync(entidad);
 
-                // Pago automático: borrado lógico si sigue activo. El precio del producto no se revierte.
-                if (compra.PagoProveedorId.HasValue && compra.PagoProveedor != null && compra.PagoProveedor.IsActive)
-                    await _pagoRepo.EliminarAsync(compra.PagoProveedorId.Value);
+                // Todos los pagos vinculados que sigan activos se anulan. El precio del producto no se revierte.
+                foreach (var p in compra.Pagos.Where(p => p.IsActive))
+                    await _pagoRepo.EliminarAsync(p.Id);
 
                 await _uow.CommitAsync();
             }
@@ -348,6 +368,10 @@ public class CompraNavService : ICompraNavService
             throw new ValidacionException("La observación no puede superar 500 caracteres");
         if (dto.PagadaAlContado && !dto.MedioPago.HasValue)
             throw new ValidacionException("El medio de pago es obligatorio para una compra al contado");
+        if (dto.MontoPagoInicial < 0)
+            throw new ValidacionException("El pago inicial no puede ser negativo");
+        if (!dto.PagadaAlContado && dto.MontoPagoInicial > 0 && !dto.MedioPago.HasValue)
+            throw new ValidacionException("El medio de pago es obligatorio para el pago inicial");
         if (dto.MedioPago.HasValue && !Enum.IsDefined(dto.MedioPago.Value))
             throw new ValidacionException("El medio de pago es inválido");
         if (dto.Detalles == null || dto.Detalles.Count == 0)
@@ -401,7 +425,28 @@ public class CompraNavService : ICompraNavService
 
     // ---------- Mapeo ----------
 
-    private static CompraNavDto MapearCabecera(Compra e) => new()
+    private static CompraNavDto MapearCabecera(Compra e)
+    {
+        var total = Redondear(e.Detalles.Sum(d => d.CantidadUnidades * d.PrecioCompraUnidad));
+        // Pagado = Σ pagos activos vinculados (editados o anulados desde Pagos a proveedores)
+        var pagado = e.Pagos.Where(p => p.IsActive).Sum(p => p.Monto);
+        var saldo = Redondear(total - pagado);
+        var auto = PagoAutomatico(e);
+        var dto = MapearCabeceraBase(e, total, auto);
+        dto.MontoPagoInicial = auto != null && auto.IsActive ? auto.Monto : 0m;
+        dto.MontoPagado = pagado;
+        dto.SaldoCompra = saldo;
+        dto.EstadoPago = e.Anulada ? null : saldo <= 0 ? 1 : 2;
+        dto.FormaPago = pagado <= 0 ? "credito" : saldo <= 0 ? "contado" : "inicial";
+        return dto;
+    }
+
+    // Pago automático = el primer pago vinculado con la observación que le pone la compra al crearlo
+    // (si el usuario edita esa observación, deja de reconocerse como automático)
+    private static PagoProveedor? PagoAutomatico(Compra e)
+        => e.Pagos.OrderBy(p => p.Id).FirstOrDefault(p => p.Observacion == ObsPagoContado || p.Observacion == ObsPagoInicial);
+
+    private static CompraNavDto MapearCabeceraBase(Compra e, decimal total, PagoProveedor? auto) => new()
     {
         Id = e.Id,
         TemporadaId = e.TemporadaId,
@@ -410,14 +455,14 @@ public class CompraNavService : ICompraNavService
         NroNota = e.NroNota,
         Fecha = e.Fecha,
         PagadaAlContado = e.PagadaAlContado,
-        PagoProveedorId = e.PagoProveedorId,
-        MedioPago = e.PagoProveedor?.Medio,
-        MedioPagoNombre = e.PagoProveedor?.Medio.ToString(),
+        PagoProveedorId = auto?.Id,
+        MedioPago = auto?.Medio,
+        MedioPagoNombre = auto?.Medio.ToString(),
         Observacion = e.Observacion,
         Anulada = e.Anulada,
         CantidadProductos = e.Detalles.Count,
         TotalUnidades = e.Detalles.Sum(d => d.CantidadUnidades),
-        MontoTotal = Redondear(e.Detalles.Sum(d => d.CantidadUnidades * d.PrecioCompraUnidad)),
+        MontoTotal = total,
         IsActive = e.IsActive,
         CreatedAt = BoliviaTimeZone.ToLocal(e.CreatedAt)
     };

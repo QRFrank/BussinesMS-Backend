@@ -8,5 +8,6 @@ public interface IPagoProveedorNavService
     Task<PagedResultDto<PagoProveedorNavDto>> ObtenerTodosAsync(PagoProveedorNavFiltroDto query);
     Task<PagoProveedorNavDto?> ObtenerPorIdAsync(int id);
     Task<PagoProveedorNavDto> CrearAsync(CrearPagoProveedorNavDto dto);
+    Task<PagoProveedorNavDto> ActualizarAsync(ActualizarPagoProveedorNavDto dto);
     Task AnularAsync(int id);
 }

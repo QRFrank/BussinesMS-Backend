@@ -30,17 +30,31 @@ public class PagoProveedorNavDto
     public string MedioNombre { get; set; } = string.Empty;
     public string? Comprobante { get; set; }
     public string? Observacion { get; set; }
-    // Ajuste 2: id de la compra al contado que generó este pago automático (null si es un pago normal).
-    // Ese pago no se anula por separado: se anula la compra.
+    // Id de la compra que generó este pago automático (contado o pago inicial); null si es un pago normal.
+    // Se edita y se anula como cualquier pago.
     public int? CompraId { get; set; }
+    // N° de nota de esa compra (para mostrar)
+    public string? CompraNroNota { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
+}
+
+public class ActualizarPagoProveedorNavDto
+{
+    public int Id { get; set; }
+    public decimal Monto { get; set; }
+    public DateTime Fecha { get; set; }
+    public MedioPagoNav Medio { get; set; }
+    public string? Comprobante { get; set; }
+    public string? Observacion { get; set; }
 }
 
 public class CrearPagoProveedorNavDto
 {
     public int ProveedorId { get; set; }
     public int? CodigoClienteId { get; set; }
+    // Opcional: paga esa compra (sin código de cliente; monto <= saldo de la compra)
+    public int? CompraId { get; set; }
     public DateTime Fecha { get; set; }
     public decimal Monto { get; set; }
     public MedioPagoNav Medio { get; set; }

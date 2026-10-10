@@ -39,6 +39,13 @@ public class PagosProveedorNavController : BaseController
         return RespuestaCreado(resultado, "Pago a proveedor registrado");
     }
 
+    [HttpPut]
+    public async Task<IActionResult> Actualizar([FromBody] ActualizarPagoProveedorNavDto dto)
+    {
+        var resultado = await _servicio.ActualizarAsync(dto);
+        return RespuestaOk(resultado, "Pago actualizado");
+    }
+
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Anular(int id)
     {

@@ -664,6 +664,8 @@ Ref: TemporadaAlmacenConteo.TemporadaId > Temporada.Id
 >   - agrega `Producto.Nombre` (alias, nullable, con el índice único filtrado `UX_Producto_Temporada_Nombre`);
 >   - agrega `UnidadesPorEmpaque` y `NombreEmpaque`. El paso de datos copia, de cada producto, la presentación activa con `Unidades > 1`: la principal, o si no hay principal, la de más unidades;
 >   - **borra la tabla `ProductoPresentacion`**.
+> - `20261009190451_ProductoColor`: agrega `Producto.Color` (nvarchar(20), nullable). Solo `AddColumn`.
+> - **Activar/desactivar productos (sin migración):** `Producto.IsActive` es el único flag: el DELETE y el `PATCH /Productos/{id}/estado` (`{isActive}`) lo dejan en false (con `DeletedAt`/`DeletedByUsuarioId`) y al activar se limpian `DeletedAt`/`DeletedByUsuarioId`; ambos ponen `UpdatedAt`/`UpdatedByUsuarioId`. Al activar se chequean los índices únicos filtrados (`UX_Producto_Proveedor_Descripcion` y `UX_Producto_Temporada_Nombre`) y se responde 409. Un producto inactivo no se puede usar en pedidos, recepciones, compras ni (a futuro) ventas.
 > - El sistema no calcula comisiones de vendedores: solo registrará el pago (módulo `pagos-vendedores`).
 > - **Regla de visualización:** en todo el sistema un producto se muestra por `Nombre ?? Descripcion`. Los DTOs lo exponen como `nombreMostrar` (en Producto) o `productoNombreMostrar` (en cualquier otro DTO que incluya un producto).
 > Unicidad con índices únicos **filtrados por `[IsActive] = 1`**, para que se pueda recrear un registro después de un borrado lógico. Para hacer DML a mano con sqlcmd hace falta `-I`.
@@ -701,6 +703,7 @@ Table Producto {
   PrecioCatalogo decimal(18,2) [not null, note: '>= 0 (0 = sin precio). Único precio de referencia (mayorista por unidad, no bloquea). 0 al copiar catálogo']
   UnidadesPorEmpaque int [null, note: '> 1. Unidades por java/caja. Null = solo por unidad. Va junto con NombreEmpaque']
   NombreEmpaque nvarchar(20) [null, note: 'Java / Caja (texto libre). Obligatorio si hay UnidadesPorEmpaque, null si no. Sin precio propio']
+  Color nvarchar(20) [null, note: 'Color de la tarjeta en pantalla: hex #RRGGBB (regex `^#[0-9A-Fa-f]{6}$`) o null. Se copia con el catálogo']
 }
 
 Table CategoriaProductoNav {

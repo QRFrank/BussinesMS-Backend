@@ -17,7 +17,7 @@ public class CompraNavRepository : NavidadRepositorioBase<Compra>, ICompraNavRep
             .AsNoTracking()
             .AsSplitQuery()
             .Include(c => c.Proveedor)
-            .Include(c => c.PagoProveedor)
+            .Include(c => c.Pagos)
             .Include(c => c.Detalles)
                 .ThenInclude(d => d.Producto)
             .Include(c => c.Detalles)

@@ -765,6 +765,7 @@ public class NavidadDbContext : DbContext
             entity.Property(e => e.PrecioCompraUnidad).HasColumnType("decimal(18,2)");
             entity.Property(e => e.PrecioCatalogo).HasColumnType("decimal(18,2)");
             entity.Property(e => e.NombreEmpaque).HasMaxLength(20);
+            entity.Property(e => e.Color).HasMaxLength(20);
             entity.HasOne(e => e.Temporada)
                 .WithMany()
                 .HasForeignKey(e => e.TemporadaId)
@@ -1010,15 +1011,9 @@ public class NavidadDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.ProveedorId)
                 .OnDelete(DeleteBehavior.Restrict);
-            entity.HasOne(e => e.PagoProveedor)
-                .WithMany()
-                .HasForeignKey(e => e.PagoProveedorId)
-                .IsRequired(false)
-                .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(e => e.TemporadaId);
             entity.HasIndex(e => e.ProveedorId);
             entity.HasIndex(e => e.Fecha);
-            entity.HasIndex(e => e.PagoProveedorId);
         });
 
         modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.CompraDetalle>(entity =>

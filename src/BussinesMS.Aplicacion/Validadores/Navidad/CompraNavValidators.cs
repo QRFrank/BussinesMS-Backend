@@ -18,6 +18,12 @@ public class CrearCompraNavDtoValidator : AbstractValidator<CrearCompraNavDto>
         RuleFor(x => x.MedioPago)
             .NotNull().When(x => x.PagadaAlContado)
             .WithMessage("El medio de pago es obligatorio para una compra al contado");
+        RuleFor(x => x.MontoPagoInicial)
+            .GreaterThanOrEqualTo(0).When(x => x.MontoPagoInicial.HasValue)
+            .WithMessage("El pago inicial no puede ser negativo");
+        RuleFor(x => x.MedioPago)
+            .NotNull().When(x => !x.PagadaAlContado && x.MontoPagoInicial > 0)
+            .WithMessage("El medio de pago es obligatorio para el pago inicial");
         RuleFor(x => x.MedioPago)
             .IsInEnum().When(x => x.MedioPago.HasValue)
             .WithMessage("El medio de pago es inválido");
