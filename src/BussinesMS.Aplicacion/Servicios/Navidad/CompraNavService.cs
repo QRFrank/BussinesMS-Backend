@@ -92,6 +92,12 @@ public class CompraNavService : ICompraNavService
             if (query.PagadaAlContado.HasValue)
                 baseQuery = baseQuery.Where(x => x.PagadaAlContado == query.PagadaAlContado.Value);
 
+            if (query.FormaPago.HasValue)
+            {
+                var forma = (FormaPagoCompraNav)query.FormaPago.Value;
+                baseQuery = baseQuery.Where(x => x.FormaPago == forma);
+            }
+
             // Estado de pago en la consulta: total (redondeado) vs Σ pagos activos vinculados
             if (query.EstadoPago == 1)
                 baseQuery = baseQuery.Where(x => !x.Anulada
@@ -232,6 +238,10 @@ public class CompraNavService : ICompraNavService
             var pagoInicial = dto.PagadaAlContado ? 0 : Redondear(dto.MontoPagoInicial ?? 0);
             if (pagoInicial > 0 && pagoInicial >= total)
                 throw new ValidacionException($"El pago inicial ({pagoInicial}) debe ser menor al total de la compra ({total}); si se paga todo, registre la compra al contado");
+
+            // Forma de pago: se fija acá y no cambia nunca
+            compra.FormaPago = dto.PagadaAlContado ? FormaPagoCompraNav.Contado
+                : pagoInicial > 0 ? FormaPagoCompraNav.CreditoInicial : FormaPagoCompraNav.Credito;
 
             await _uow.BeginTransactionAsync();
             try
@@ -437,7 +447,8 @@ public class CompraNavService : ICompraNavService
         dto.MontoPagado = pagado;
         dto.SaldoCompra = saldo;
         dto.EstadoPago = e.Anulada ? null : saldo <= 0 ? 1 : 2;
-        dto.FormaPago = pagado <= 0 ? "credito" : saldo <= 0 ? "contado" : "inicial";
+        dto.FormaPagoId = (int)e.FormaPago;
+        dto.FormaPago = e.FormaPago switch { FormaPagoCompraNav.Contado => "contado", FormaPagoCompraNav.CreditoInicial => "inicial", _ => "credito" };
         return dto;
     }
 

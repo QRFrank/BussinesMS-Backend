@@ -1,4 +1,5 @@
 using BussinesMS.Dominio.Entidades.Compartido;
+using BussinesMS.Dominio.Enums.Navidad;
 
 namespace BussinesMS.Dominio.Entidades.Navidad;
 
@@ -10,6 +11,8 @@ public class Compra : EntidadBase
     public string? NroNota { get; set; }
     public DateTime Fecha { get; set; }
     public bool PagadaAlContado { get; set; }
+    // Fija al crear: 1 Contado, 2 Crédito, 3 Crédito + pago inicial
+    public FormaPagoCompraNav FormaPago { get; set; }
     public string? Observacion { get; set; }
     public bool Anulada { get; set; }
 

@@ -12,6 +12,8 @@ public class CompraNavFiltroDto : GenericPaginationQueryDto
     // null → todas; true → solo anuladas; false → solo vigentes
     public bool? Anuladas { get; set; }
     public bool? PagadaAlContado { get; set; }
+    // 1 Contado | 2 Crédito | 3 Crédito + pago inicial (por la columna FormaPago)
+    public int? FormaPago { get; set; }
     // 1 Pagada (saldo 0) | 2 Pendiente (saldo > 0); las anuladas no entran en el filtro
     public int? EstadoPago { get; set; }
 }
@@ -42,8 +44,10 @@ public class CompraNavDto
     public decimal SaldoCompra { get; set; }
     // 1 Pagada (saldo 0) | 2 Pendiente (saldo > 0); null si la compra está anulada
     public int? EstadoPago { get; set; }
-    // Derivada de MontoPagado: "contado" | "inicial" | "credito"
+    // Forma elegida al registrar (fija): "contado" | "credito" | "inicial"
     public string FormaPago { get; set; } = string.Empty;
+    // 1 Contado | 2 Crédito | 3 Crédito + pago inicial
+    public int FormaPagoId { get; set; }
     // Vacío en la lista
     public List<CompraDetalleNavDto> Detalles { get; set; } = new();
     public bool IsActive { get; set; }

@@ -304,6 +304,9 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                     b.Property<DateTime>("Fecha")
                         .HasColumnType("date");
 
+                    b.Property<int>("FormaPago")
+                        .HasColumnType("int");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 

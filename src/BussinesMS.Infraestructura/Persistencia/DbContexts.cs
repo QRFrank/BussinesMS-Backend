@@ -1000,6 +1000,7 @@ public class NavidadDbContext : DbContext
         {
             entity.ToTable("Compra");
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.FormaPago).HasConversion<int>();
             entity.Property(e => e.NroNota).HasMaxLength(50);
             entity.Property(e => e.Fecha).HasColumnType("date");
             entity.Property(e => e.Observacion).HasMaxLength(500);
