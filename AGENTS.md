@@ -91,6 +91,9 @@ A.R.I.S. detecta automáticamente qué tipo de tarea vas a realizar y decide si 
 | Navidad | Compra / CompraDetalle / CompraDistribucion (`CompraNavService`, `api/Navidad/Compras`, Ajuste 2: cualquier proveedor y producto, al contado con pago automático o a crédito, anular revierte stock y pago) | 08/10/2026 | ✅ |
 | Navidad | PagoProveedor (`PagoProveedorNavService`; `compraId` en el DTO, el pago automático de una compra no se anula por separado) | 08/10/2026 | ✅ |
 | Navidad | Faltantes y deudas (`AbastecimientoNavService`; Ajuste 2: deuda = pedidos + compras − pagos) | 08/10/2026 | ✅ |
+| Navidad | Kardex (`KardexNavService`, `GET api/Navidad/Kardex`, saldo acumulado por almacén + producto) | 11/10/2026 | ✅ |
+| Navidad | Traslado / TrasladoDetalle (`TrasladoNavService`, `api/Navidad/Traslados`, anular con 409 `STOCK_INSUFICIENTE` si el destino ya no tiene el stock) | 11/10/2026 | ✅ |
+| Navidad | ConteoInventario / ConteoInventarioDetalle (`ConteoNavService`, `api/Navidad/Conteos`: plantilla, estado, apertura/cierre diario; `IConteoNavService.VerificarAperturaParaVentaAsync` listo para ventas) | 11/10/2026 | ✅ |
 
 > Auditado contra el código real el 22/09/2026. Ver `docs/ERD.md` para el detalle de esquema y `../MEMORIA.md` (raíz del proyecto) para deuda técnica pendiente.
 
@@ -589,7 +592,14 @@ Each database has its own DbContext in BussinesMS.Infraestructura.Persistencia:
 | MovimientoNav | Kardex navideño (± unidades por producto y almacén, tipo, referencia, usuario; sin `LoteId` desde el Ajuste 2) |
 | PagoProveedor | Pagos a proveedor o código (Transferencia / Efectivo), anulación lógica |
 
-Los módulos siguientes (inventario, ventas-tienda, ruta, pagos-vendedores, reportes) están definidos en `../docs/navidad/SPEC-navidad.md`. Detalle de esquema en `docs/ERD.md` → "DB_NAVIDAD".
+### DB_Navidad (En construcción) - Módulo inventario
+
+| Tabla | Descripción |
+|-------|-------------|
+| Traslado / TrasladoDetalle | Traslado entre almacenes navideños (`TrasladoSalida`/`TrasladoEntrada`; anular = `AnulacionTraslado`) |
+| ConteoInventario / ConteoInventarioDetalle | Apertura/cierre diario por tienda con conteo; la diferencia ajusta `StockAlmacen` con `AjusteConteo`. Fecha = hoy en Bolivia (la calcula el back). Reglas: cierre exige apertura de hoy; apertura bloqueada (409 `CIERRE_PENDIENTE`) si un día anterior quedó sin cierre; diferencia ≠ 0 exige observación. Para ventas: `IConteoNavService.VerificarAperturaParaVentaAsync(almacenId)` (409 `SIN_APERTURA`) |
+
+Los módulos siguientes (ventas-tienda, ruta, pagos-vendedores, reportes) están definidos en `../docs/navidad/SPEC-navidad.md`. Detalle de esquema en `docs/ERD.md` → "DB_NAVIDAD".
 
 ## 📦 Datos Iniciales - BDMS.csv
 

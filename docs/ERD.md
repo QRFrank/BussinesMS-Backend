@@ -849,7 +849,7 @@ Table MovimientoNav {
   AlmacenId int [not null, note: 'AuthDB, sin FK']
   ProductoId int [not null]
   Cantidad int [not null, note: '+ entrada / − salida']
-  Tipo int [not null, note: 'TipoMovimientoNav: 1 Recepcion, 2 TrasladoSalida, 3 TrasladoEntrada, 4 Venta, 5 EntregaReserva, 6 Consumo, 7 SalidaRuta, 8 DevolucionRuta, 9 AjusteConteo, 10 AnulacionVenta, 11 AnulacionRecepcion, 12 Compra, 13 AnulacionCompra']
+  Tipo int [not null, note: 'TipoMovimientoNav: 1 Recepcion, 2 TrasladoSalida, 3 TrasladoEntrada, 4 Venta, 5 EntregaReserva, 6 Consumo, 7 SalidaRuta, 8 DevolucionRuta, 9 AjusteConteo, 10 AnulacionVenta, 11 AnulacionRecepcion, 12 Compra, 13 AnulacionCompra, 14 AnulacionTraslado']
   ReferenciaTipo nvarchar(30) [not null, note: 'Recepcion, Compra, Venta, Traslado…']
   ReferenciaId int [not null]
   UsuarioId int [not null, note: 'AuthDB, sin FK']
@@ -950,6 +950,21 @@ Ref: PagoProveedor.CodigoClienteId > CodigoCliente.Id
 | | Compra / CompraDetalle / CompraDistribucion (Ajuste 2) | ✅ |
 | | StockAlmacen (Ajuste 2, reemplaza LoteAlmacen) / MovimientoNav | ✅ |
 | | PagoProveedor | ✅ |
+| **Navidad — inventario** (DB_NAVIDAD) | | |
+| | Traslado / TrasladoDetalle | ✅ |
+| | ConteoInventario / ConteoInventarioDetalle | ✅ |
+
+### MÓDULO inventario (módulo 5 de Navidad)
+
+| Tabla | Estado | Descripción |
+|-------|--------|-------------|
+| Traslado | ✅ | Traslado entre dos almacenes navideños (`Fecha` date, `Motivo?`, `Anulado`, `UsuarioId`). Genera `TrasladoSalida` (origen) y `TrasladoEntrada` (destino); al anular, dos `AnulacionTraslado` |
+| TrasladoDetalle | ✅ | Producto y `CantidadUnidades` (> 0). Único (TrasladoId, ProductoId) |
+| ConteoInventario | ✅ | Apertura (1) o cierre (2) diario de una tienda con conteo. `Fecha` = hoy en Bolivia. Único (TemporadaId, AlmacenId, Fecha, Tipo) |
+| ConteoInventarioDetalle | ✅ | `StockSistema`, `Contado` (check >= 0), `Diferencia` = Contado − StockSistema, `Observacion?` (obligatoria si hay diferencia). Cada diferencia genera un `MovimientoNav` `AjusteConteo` |
+
+> Migración `20261011181228_InventarioNav`: solo agregados (4 tablas e índices), sin tocar tablas existentes. `AlmacenOrigenId`/`AlmacenDestinoId`/`AlmacenId`/`UsuarioId` sin FK (AuthDB).
+> Esquema completo en `docs/navidad/erd-navidad.dbml`; contratos en `docs/navidad/contratos-inventario.md`.
 
 ---
 

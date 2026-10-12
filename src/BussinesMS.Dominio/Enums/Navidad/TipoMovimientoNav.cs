@@ -14,5 +14,6 @@ public enum TipoMovimientoNav
     AnulacionVenta = 10,
     AnulacionRecepcion = 11,
     Compra = 12,
-    AnulacionCompra = 13
+    AnulacionCompra = 13,
+    AnulacionTraslado = 14
 }

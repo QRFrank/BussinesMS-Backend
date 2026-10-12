@@ -247,6 +247,13 @@ builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IAbastecimie
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IStockAlmacenNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.StockAlmacenNavRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICompraNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.CompraNavRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICompraNavService, BussinesMS.Aplicacion.Servicios.Navidad.CompraNavService>();
+// Traslados y Kardex
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ITrasladoNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.TrasladoNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ITrasladoNavService, BussinesMS.Aplicacion.Servicios.Navidad.TrasladoNavService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IKardexNavService, BussinesMS.Aplicacion.Servicios.Navidad.KardexNavService>();
+// Apertura y cierre diario
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IConteoInventarioNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.ConteoInventarioNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IConteoNavService, BussinesMS.Aplicacion.Servicios.Navidad.ConteoNavService>();
 
 // Background Services
 builder.Services.AddHostedService<BussinesMS.Infraestructura.Jobs.VencimientoLotesJob>();

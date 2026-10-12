@@ -592,6 +592,10 @@ public class NavidadDbContext : DbContext
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.Compra> Compras => Set<BussinesMS.Dominio.Entidades.Navidad.Compra>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.CompraDetalle> ComprasDetalle => Set<BussinesMS.Dominio.Entidades.Navidad.CompraDetalle>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.CompraDistribucion> ComprasDistribucion => Set<BussinesMS.Dominio.Entidades.Navidad.CompraDistribucion>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.Traslado> Traslados => Set<BussinesMS.Dominio.Entidades.Navidad.Traslado>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.TrasladoDetalle> TrasladosDetalle => Set<BussinesMS.Dominio.Entidades.Navidad.TrasladoDetalle>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.ConteoInventario> ConteosInventario => Set<BussinesMS.Dominio.Entidades.Navidad.ConteoInventario>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.ConteoInventarioDetalle> ConteosInventarioDetalle => Set<BussinesMS.Dominio.Entidades.Navidad.ConteoInventarioDetalle>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -1044,6 +1048,75 @@ public class NavidadDbContext : DbContext
                 .HasForeignKey(e => e.CompraDetalleId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => new { e.CompraDetalleId, e.AlmacenId }).IsUnique();
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.Traslado>(entity =>
+        {
+            entity.ToTable("Traslado");
+            entity.HasKey(e => e.Id);
+            // AlmacenOrigenId, AlmacenDestinoId y UsuarioId sin FK: viven en AuthDB
+            entity.Property(e => e.Fecha).HasColumnType("date");
+            entity.Property(e => e.Motivo).HasMaxLength(500);
+            entity.HasOne(e => e.Temporada)
+                .WithMany()
+                .HasForeignKey(e => e.TemporadaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.TemporadaId);
+            entity.HasIndex(e => e.AlmacenOrigenId);
+            entity.HasIndex(e => e.AlmacenDestinoId);
+            entity.HasIndex(e => e.Fecha);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.TrasladoDetalle>(entity =>
+        {
+            entity.ToTable("TrasladoDetalle");
+            entity.HasKey(e => e.Id);
+            entity.HasOne(e => e.Traslado)
+                .WithMany(t => t.Detalles)
+                .HasForeignKey(e => e.TrasladoId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Producto)
+                .WithMany()
+                .HasForeignKey(e => e.ProductoId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.TrasladoId, e.ProductoId }).IsUnique();
+            entity.HasIndex(e => e.ProductoId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.ConteoInventario>(entity =>
+        {
+            entity.ToTable("ConteoInventario");
+            entity.HasKey(e => e.Id);
+            // AlmacenId y UsuarioId sin FK: viven en AuthDB
+            entity.Property(e => e.Fecha).HasColumnType("date");
+            entity.Property(e => e.Tipo).HasConversion<int>();
+            entity.Property(e => e.Observacion).HasMaxLength(500);
+            entity.HasOne(e => e.Temporada)
+                .WithMany()
+                .HasForeignKey(e => e.TemporadaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.TemporadaId, e.AlmacenId, e.Fecha, e.Tipo })
+                .IsUnique()
+                .HasDatabaseName("UX_ConteoInventario_Temporada_Almacen_Fecha_Tipo");
+            entity.HasIndex(e => e.AlmacenId);
+            entity.HasIndex(e => e.Fecha);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.ConteoInventarioDetalle>(entity =>
+        {
+            entity.ToTable("ConteoInventarioDetalle", t => t.HasCheckConstraint("CK_ConteoInventarioDetalle_ContadoNoNegativo", "[Contado] >= 0"));
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Observacion).HasMaxLength(500);
+            entity.HasOne(e => e.Conteo)
+                .WithMany(c => c.Detalles)
+                .HasForeignKey(e => e.ConteoId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Producto)
+                .WithMany()
+                .HasForeignKey(e => e.ProductoId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.ConteoId, e.ProductoId }).IsUnique();
+            entity.HasIndex(e => e.ProductoId);
         });
     }
 }
