@@ -596,6 +596,13 @@ public class NavidadDbContext : DbContext
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.TrasladoDetalle> TrasladosDetalle => Set<BussinesMS.Dominio.Entidades.Navidad.TrasladoDetalle>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.ConteoInventario> ConteosInventario => Set<BussinesMS.Dominio.Entidades.Navidad.ConteoInventario>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.ConteoInventarioDetalle> ConteosInventarioDetalle => Set<BussinesMS.Dominio.Entidades.Navidad.ConteoInventarioDetalle>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.VentaNav> VentasNav => Set<BussinesMS.Dominio.Entidades.Navidad.VentaNav>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.VentaNavDetalle> VentasNavDetalle => Set<BussinesMS.Dominio.Entidades.Navidad.VentaNavDetalle>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.EntregaVenta> EntregasVenta => Set<BussinesMS.Dominio.Entidades.Navidad.EntregaVenta>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.EntregaVentaDetalle> EntregasVentaDetalle => Set<BussinesMS.Dominio.Entidades.Navidad.EntregaVentaDetalle>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.CobroVenta> CobrosVenta => Set<BussinesMS.Dominio.Entidades.Navidad.CobroVenta>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.ConsumoNav> ConsumosNav => Set<BussinesMS.Dominio.Entidades.Navidad.ConsumoNav>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.ConsumoNavDetalle> ConsumosNavDetalle => Set<BussinesMS.Dominio.Entidades.Navidad.ConsumoNavDetalle>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -1116,6 +1123,157 @@ public class NavidadDbContext : DbContext
                 .HasForeignKey(e => e.ProductoId)
                 .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(e => new { e.ConteoId, e.ProductoId }).IsUnique();
+            entity.HasIndex(e => e.ProductoId);
+            entity.Property(e => e.MotivoDiferencia).HasConversion<int?>();
+        });
+
+        // ===== Ventas (módulo 6) =====
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.VentaNav>(entity =>
+        {
+            entity.ToTable("VentaNav", t =>
+            {
+                t.HasCheckConstraint("CK_VentaNav_MontosNoNegativos",
+                    "[MontoTotal] >= 0 AND [Descuento] >= 0 AND [MontoNeto] >= 0 AND [MontoCobrado] >= 0 AND [MontoSaldo] >= 0");
+                t.HasCheckConstraint("CK_VentaNav_CobradoMenorIgualNeto", "[MontoCobrado] <= [MontoNeto]");
+            });
+            entity.HasKey(e => e.Id);
+            // AlmacenId y UsuarioId sin FK: viven en AuthDB
+            entity.Property(e => e.Fecha).HasColumnType("date");
+            entity.Property(e => e.Canal).HasConversion<int>();
+            entity.Property(e => e.Tipo).HasConversion<int>();
+            entity.Property(e => e.CondicionPago).HasConversion<int>();
+            entity.Property(e => e.EstadoPago).HasConversion<int>();
+            entity.Property(e => e.EstadoEntrega).HasConversion<int>();
+            entity.Property(e => e.MontoTotal).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Descuento).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.MontoNeto).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.MontoCobrado).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.MontoSaldo).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Observacion).HasMaxLength(500);
+            entity.HasOne(e => e.Temporada)
+                .WithMany()
+                .HasForeignKey(e => e.TemporadaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Vendedor)
+                .WithMany()
+                .HasForeignKey(e => e.VendedorId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Cliente)
+                .WithMany()
+                .HasForeignKey(e => e.ClienteId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.TemporadaId, e.NroVenta }).IsUnique().HasDatabaseName("UX_VentaNav_Temporada_NroVenta");
+            entity.HasIndex(e => e.AlmacenId);
+            entity.HasIndex(e => e.VendedorId);
+            entity.HasIndex(e => e.ClienteId);
+            entity.HasIndex(e => e.Fecha);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.VentaNavDetalle>(entity =>
+        {
+            entity.ToTable("VentaNavDetalle", t =>
+            {
+                t.HasCheckConstraint("CK_VentaNavDetalle_EntregadasEnRango", "[UnidadesEntregadas] >= 0 AND [UnidadesEntregadas] <= [Unidades]");
+                t.HasCheckConstraint("CK_VentaNavDetalle_MontosNoNegativos", "[Unidades] >= 0 AND [PrecioUnitario] >= 0 AND [Subtotal] >= 0");
+            });
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PrecioUnitario).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Subtotal).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.EstadoEntrega).HasConversion<int>();
+            entity.HasOne(e => e.Venta)
+                .WithMany(v => v.Detalles)
+                .HasForeignKey(e => e.VentaId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Producto)
+                .WithMany()
+                .HasForeignKey(e => e.ProductoId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.VentaId, e.ProductoId }).IsUnique();
+            entity.HasIndex(e => e.ProductoId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.EntregaVenta>(entity =>
+        {
+            entity.ToTable("EntregaVenta");
+            entity.HasKey(e => e.Id);
+            // AlmacenId y UsuarioId sin FK: viven en AuthDB
+            entity.Property(e => e.Fecha).HasColumnType("date");
+            entity.HasOne(e => e.Venta)
+                .WithMany(v => v.Entregas)
+                .HasForeignKey(e => e.VentaId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.VentaId);
+            entity.HasIndex(e => e.AlmacenId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.EntregaVentaDetalle>(entity =>
+        {
+            entity.ToTable("EntregaVentaDetalle", t => t.HasCheckConstraint("CK_EntregaVentaDetalle_UnidadesNoNegativas", "[Unidades] >= 0"));
+            entity.HasKey(e => e.Id);
+            entity.HasOne(e => e.Entrega)
+                .WithMany(x => x.Detalles)
+                .HasForeignKey(e => e.EntregaId)
+                .OnDelete(DeleteBehavior.Cascade);
+            // Sin cascada desde la línea de venta (evita múltiples rutas de cascada); las líneas nunca se borran
+            entity.HasOne(e => e.VentaDetalle)
+                .WithMany()
+                .HasForeignKey(e => e.VentaDetalleId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Producto)
+                .WithMany()
+                .HasForeignKey(e => e.ProductoId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.EntregaId);
+            entity.HasIndex(e => e.VentaDetalleId);
+            entity.HasIndex(e => e.ProductoId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.CobroVenta>(entity =>
+        {
+            entity.ToTable("CobroVenta", t => t.HasCheckConstraint("CK_CobroVenta_MontoPositivo", "[Monto] > 0"));
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Fecha).HasColumnType("date");
+            entity.Property(e => e.Monto).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Medio).HasConversion<int>();
+            entity.Property(e => e.Comprobante).HasMaxLength(100);
+            entity.Property(e => e.Observacion).HasMaxLength(500);
+            entity.HasOne(e => e.Venta)
+                .WithMany(v => v.Cobros)
+                .HasForeignKey(e => e.VentaId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.VentaId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.ConsumoNav>(entity =>
+        {
+            entity.ToTable("ConsumoNav");
+            entity.HasKey(e => e.Id);
+            // AlmacenId y UsuarioId sin FK: viven en AuthDB
+            entity.Property(e => e.Fecha).HasColumnType("date");
+            entity.Property(e => e.Motivo).HasConversion<int>();
+            entity.Property(e => e.Observacion).HasMaxLength(500);
+            entity.HasOne(e => e.Temporada)
+                .WithMany()
+                .HasForeignKey(e => e.TemporadaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.TemporadaId);
+            entity.HasIndex(e => e.AlmacenId);
+            entity.HasIndex(e => e.Fecha);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.ConsumoNavDetalle>(entity =>
+        {
+            entity.ToTable("ConsumoNavDetalle", t => t.HasCheckConstraint("CK_ConsumoNavDetalle_UnidadesPositivas", "[Unidades] > 0"));
+            entity.HasKey(e => e.Id);
+            entity.HasOne(e => e.Consumo)
+                .WithMany(c => c.Detalles)
+                .HasForeignKey(e => e.ConsumoId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Producto)
+                .WithMany()
+                .HasForeignKey(e => e.ProductoId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.ConsumoId, e.ProductoId }).IsUnique();
             entity.HasIndex(e => e.ProductoId);
         });
     }

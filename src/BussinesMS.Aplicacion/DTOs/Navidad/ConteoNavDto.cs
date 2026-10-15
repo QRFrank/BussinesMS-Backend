@@ -44,6 +44,9 @@ public class ConteoDetalleNavDto
     public int Contado { get; set; }
     public int Diferencia { get; set; }
     public string? Observacion { get; set; }
+    // 1 Venta no registrada | 2 Consumo | 3 Merma o robo | 4 Error de conteo (null si no hay diferencia o no se indicó)
+    public int? MotivoDiferencia { get; set; }
+    public string? MotivoDiferenciaNombre { get; set; }
 }
 
 public class CrearConteoNavDto
@@ -62,6 +65,9 @@ public class CrearConteoDetalleNavDto
     public int ProductoId { get; set; }
     public int Contado { get; set; }
     public string? Observacion { get; set; }
+    // 1 Venta no registrada | 2 Consumo | 3 Merma o robo | 4 Error de conteo.
+    // Obligatorio si la diferencia (contado − stock del sistema) es negativa; opcional si es positiva; se ignora si es 0
+    public int? MotivoDiferencia { get; set; }
 }
 
 public class ConteoPlantillaNavDto

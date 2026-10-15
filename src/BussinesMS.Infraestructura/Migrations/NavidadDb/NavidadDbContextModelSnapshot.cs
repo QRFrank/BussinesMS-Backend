@@ -221,6 +221,68 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                     b.ToTable("ClienteNav", (string)null);
                 });
 
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.CobroVenta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Anulado")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Comprobante")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Medio")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Monto")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Observacion")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VentaId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VentaId");
+
+                    b.ToTable("CobroVenta", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_CobroVenta_MontoPositivo", "[Monto] > 0");
+                        });
+                });
+
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.CodigoCliente", b =>
                 {
                     b.Property<int>("Id")
@@ -441,6 +503,119 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                     b.ToTable("CompraDistribucion", (string)null);
                 });
 
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.ConsumoNav", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AlmacenId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Anulado")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Motivo")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Observacion")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("TemporadaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AlmacenId");
+
+                    b.HasIndex("Fecha");
+
+                    b.HasIndex("TemporadaId");
+
+                    b.ToTable("ConsumoNav", (string)null);
+                });
+
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.ConsumoNavDetalle", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ConsumoId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ProductoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Unidades")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductoId");
+
+                    b.HasIndex("ConsumoId", "ProductoId")
+                        .IsUnique();
+
+                    b.ToTable("ConsumoNavDetalle", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ConsumoNavDetalle_UnidadesPositivas", "[Unidades] > 0");
+                        });
+                });
+
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.ConteoInventario", b =>
                 {
                     b.Property<int>("Id")
@@ -534,6 +709,9 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<int?>("MotivoDiferencia")
+                        .HasColumnType("int");
+
                     b.Property<string>("Observacion")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -560,6 +738,114 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                     b.ToTable("ConteoInventarioDetalle", null, t =>
                         {
                             t.HasCheckConstraint("CK_ConteoInventarioDetalle_ContadoNoNegativo", "[Contado] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.EntregaVenta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AlmacenId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Anulada")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VentaId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AlmacenId");
+
+                    b.HasIndex("VentaId");
+
+                    b.ToTable("EntregaVenta", (string)null);
+                });
+
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.EntregaVentaDetalle", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EntregaId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ProductoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Unidades")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VentaDetalleId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EntregaId");
+
+                    b.HasIndex("ProductoId");
+
+                    b.HasIndex("VentaDetalleId");
+
+                    b.ToTable("EntregaVentaDetalle", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_EntregaVentaDetalle_UnidadesNoNegativas", "[Unidades] >= 0");
                         });
                 });
 
@@ -1595,6 +1881,183 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                     b.ToTable("Vendedor", (string)null);
                 });
 
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.VentaNav", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AlmacenId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Anulada")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("BloquearStock")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Canal")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ClienteId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CondicionPago")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Descuento")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("EstadoEntrega")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EstadoPago")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("MontoCobrado")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("MontoNeto")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("MontoSaldo")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("MontoTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("NroVenta")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Observacion")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("TemporadaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Tipo")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VendedorId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AlmacenId");
+
+                    b.HasIndex("ClienteId");
+
+                    b.HasIndex("Fecha");
+
+                    b.HasIndex("VendedorId");
+
+                    b.HasIndex("TemporadaId", "NroVenta")
+                        .IsUnique()
+                        .HasDatabaseName("UX_VentaNav_Temporada_NroVenta");
+
+                    b.ToTable("VentaNav", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_VentaNav_CobradoMenorIgualNeto", "[MontoCobrado] <= [MontoNeto]");
+
+                            t.HasCheckConstraint("CK_VentaNav_MontosNoNegativos", "[MontoTotal] >= 0 AND [Descuento] >= 0 AND [MontoNeto] >= 0 AND [MontoCobrado] >= 0 AND [MontoSaldo] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.VentaNavDetalle", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EstadoEntrega")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("PrecioUnitario")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ProductoId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("Unidades")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UnidadesEntregadas")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VentaId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductoId");
+
+                    b.HasIndex("VentaId", "ProductoId")
+                        .IsUnique();
+
+                    b.ToTable("VentaNavDetalle", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_VentaNavDetalle_EntregadasEnRango", "[UnidadesEntregadas] >= 0 AND [UnidadesEntregadas] <= [Unidades]");
+
+                            t.HasCheckConstraint("CK_VentaNavDetalle_MontosNoNegativos", "[Unidades] >= 0 AND [PrecioUnitario] >= 0 AND [Subtotal] >= 0");
+                        });
+                });
+
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.AporteCapital", b =>
                 {
                     b.HasOne("BussinesMS.Dominio.Entidades.Navidad.Inversor", "Inversor")
@@ -1611,6 +2074,17 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                     b.Navigation("Inversor");
 
                     b.Navigation("Temporada");
+                });
+
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.CobroVenta", b =>
+                {
+                    b.HasOne("BussinesMS.Dominio.Entidades.Navidad.VentaNav", "Venta")
+                        .WithMany("Cobros")
+                        .HasForeignKey("VentaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Venta");
                 });
 
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.CodigoCliente", b =>
@@ -1681,6 +2155,36 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                     b.Navigation("CompraDetalle");
                 });
 
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.ConsumoNav", b =>
+                {
+                    b.HasOne("BussinesMS.Dominio.Entidades.Navidad.Temporada", "Temporada")
+                        .WithMany()
+                        .HasForeignKey("TemporadaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Temporada");
+                });
+
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.ConsumoNavDetalle", b =>
+                {
+                    b.HasOne("BussinesMS.Dominio.Entidades.Navidad.ConsumoNav", "Consumo")
+                        .WithMany("Detalles")
+                        .HasForeignKey("ConsumoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BussinesMS.Dominio.Entidades.Navidad.Producto", "Producto")
+                        .WithMany()
+                        .HasForeignKey("ProductoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Consumo");
+
+                    b.Navigation("Producto");
+                });
+
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.ConteoInventario", b =>
                 {
                     b.HasOne("BussinesMS.Dominio.Entidades.Navidad.Temporada", "Temporada")
@@ -1709,6 +2213,44 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                     b.Navigation("Conteo");
 
                     b.Navigation("Producto");
+                });
+
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.EntregaVenta", b =>
+                {
+                    b.HasOne("BussinesMS.Dominio.Entidades.Navidad.VentaNav", "Venta")
+                        .WithMany("Entregas")
+                        .HasForeignKey("VentaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Venta");
+                });
+
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.EntregaVentaDetalle", b =>
+                {
+                    b.HasOne("BussinesMS.Dominio.Entidades.Navidad.EntregaVenta", "Entrega")
+                        .WithMany("Detalles")
+                        .HasForeignKey("EntregaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BussinesMS.Dominio.Entidades.Navidad.Producto", "Producto")
+                        .WithMany()
+                        .HasForeignKey("ProductoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BussinesMS.Dominio.Entidades.Navidad.VentaNavDetalle", "VentaDetalle")
+                        .WithMany()
+                        .HasForeignKey("VentaDetalleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Entrega");
+
+                    b.Navigation("Producto");
+
+                    b.Navigation("VentaDetalle");
                 });
 
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.GastoNav", b =>
@@ -2010,6 +2552,51 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                     b.Navigation("Temporada");
                 });
 
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.VentaNav", b =>
+                {
+                    b.HasOne("BussinesMS.Dominio.Entidades.Navidad.ClienteNav", "Cliente")
+                        .WithMany()
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("BussinesMS.Dominio.Entidades.Navidad.Temporada", "Temporada")
+                        .WithMany()
+                        .HasForeignKey("TemporadaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BussinesMS.Dominio.Entidades.Navidad.Vendedor", "Vendedor")
+                        .WithMany()
+                        .HasForeignKey("VendedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Cliente");
+
+                    b.Navigation("Temporada");
+
+                    b.Navigation("Vendedor");
+                });
+
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.VentaNavDetalle", b =>
+                {
+                    b.HasOne("BussinesMS.Dominio.Entidades.Navidad.Producto", "Producto")
+                        .WithMany()
+                        .HasForeignKey("ProductoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BussinesMS.Dominio.Entidades.Navidad.VentaNav", "Venta")
+                        .WithMany("Detalles")
+                        .HasForeignKey("VentaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Producto");
+
+                    b.Navigation("Venta");
+                });
+
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.AporteCapital", b =>
                 {
                     b.Navigation("Pagos");
@@ -2027,7 +2614,17 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                     b.Navigation("Distribuciones");
                 });
 
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.ConsumoNav", b =>
+                {
+                    b.Navigation("Detalles");
+                });
+
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.ConteoInventario", b =>
+                {
+                    b.Navigation("Detalles");
+                });
+
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.EntregaVenta", b =>
                 {
                     b.Navigation("Detalles");
                 });
@@ -2062,6 +2659,15 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.Traslado", b =>
                 {
                     b.Navigation("Detalles");
+                });
+
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.VentaNav", b =>
+                {
+                    b.Navigation("Cobros");
+
+                    b.Navigation("Detalles");
+
+                    b.Navigation("Entregas");
                 });
 #pragma warning restore 612, 618
         }

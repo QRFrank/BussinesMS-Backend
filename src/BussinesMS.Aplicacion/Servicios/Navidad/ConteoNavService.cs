@@ -136,7 +136,9 @@ public class ConteoNavService : IConteoNavService
                     StockSistema = d.StockSistema,
                     Contado = d.Contado,
                     Diferencia = d.Diferencia,
-                    Observacion = d.Observacion
+                    Observacion = d.Observacion,
+                    MotivoDiferencia = d.MotivoDiferencia.HasValue ? (int)d.MotivoDiferencia.Value : null,
+                    MotivoDiferenciaNombre = d.MotivoDiferencia.HasValue ? NombreMotivo(d.MotivoDiferencia.Value) : null
                 }).ToList();
             return dto;
         }
@@ -343,6 +345,18 @@ public class ConteoNavService : IConteoNavService
                         throw new ValidacionException(
                             $"El producto {NombreMostrar(productos[item.ProductoId])} tiene diferencia ({diferencia}) y requiere observación");
 
+                    // Motivo: obligatorio si falta stock (diferencia < 0), opcional si sobra, ignorado si no hay diferencia
+                    MotivoDiferenciaConteo? motivo = null;
+                    if (diferencia < 0 && !item.MotivoDiferencia.HasValue)
+                        throw new ValidacionException(
+                            $"El producto {NombreMostrar(productos[item.ProductoId])} tiene un faltante ({diferencia}) y requiere el motivo de la diferencia");
+                    if (diferencia != 0 && item.MotivoDiferencia.HasValue)
+                    {
+                        if (!Enum.IsDefined(typeof(MotivoDiferenciaConteo), item.MotivoDiferencia.Value))
+                            throw new ValidacionException("El motivo de la diferencia es inválido");
+                        motivo = (MotivoDiferenciaConteo)item.MotivoDiferencia.Value;
+                    }
+
                     // RepositorioBase solo pone auditoría en la raíz
                     conteo.Detalles.Add(new ConteoInventarioDetalle
                     {
@@ -351,6 +365,7 @@ public class ConteoNavService : IConteoNavService
                         Contado = item.Contado,
                         Diferencia = diferencia,
                         Observacion = obs,
+                        MotivoDiferencia = motivo,
                         CreatedByUsuarioId = usuarioId,
                         CreatedAt = ahora
                     });
@@ -364,8 +379,9 @@ public class ConteoNavService : IConteoNavService
                         await _stock.RegistrarEntradaAsync(temporada.Id, creado.AlmacenId, d.ProductoId, d.Diferencia,
                             TipoMovimientoNav.AjusteConteo, ReferenciaConteo, creado.Id, d.Observacion);
                     else
+                        // El conteo refleja lo físico: no respeta el bloqueo de reservas
                         await _stock.RegistrarSalidaAsync(temporada.Id, creado.AlmacenId, d.ProductoId, -d.Diferencia,
-                            TipoMovimientoNav.AjusteConteo, ReferenciaConteo, creado.Id, d.Observacion);
+                            TipoMovimientoNav.AjusteConteo, ReferenciaConteo, creado.Id, d.Observacion, respetarBloqueo: false);
                 }
 
                 await _uow.CommitAsync();
@@ -506,6 +522,15 @@ public class ConteoNavService : IConteoNavService
     }
 
     private static string NombreMostrar(ProductoNav p) => p.Nombre ?? p.Descripcion;
+
+    private static string NombreMotivo(MotivoDiferenciaConteo m) => m switch
+    {
+        MotivoDiferenciaConteo.VentaNoRegistrada => "Venta no registrada",
+        MotivoDiferenciaConteo.Consumo => "Consumo",
+        MotivoDiferenciaConteo.MermaRobo => "Merma o robo",
+        MotivoDiferenciaConteo.ErrorConteo => "Error de conteo",
+        _ => m.ToString()
+    };
 
     private static string? NormalizarTexto(string? texto)
     {

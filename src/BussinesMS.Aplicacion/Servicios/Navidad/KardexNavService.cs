@@ -19,6 +19,7 @@ public class KardexNavService : IKardexNavService
     private readonly IRecepcionNavRepository _recepcionRepo;
     private readonly ICompraNavRepository _compraRepo;
     private readonly IConteoInventarioNavRepository _conteoRepo;
+    private readonly IVentaNavRepository _ventaRepo;
     private readonly ITemporadaActualService _temporadaActual;
     private readonly ILogger<KardexNavService> _logger;
 
@@ -29,10 +30,12 @@ public class KardexNavService : IKardexNavService
         IRecepcionNavRepository recepcionRepo,
         ICompraNavRepository compraRepo,
         IConteoInventarioNavRepository conteoRepo,
+        IVentaNavRepository ventaRepo,
         ITemporadaActualService temporadaActual,
         ILogger<KardexNavService> logger)
     {
         _conteoRepo = conteoRepo;
+        _ventaRepo = ventaRepo;
         _movimientoRepo = movimientoRepo;
         _almacenRepo = almacenRepo;
         _usuarioRepo = usuarioRepo;
@@ -97,6 +100,8 @@ public class KardexNavService : IKardexNavService
                 .Where(m => m.ReferenciaTipo == "Compra").Select(m => m.ReferenciaId));
             var conteos = await ObtenerConteosAsync(movimientos
                 .Where(m => m.ReferenciaTipo == "ConteoInventario").Select(m => m.ReferenciaId));
+            var ventas = await ObtenerNrosVentaAsync(movimientos
+                .Where(m => m.ReferenciaTipo == "Venta").Select(m => m.ReferenciaId));
 
             var items = movimientos.Select(m => new KardexNavDto
             {
@@ -113,7 +118,7 @@ public class KardexNavService : IKardexNavService
                 Color = m.Producto?.Color,
                 ReferenciaTipo = m.ReferenciaTipo,
                 ReferenciaId = m.ReferenciaId,
-                Referencia = TextoReferencia(m.Tipo, m.ReferenciaTipo, m.ReferenciaId, facturas, notas, conteos),
+                Referencia = TextoReferencia(m.Tipo, m.ReferenciaTipo, m.ReferenciaId, facturas, notas, conteos, ventas),
                 Entrada = m.Cantidad > 0 ? m.Cantidad : 0,
                 Salida = m.Cantidad < 0 ? -m.Cantidad : 0,
                 Saldo = saldos.TryGetValue(m.Id, out var s) ? s : 0,
@@ -179,10 +184,24 @@ public class KardexNavService : IKardexNavService
 
     private static string TextoReferencia(TipoMovimientoNav tipo, string referenciaTipo, int referenciaId,
         Dictionary<int, string?> facturas, Dictionary<int, string?> notas,
-        Dictionary<int, (TipoConteoInventario Tipo, DateTime Fecha)> conteos)
+        Dictionary<int, (TipoConteoInventario Tipo, DateTime Fecha)> conteos, Dictionary<int, int> ventas)
     {
+        // Ventas: la referencia es el id de la venta; se muestra su número (NroVenta)
+        var nroVenta = ventas.TryGetValue(referenciaId, out var nro) ? nro : referenciaId;
         switch (tipo)
         {
+            case TipoMovimientoNav.Venta when referenciaTipo == "Venta":
+                return $"Venta #{nroVenta}";
+            case TipoMovimientoNav.EntregaReserva when referenciaTipo == "Venta":
+                return $"Entrega venta #{nroVenta}";
+            case TipoMovimientoNav.AnulacionVenta when referenciaTipo == "Venta":
+                return $"Anulación venta #{nroVenta}";
+            case TipoMovimientoNav.DevolucionVenta when referenciaTipo == "Venta":
+                return $"Devolución venta #{nroVenta}";
+            case TipoMovimientoNav.Consumo when referenciaTipo == "Consumo":
+                return $"Consumo #{referenciaId}";
+            case TipoMovimientoNav.AnulacionConsumo when referenciaTipo == "Consumo":
+                return $"Anulación consumo #{referenciaId}";
             case TipoMovimientoNav.AnulacionRecepcion:
                 return $"Anulación recepción #{referenciaId}";
             case TipoMovimientoNav.AnulacionCompra:
@@ -223,8 +242,21 @@ public class KardexNavService : IKardexNavService
         TipoMovimientoNav.Compra => "Compra",
         TipoMovimientoNav.AnulacionCompra => "Anulación de compra",
         TipoMovimientoNav.AnulacionTraslado => "Anulación de traslado",
+        TipoMovimientoNav.DevolucionVenta => "Devolución de venta",
+        TipoMovimientoNav.AnulacionConsumo => "Anulación de consumo",
         _ => tipo.ToString()
     };
+
+    // id de venta → NroVenta
+    private async Task<Dictionary<int, int>> ObtenerNrosVentaAsync(IEnumerable<int> ids)
+    {
+        var lista = ids.Distinct().ToList();
+        if (lista.Count == 0) return new Dictionary<int, int>();
+        return await _ventaRepo.AsQueryable()
+            .AsNoTracking()
+            .Where(v => lista.Contains(v.Id))
+            .ToDictionaryAsync(v => v.Id, v => v.NroVenta);
+    }
 
     private async Task<Dictionary<int, string?>> ObtenerFacturasAsync(IEnumerable<int> ids)
     {

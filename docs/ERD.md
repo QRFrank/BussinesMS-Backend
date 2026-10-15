@@ -849,7 +849,7 @@ Table MovimientoNav {
   AlmacenId int [not null, note: 'AuthDB, sin FK']
   ProductoId int [not null]
   Cantidad int [not null, note: '+ entrada / − salida']
-  Tipo int [not null, note: 'TipoMovimientoNav: 1 Recepcion, 2 TrasladoSalida, 3 TrasladoEntrada, 4 Venta, 5 EntregaReserva, 6 Consumo, 7 SalidaRuta, 8 DevolucionRuta, 9 AjusteConteo, 10 AnulacionVenta, 11 AnulacionRecepcion, 12 Compra, 13 AnulacionCompra, 14 AnulacionTraslado']
+  Tipo int [not null, note: 'TipoMovimientoNav: 1 Recepcion, 2 TrasladoSalida, 3 TrasladoEntrada, 4 Venta, 5 EntregaReserva, 6 Consumo, 7 SalidaRuta, 8 DevolucionRuta, 9 AjusteConteo, 10 AnulacionVenta, 11 AnulacionRecepcion, 12 Compra, 13 AnulacionCompra, 14 AnulacionTraslado, 15 DevolucionVenta, 16 AnulacionConsumo']
   ReferenciaTipo nvarchar(30) [not null, note: 'Recepcion, Compra, Venta, Traslado…']
   ReferenciaId int [not null]
   UsuarioId int [not null, note: 'AuthDB, sin FK']
@@ -953,6 +953,12 @@ Ref: PagoProveedor.CodigoClienteId > CodigoCliente.Id
 | **Navidad — inventario** (DB_NAVIDAD) | | |
 | | Traslado / TrasladoDetalle | ✅ |
 | | ConteoInventario / ConteoInventarioDetalle | ✅ |
+| **Navidad — ventas-tienda** (DB_NAVIDAD) | | |
+| | VentaNav / VentaNavDetalle | ✅ |
+| | EntregaVenta / EntregaVentaDetalle | ✅ |
+| | CobroVenta | ✅ |
+| | ConsumoNav / ConsumoNavDetalle | ✅ |
+| | ConteoInventarioDetalle.MotivoDiferencia | ✅ |
 
 ### MÓDULO inventario (módulo 5 de Navidad)
 
@@ -965,6 +971,25 @@ Ref: PagoProveedor.CodigoClienteId > CodigoCliente.Id
 
 > Migración `20261011181228_InventarioNav`: solo agregados (4 tablas e índices), sin tocar tablas existentes. `AlmacenOrigenId`/`AlmacenDestinoId`/`AlmacenId`/`UsuarioId` sin FK (AuthDB).
 > Esquema completo en `docs/navidad/erd-navidad.dbml`; contratos en `docs/navidad/contratos-inventario.md`.
+
+### MÓDULO ventas-tienda (módulo 6 de Navidad)
+
+La venta es la fuente de verdad: los estados viven en la cabecera. Entregas y cobros van en tablas propias (pueden ser varios por venta). Detalle de la lógica en `docs/navidad/logica-ventas.md`.
+
+| Tabla | Estado | Descripción |
+|-------|--------|-------------|
+| VentaNav | ✅ | Cabecera. `NroVenta` correlativo por temporada (único con `TemporadaId`), `Fecha` date (hoy en Bolivia), `AlmacenId` (tienda, AuthDB sin FK), `Canal` (1 Tienda, 2 Ruta), `UsuarioId` (quien registró, sin FK), `VendedorId` (FK Vendedor, obligatorio), `ClienteId?` (FK ClienteNav), `Tipo` (1 Directa, 2 Reserva), `CondicionPago` (1 Contado, 2 Crédito), `BloquearStock`, `MontoTotal`/`Descuento`/`MontoNeto`/`MontoCobrado`/`MontoSaldo` decimal(18,2), `EstadoPago` (1 Pendiente, 2 Parcial, 3 Pagado), `EstadoEntrega` (1 Pendiente, 2 Parcial, 3 Entregado), `Anulada`, `Observacion?`. Checks: montos >= 0 y `MontoCobrado <= MontoNeto` |
+| VentaNavDetalle | ✅ | Una fila por producto y venta (único VentaId+ProductoId): `Unidades`, `PrecioUnitario`, `Subtotal`, `UnidadesEntregadas`, `EstadoEntrega`. Checks: `0 <= UnidadesEntregadas <= Unidades`, montos >= 0. Quitar una línea la deja en `Unidades = 0` (se conserva por el historial de entregas) |
+| EntregaVenta | ✅ | Despacho: `VentaId`, `AlmacenId` (cualquier almacén navideño, sin FK), `Fecha`, `UsuarioId`, `Anulada`. Es lo único que mueve stock de una venta (Directa: una entrega automática al guardar) |
+| EntregaVentaDetalle | ✅ | `EntregaId`, `VentaDetalleId` (FK Restrict), `ProductoId`, `Unidades` (check >= 0). Invariante: Σ de las entregas no anuladas de una línea = `UnidadesEntregadas` |
+| CobroVenta | ✅ | Pago del cliente: `VentaId`, `Fecha`, `Monto` (check > 0), `Medio` (MedioPagoNav), `Comprobante?`, `Observacion?`, `Anulado` |
+| ConsumoNav | ✅ | Consumo propio/invitación/otro: `TemporadaId`, `Fecha`, `AlmacenId` (sin FK), `UsuarioId`, `Motivo` (1 Propio, 2 Invitación, 3 Otro), `Observacion?`, `Anulado`. Movimiento `Consumo` (−); al anular `AnulacionConsumo` (+) |
+| ConsumoNavDetalle | ✅ | `ConsumoId`, `ProductoId`, `Unidades` (check > 0). Único (ConsumoId, ProductoId) |
+| ConteoInventarioDetalle.MotivoDiferencia | ✅ | `int?` (1 Venta no registrada, 2 Consumo, 3 Merma o robo, 4 Error de conteo). Obligatorio si la diferencia es negativa |
+
+> Migración `20261013020943_VentasNav`: solo `AddColumn` (`MotivoDiferencia`), 7 `CreateTable` e índices; sin renames ni drops. `TipoMovimientoNav`: se agregan `DevolucionVenta = 15` y `AnulacionConsumo = 16`.
+> Stock bloqueado: no es una columna; se calcula como Σ (`Unidades` − `UnidadesEntregadas`) de las reservas no anuladas con `BloquearStock` en ese almacén (`IStockNavService.ObtenerBloqueadoAsync`).
+> Esquema completo en `docs/navidad/erd-navidad.dbml`; contratos en `docs/navidad/contratos-ventas.md`.
 
 ---
 

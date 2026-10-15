@@ -59,6 +59,18 @@
   { "id": 135, "nombre": "Deudas",             "url": "/navidad/deudas",               "icono": "solar:bill-check-bold-duotone",                "orden": 5, "isGroup": false, "parentId": 130,  "sistemaId": 2 },
   { "id": 136, "nombre": "Stock",              "url": "/navidad/stock",                "icono": "solar:box-bold-duotone",                       "orden": 6, "isGroup": false, "parentId": 130,  "sistemaId": 2 },
 
-  { "id": 120, "nombre": "Seguridad",          "url": null,                            "icono": "solar:shield-bold-duotone",                    "orden": 9, "isGroup": true,  "parentId": null, "sistemaId": 2 },
+  { "id": 150, "nombre": "Ventas",             "url": null,                            "icono": "solar:cart-large-2-bold-duotone",             "orden": 6, "isGroup": true,  "parentId": null, "sistemaId": 2 },
+  { "id": 151, "nombre": "Venta tienda",       "url": "/navidad/venta-tienda",         "icono": "solar:cart-check-bold-duotone",                "orden": 1, "isGroup": false, "parentId": 150,  "sistemaId": 2 },
+  { "id": 155, "nombre": "Venta ruta",         "url": "/navidad/venta-ruta",           "icono": "solar:delivery-bold-duotone",                  "orden": 2, "isGroup": false, "parentId": 150,  "sistemaId": 2 },
+  { "id": 152, "nombre": "Reservas",           "url": "/navidad/reservas",             "icono": "solar:bookmark-bold-duotone",                  "orden": 3, "isGroup": false, "parentId": 150,  "sistemaId": 2 },
+  { "id": 154, "nombre": "Todas las ventas",   "url": "/navidad/ventas",               "icono": "solar:checklist-minimalistic-bold-duotone",    "orden": 4, "isGroup": false, "parentId": 150,  "sistemaId": 2 },
+  { "id": 153, "nombre": "Consumos",           "url": "/navidad/consumos",             "icono": "solar:gift-bold-duotone",                      "orden": 5, "isGroup": false, "parentId": 150,  "sistemaId": 2 },
+
+  { "id": 140, "nombre": "Inventario",         "url": null,                            "icono": "solar:archive-bold-duotone",                   "orden": 5, "isGroup": true,  "parentId": null, "sistemaId": 2 },
+  { "id": 141, "nombre": "Kardex",             "url": "/navidad/kardex",               "icono": "solar:book-2-bold-duotone",                    "orden": 1, "isGroup": false, "parentId": 140,  "sistemaId": 2 },
+  { "id": 142, "nombre": "Traslados",          "url": "/navidad/traslados",            "icono": "solar:transfer-horizontal-bold-duotone",       "orden": 2, "isGroup": false, "parentId": 140,  "sistemaId": 2 },
+  { "id": 143, "nombre": "Apertura y cierre",  "url": "/navidad/conteos",              "icono": "solar:checklist-minimalistic-bold-duotone",    "orden": 3, "isGroup": false, "parentId": 140,  "sistemaId": 2 },
+
+  { "id": 120, "nombre": "Seguridad",         "url": null,                            "icono": "solar:shield-bold-duotone",                    "orden": 9, "isGroup": true,  "parentId": null, "sistemaId": 2 },
   { "id": 121, "nombre": "Usuarios",           "url": "/navidad/usuarios",             "icono": "solar:users-bold-duotone",                     "orden": 1, "isGroup": false, "parentId": 120,  "sistemaId": 2 }
 ]

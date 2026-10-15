@@ -20,6 +20,7 @@ public class StockNavService : IStockNavService
     private readonly IProductoNavRepository _productoRepo;
     private readonly IRecepcionNavRepository _recepcionRepo;
     private readonly ICompraNavRepository _compraRepo;
+    private readonly IVentaNavRepository _ventaRepo;
     private readonly IAlmacenRepository _almacenRepo;
     private readonly ITemporadaActualService _temporadaActual;
     private readonly ICurrentUserService _currentUser;
@@ -31,6 +32,7 @@ public class StockNavService : IStockNavService
         IProductoNavRepository productoRepo,
         IRecepcionNavRepository recepcionRepo,
         ICompraNavRepository compraRepo,
+        IVentaNavRepository ventaRepo,
         IAlmacenRepository almacenRepo,
         ITemporadaActualService temporadaActual,
         ICurrentUserService currentUser,
@@ -41,6 +43,7 @@ public class StockNavService : IStockNavService
         _productoRepo = productoRepo;
         _recepcionRepo = recepcionRepo;
         _compraRepo = compraRepo;
+        _ventaRepo = ventaRepo;
         _almacenRepo = almacenRepo;
         _temporadaActual = temporadaActual;
         _currentUser = currentUser;
@@ -77,7 +80,8 @@ public class StockNavService : IStockNavService
     /// Requiere la transacción del llamador (INavidadUnitOfWork); no abre una propia.
     /// </summary>
     public async Task RegistrarSalidaAsync(int temporadaId, int almacenId, int productoId, int unidades,
-        TipoMovimientoNav tipo, string referenciaTipo, int referenciaId, string? motivo = null)
+        TipoMovimientoNav tipo, string referenciaTipo, int referenciaId, string? motivo = null,
+        bool respetarBloqueo = true, int? ventaIdPropia = null)
     {
         ValidarUnidades(unidades);
 
@@ -92,6 +96,9 @@ public class StockNavService : IStockNavService
                 409, "STOCK_INSUFICIENTE");
         }
 
+        if (respetarBloqueo)
+            await VerificarBloqueoAsync(almacenId, productoId, unidades, disponible, ventaIdPropia);
+
         stock.Cantidad -= unidades;
         await _stockRepo.ActualizarAsync(stock);
 
@@ -104,6 +111,77 @@ public class StockNavService : IStockNavService
             .Where(s => s.AlmacenId == almacenId && s.ProductoId == productoId)
             .Select(s => (int?)s.Cantidad)
             .FirstOrDefaultAsync() ?? 0;
+
+    public async Task<int> ObtenerBloqueadoAsync(int almacenId, int productoId, int? excluirVentaId = null)
+        => await _ventaRepo.AsQueryable()
+            .AsNoTracking()
+            .Where(v => v.IsActive && !v.Anulada && v.Tipo == TipoVentaNav.Reserva && v.BloquearStock
+                && v.AlmacenId == almacenId && (excluirVentaId == null || v.Id != excluirVentaId))
+            .SelectMany(v => v.Detalles)
+            .Where(d => d.ProductoId == productoId && d.Unidades > d.UnidadesEntregadas)
+            .SumAsync(d => (int?)(d.Unidades - d.UnidadesEntregadas)) ?? 0;
+
+    public async Task<Dictionary<(int AlmacenId, int ProductoId), int>> ObtenerBloqueadosAsync(int temporadaId, int? almacenId = null)
+    {
+        var query = _ventaRepo.AsQueryable()
+            .AsNoTracking()
+            .Where(v => v.IsActive && !v.Anulada && v.Tipo == TipoVentaNav.Reserva && v.BloquearStock && v.TemporadaId == temporadaId);
+        if (almacenId.HasValue)
+            query = query.Where(v => v.AlmacenId == almacenId.Value);
+
+        var filas = await query
+            .SelectMany(v => v.Detalles.Where(d => d.Unidades > d.UnidadesEntregadas)
+                .Select(d => new { v.AlmacenId, d.ProductoId, Pendiente = d.Unidades - d.UnidadesEntregadas }))
+            .GroupBy(x => new { x.AlmacenId, x.ProductoId })
+            .Select(g => new { g.Key.AlmacenId, g.Key.ProductoId, Total = g.Sum(x => x.Pendiente) })
+            .ToListAsync();
+
+        return filas.ToDictionary(f => (f.AlmacenId, f.ProductoId), f => f.Total);
+    }
+
+    public async Task VerificarLibreAsync(int almacenId, int productoId, int unidades, int? ventaIdPropia = null)
+    {
+        var disponible = await ObtenerDisponibleAsync(almacenId, productoId);
+        if (disponible < unidades)
+        {
+            var producto = await NombreProductoAsync(productoId);
+            var almacen = await NombreAlmacenAsync(almacenId);
+            throw new ExcepcionDominio(
+                $"Stock insuficiente de '{producto}' en '{almacen}': disponible {disponible}, solicitado {unidades}",
+                409, "STOCK_INSUFICIENTE");
+        }
+        await VerificarBloqueoAsync(almacenId, productoId, unidades, disponible, ventaIdPropia);
+    }
+
+    // Lanza 409 STOCK_BLOQUEADO si stock − bloqueado (sin la venta propia) no alcanza
+    private async Task VerificarBloqueoAsync(int almacenId, int productoId, int unidades, int disponible, int? ventaIdPropia)
+    {
+        var bloqueado = await ObtenerBloqueadoAsync(almacenId, productoId, ventaIdPropia);
+        if (bloqueado <= 0 || disponible - bloqueado >= unidades) return;
+
+        var reservas = await _ventaRepo.AsQueryable()
+            .AsNoTracking()
+            .Where(v => v.IsActive && !v.Anulada && v.Tipo == TipoVentaNav.Reserva && v.BloquearStock
+                && v.AlmacenId == almacenId && (ventaIdPropia == null || v.Id != ventaIdPropia))
+            .Select(v => new
+            {
+                v.NroVenta,
+                Cliente = v.Cliente != null ? v.Cliente.Nombre : null,
+                Bloqueadas = v.Detalles.Where(d => d.ProductoId == productoId && d.Unidades > d.UnidadesEntregadas)
+                    .Sum(d => (int?)(d.Unidades - d.UnidadesEntregadas)) ?? 0
+            })
+            .Where(x => x.Bloqueadas > 0)
+            .OrderBy(x => x.NroVenta)
+            .ToListAsync();
+
+        var producto = await NombreProductoAsync(productoId);
+        var almacen = await NombreAlmacenAsync(almacenId);
+        var detalle = string.Join("; ", reservas.Select(r =>
+            $"Reserva #{r.NroVenta}{(string.IsNullOrWhiteSpace(r.Cliente) ? string.Empty : $" de {r.Cliente}")}: {r.Bloqueadas} u bloqueadas"));
+        throw new ExcepcionDominio(
+            $"Stock bloqueado de '{producto}' en '{almacen}' (stock {disponible}, bloqueado {bloqueado}, solicitado {unidades}). {detalle}. Pide al admin que la desbloquee",
+            409, "STOCK_BLOQUEADO");
+    }
 
     public async Task<Dictionary<int, decimal>> ObtenerCostosPromedioAsync(int temporadaId, IEnumerable<int>? productoIds = null)
     {
@@ -178,11 +256,13 @@ public class StockNavService : IStockNavService
 
             var nombresAlmacen = await ObtenerNombresAlmacenAsync(filas.Select(f => f.AlmacenId).Distinct().ToList());
             var costos = await ObtenerCostosPromedioAsync(temporadaId, filas.Select(f => f.ProductoId));
+            var bloqueados = await ObtenerBloqueadosAsync(temporadaId, filtro.AlmacenId);
 
             return filas
                 .Select(f =>
                 {
                     var costo = costos.GetValueOrDefault(f.ProductoId);
+                    var bloqueado = bloqueados.GetValueOrDefault((f.AlmacenId, f.ProductoId));
                     return new StockNavDto
                     {
                         ProductoId = f.ProductoId,
@@ -195,6 +275,8 @@ public class StockNavService : IStockNavService
                         AlmacenId = f.AlmacenId,
                         AlmacenNombre = nombresAlmacen.TryGetValue(f.AlmacenId, out var n) ? n : string.Empty,
                         Stock = f.Cantidad,
+                        Bloqueado = bloqueado,
+                        Disponible = Math.Max(0, f.Cantidad - bloqueado),
                         CostoPromedio = Redondear(costo),
                         Valorizado = Redondear(f.Cantidad * costo)
                     };

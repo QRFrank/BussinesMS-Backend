@@ -93,7 +93,9 @@ A.R.I.S. detecta automáticamente qué tipo de tarea vas a realizar y decide si 
 | Navidad | Faltantes y deudas (`AbastecimientoNavService`; Ajuste 2: deuda = pedidos + compras − pagos) | 08/10/2026 | ✅ |
 | Navidad | Kardex (`KardexNavService`, `GET api/Navidad/Kardex`, saldo acumulado por almacén + producto) | 11/10/2026 | ✅ |
 | Navidad | Traslado / TrasladoDetalle (`TrasladoNavService`, `api/Navidad/Traslados`, anular con 409 `STOCK_INSUFICIENTE` si el destino ya no tiene el stock) | 11/10/2026 | ✅ |
-| Navidad | ConteoInventario / ConteoInventarioDetalle (`ConteoNavService`, `api/Navidad/Conteos`: plantilla, estado, apertura/cierre diario; `IConteoNavService.VerificarAperturaParaVentaAsync` listo para ventas) | 11/10/2026 | ✅ |
+| Navidad | ConteoInventario / ConteoInventarioDetalle (`ConteoNavService`, `api/Navidad/Conteos`: plantilla, estado, apertura/cierre diario; `IConteoNavService.VerificarAperturaParaVentaAsync` listo para ventas; `motivoDiferencia` obligatorio si hay faltante desde 12/10/2026) | 11/10/2026 | ✅ |
+| Navidad | VentaNav / VentaNavDetalle / EntregaVenta / EntregaVentaDetalle / CobroVenta (`VentaNavService`, `api/Navidad/Ventas`: directa/reserva, contado/crédito, editar, entregas, cobros, bloqueo de stock, anular; `ReservaNavService` cobertura) | 12/10/2026 | ✅ |
+| Navidad | ConsumoNav / ConsumoNavDetalle (`ConsumoNavService`, `api/Navidad/Consumos`, anular devuelve el stock) | 12/10/2026 | ✅ |
 
 > Auditado contra el código real el 22/09/2026. Ver `docs/ERD.md` para el detalle de esquema y `../MEMORIA.md` (raíz del proyecto) para deuda técnica pendiente.
 
@@ -599,7 +601,18 @@ Each database has its own DbContext in BussinesMS.Infraestructura.Persistencia:
 | Traslado / TrasladoDetalle | Traslado entre almacenes navideños (`TrasladoSalida`/`TrasladoEntrada`; anular = `AnulacionTraslado`) |
 | ConteoInventario / ConteoInventarioDetalle | Apertura/cierre diario por tienda con conteo; la diferencia ajusta `StockAlmacen` con `AjusteConteo`. Fecha = hoy en Bolivia (la calcula el back). Reglas: cierre exige apertura de hoy; apertura bloqueada (409 `CIERRE_PENDIENTE`) si un día anterior quedó sin cierre; diferencia ≠ 0 exige observación. Para ventas: `IConteoNavService.VerificarAperturaParaVentaAsync(almacenId)` (409 `SIN_APERTURA`) |
 
-Los módulos siguientes (ventas-tienda, ruta, pagos-vendedores, reportes) están definidos en `../docs/navidad/SPEC-navidad.md`. Detalle de esquema en `docs/ERD.md` → "DB_NAVIDAD".
+### DB_Navidad (En construcción) - Módulo ventas-tienda
+
+| Tabla | Descripción |
+|-------|-------------|
+| VentaNav / VentaNavDetalle | Venta (cabecera con `Canal`, `Tipo` Directa/Reserva, `CondicionPago`, `BloquearStock`, montos y `EstadoPago`/`EstadoEntrega`; `NroVenta` correlativo por temporada) y líneas en unidades (`UnidadesEntregadas`). La venta es la fuente de verdad: los estados viven en la cabecera |
+| EntregaVenta / EntregaVentaDetalle | Despachos desde cualquier almacén navideño; es lo único que mueve stock de una venta de tienda (Directa: entrega total automática al guardar) |
+| CobroVenta | Cobros del cliente (varios por venta, anulación lógica); recalculan `MontoCobrado`, `MontoSaldo` y `EstadoPago` |
+| ConsumoNav / ConsumoNavDetalle | Consumo propio / invitación / otro (movimiento `Consumo`), sin cliente ni cobro; anular devuelve el stock |
+
+Reglas de ventas (reutilizar en ruta): **stock bloqueado** = Σ pendiente de reservas no anuladas con bloqueo en ese almacén; `IStockNavService.RegistrarSalidaAsync(..., respetarBloqueo = true, ventaIdPropia = null)` lanza 409 `STOCK_BLOQUEADO` (el conteo pasa `respetarBloqueo: false`, la entrega de una reserva pasa su propio id); `ObtenerBloqueadoAsync`/`ObtenerBloqueadosAsync`/`VerificarLibreAsync` para validar disponibles. Admin = rol "Admin" (mismo criterio que `EsAdminAsync` del regular); solo el admin vende bajo el precio de compra (400 `PRECIO_BAJO_COMPRA`) y desbloquea; el vendedor opera solo sus ventas (403 `SIN_PERMISO`). Movimientos: `Venta` (directa), `EntregaReserva`, `AnulacionVenta` (anular entrega/venta), `DevolucionVenta` (bajar cantidad entregada al editar, vuelve a la tienda de la venta), `Consumo`, `AnulacionConsumo`; `ReferenciaTipo` "Venta" con `ReferenciaId` = id de la venta, "Consumo" con el id del consumo. Contratos en `../docs/navidad/contratos-ventas.md`.
+
+Los módulos siguientes (ruta, pagos-vendedores, reportes) están definidos en `../docs/navidad/SPEC-navidad.md`. Detalle de esquema en `docs/ERD.md` → "DB_NAVIDAD".
 
 ## 📦 Datos Iniciales - BDMS.csv
 

@@ -254,6 +254,14 @@ builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IKardexNavSe
 // Apertura y cierre diario
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IConteoInventarioNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.ConteoInventarioNavRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IConteoNavService, BussinesMS.Aplicacion.Servicios.Navidad.ConteoNavService>();
+// Ventas (módulo 6)
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IVentaNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.VentaNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IEntregaVentaNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.EntregaVentaNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICobroVentaNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.CobroVentaNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IConsumoNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.ConsumoNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IReservaNavService, BussinesMS.Aplicacion.Servicios.Navidad.ReservaNavService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IVentaNavService, BussinesMS.Aplicacion.Servicios.Navidad.VentaNavService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IConsumoNavService, BussinesMS.Aplicacion.Servicios.Navidad.ConsumoNavService>();
 
 // Background Services
 builder.Services.AddHostedService<BussinesMS.Infraestructura.Jobs.VencimientoLotesJob>();

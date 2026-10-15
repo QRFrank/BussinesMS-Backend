@@ -1,4 +1,5 @@
 using BussinesMS.Dominio.Entidades.Compartido;
+using BussinesMS.Dominio.Enums.Navidad;
 
 namespace BussinesMS.Dominio.Entidades.Navidad;
 
@@ -12,6 +13,8 @@ public class ConteoInventarioDetalle : EntidadBase
     // Contado - StockSistema
     public int Diferencia { get; set; }
     public string? Observacion { get; set; }
+    // Obligatorio si la diferencia es negativa (para clasificar los ajustes en reportes)
+    public MotivoDiferenciaConteo? MotivoDiferencia { get; set; }
 
     public ConteoInventario? Conteo { get; set; }
     public Producto? Producto { get; set; }

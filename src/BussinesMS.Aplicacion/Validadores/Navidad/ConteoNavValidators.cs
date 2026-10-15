@@ -34,5 +34,8 @@ public class CrearConteoDetalleNavDtoValidator : AbstractValidator<CrearConteoDe
             .GreaterThanOrEqualTo(0).WithMessage("La cantidad contada no puede ser negativa");
         RuleFor(x => x.Observacion)
             .MaximumLength(500).WithMessage("La observación no puede superar 500 caracteres");
+        RuleFor(x => x.MotivoDiferencia)
+            .Must(m => m == null || Enum.IsDefined(typeof(MotivoDiferenciaConteo), m.Value))
+            .WithMessage("El motivo de la diferencia es inválido");
     }
 }

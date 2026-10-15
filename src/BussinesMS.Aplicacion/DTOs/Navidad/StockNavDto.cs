@@ -25,6 +25,10 @@ public class StockNavDto
     public int AlmacenId { get; set; }
     public string AlmacenNombre { get; set; } = string.Empty;
     public int Stock { get; set; }
+    // Unidades apartadas por reservas con bloqueo en este almacén (0 si no hay)
+    public int Bloqueado { get; set; }
+    // Libre para vender o trasladar: Stock − Bloqueado (mínimo 0)
+    public int Disponible { get; set; }
     // Costo promedio ponderado del producto en la temporada (redondeado a 2; 0 si no tuvo entradas)
     public decimal CostoPromedio { get; set; }
     // Stock de esta fila × costo promedio (sin redondear el costo), redondeado a 2
