@@ -11,8 +11,8 @@ public class VentaNav : EntidadBase
     public int NroVenta { get; set; }
     // Día de la venta (hora de Bolivia)
     public DateTime Fecha { get; set; }
-    // Tienda de la venta (origen por defecto de las entregas). Sin FK: Almacen vive en AuthDB
-    public int AlmacenId { get; set; }
+    // Tienda de la venta (origen por defecto de las entregas). Sin FK: Almacen vive en AuthDB. Null en las reservas (no pertenecen a una tienda)
+    public int? AlmacenId { get; set; }
     public CanalVentaNav Canal { get; set; }
     // Quien la registró. Sin FK: Usuario vive en AuthDB
     public int UsuarioId { get; set; }
@@ -20,8 +20,6 @@ public class VentaNav : EntidadBase
     public int? ClienteId { get; set; }
     public TipoVentaNav Tipo { get; set; }
     public CondicionPagoVentaNav CondicionPago { get; set; }
-    // Solo reservas: aparta las unidades pendientes en AlmacenId
-    public bool BloquearStock { get; set; }
     public decimal MontoTotal { get; set; }
     public decimal Descuento { get; set; }
     public decimal MontoNeto { get; set; }
@@ -38,4 +36,6 @@ public class VentaNav : EntidadBase
     public ICollection<VentaNavDetalle> Detalles { get; set; } = new List<VentaNavDetalle>();
     public ICollection<EntregaVenta> Entregas { get; set; } = new List<EntregaVenta>();
     public ICollection<CobroVenta> Cobros { get; set; } = new List<CobroVenta>();
+    // Solo reservas: stock apartado por almacén
+    public ICollection<ReservaBloqueo> Bloqueos { get; set; } = new List<ReservaBloqueo>();
 }

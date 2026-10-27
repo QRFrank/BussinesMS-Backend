@@ -36,7 +36,8 @@ public class VentaNavDto
     public int TemporadaId { get; set; }
     public int NroVenta { get; set; }
     public DateTime Fecha { get; set; }
-    public int AlmacenId { get; set; }
+    // Null en las reservas (no pertenecen a una tienda)
+    public int? AlmacenId { get; set; }
     public string AlmacenNombre { get; set; } = string.Empty;
     public int Canal { get; set; }
     public string CanalNombre { get; set; } = string.Empty;
@@ -50,7 +51,10 @@ public class VentaNavDto
     public string TipoNombre { get; set; } = string.Empty;
     public int CondicionPago { get; set; }
     public string CondicionPagoNombre { get; set; } = string.Empty;
+    // Obsoleto: true si la reserva tiene algún bloqueo vigente (equivale a unidadesBloqueadas > 0)
     public bool BloquearStock { get; set; }
+    // Σ bloqueos vigentes de la reserva (0 en ventas directas)
+    public int UnidadesBloqueadas { get; set; }
     public decimal MontoTotal { get; set; }
     public decimal Descuento { get; set; }
     public decimal MontoNeto { get; set; }
@@ -68,7 +72,7 @@ public class VentaNavDto
     // Según el usuario logueado: venta de tienda vigente y (admin o vendedor dueño)
     public bool PuedeEditar { get; set; }
     public bool PuedeAnular { get; set; }
-    // Solo en crear/editar: productos de una reserva que quedan sobre-reservados (no bloquea)
+    // Obsoleto: ya no se llena (las reservas sin cobertura se rechazan con 409 SIN_COBERTURA_PEDIDO)
     public List<string> Advertencias { get; set; } = new();
     // Vacíos en la lista
     public List<VentaNavDetalleDto> Detalles { get; set; } = new();
@@ -96,6 +100,23 @@ public class VentaNavDetalleDto
     public int UnidadesPendientes { get; set; }
     public int EstadoEntrega { get; set; }
     public string EstadoEntregaNombre { get; set; } = string.Empty;
+    // Solo reservas: stock bloqueado de la línea, parte sin bloqueo (pendiente - bloqueado) y detalle por almacén
+    public int Bloqueado { get; set; }
+    public int SinBloqueo { get; set; }
+    public List<ReservaBloqueoNavDto> Bloqueos { get; set; } = new();
+}
+
+public class ReservaBloqueoNavDto
+{
+    public int Id { get; set; }
+    public int VentaDetalleId { get; set; }
+    public int ProductoId { get; set; }
+    public int AlmacenId { get; set; }
+    public string AlmacenNombre { get; set; } = string.Empty;
+    public int Unidades { get; set; }
+    // Si lo generó la recepción de un pedido
+    public int? RecepcionId { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 public class EntregaVentaDto
@@ -147,12 +168,10 @@ public class CrearVentaNavDto
     public int? VendedorId { get; set; }
     // Obligatorio si es Reserva, Crédito o si queda saldo
     public int? ClienteId { get; set; }
-    // 1 Directa | 2 Reserva
+    // 1 Directa (la 2 Reserva se rechaza: las reservas se registran en api/Navidad/Reservas)
     public int Tipo { get; set; }
     // 1 Contado | 2 Crédito
     public int CondicionPago { get; set; }
-    // Solo reservas
-    public bool BloquearStock { get; set; }
     public decimal Descuento { get; set; }
     public string? Observacion { get; set; }
     // Contado: obligatorio (monto = neto o sin monto); Crédito: pago inicial opcional (> 0 y < neto)
@@ -209,11 +228,6 @@ public class RegistrarCobroVentaDto
     public string? Observacion { get; set; }
 }
 
-public class BloqueoVentaDto
-{
-    public bool Bloquear { get; set; }
-}
-
 // ---------- Auxiliares de la pantalla ----------
 
 public class VentaContextoDto
@@ -245,32 +259,4 @@ public class VentaProductoNavDto
     public int Bloqueado { get; set; }
     // Stock − Bloqueado (mínimo 0)
     public int Disponible { get; set; }
-}
-
-// ---------- Cobertura de reservas ----------
-
-public class ReservaCoberturaNavFiltroDto
-{
-    public int? TemporadaId { get; set; }
-}
-
-public class ReservaCoberturaNavDto
-{
-    public int ProductoId { get; set; }
-    public string ProductoNombreMostrar { get; set; } = string.Empty;
-    public int? UnidadesPorEmpaque { get; set; }
-    public string? NombreEmpaque { get; set; }
-    public string? Color { get; set; }
-    // Σ pendiente de entrega de reservas no anuladas
-    public int ReservadoPendiente { get; set; }
-    // Parte del reservado pendiente que está bloqueada
-    public int Bloqueado { get; set; }
-    // Σ stock de todos los almacenes navideños
-    public int StockTotal { get; set; }
-    // Pedido y todavía no recibido (misma lógica que Faltantes: Σ de las filas con faltante > 0)
-    public int PorLlegar { get; set; }
-    // ReservadoPendiente > StockTotal + PorLlegar
-    public bool SobreReservado { get; set; }
-    // (StockTotal + PorLlegar) − ReservadoPendiente: negativo = unidades sobre-reservadas
-    public int Diferencia { get; set; }
 }

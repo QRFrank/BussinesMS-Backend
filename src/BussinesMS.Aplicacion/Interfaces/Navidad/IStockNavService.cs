@@ -29,8 +29,7 @@ public interface IStockNavService
     Task<int> ObtenerDisponibleAsync(int almacenId, int productoId);
 
     /// <summary>
-    /// Unidades bloqueadas del producto en el almacén: Σ (Unidades − UnidadesEntregadas) de las líneas de reservas no anuladas
-    /// con BloquearStock en ese almacén. <paramref name="excluirVentaId"/> deja afuera a una reserva (la propia).
+    /// Unidades bloqueadas del producto en el almacén: Σ de los ReservaBloqueo vigentes de reservas no anuladas en ese almacén. <paramref name="excluirVentaId"/> deja afuera a una reserva (la propia).
     /// </summary>
     Task<int> ObtenerBloqueadoAsync(int almacenId, int productoId, int? excluirVentaId = null);
 

@@ -23,6 +23,10 @@ public interface ICobroVentaNavRepository : IRepositorio<CobroVenta>
 {
 }
 
+public interface IReservaBloqueoNavRepository : IRepositorio<ReservaBloqueo>
+{
+}
+
 public interface IConsumoNavRepository : IRepositorio<ConsumoNav>
 {
     // Sin tracking: detalles con producto

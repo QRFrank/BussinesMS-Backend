@@ -20,7 +20,7 @@ public class StockNavService : IStockNavService
     private readonly IProductoNavRepository _productoRepo;
     private readonly IRecepcionNavRepository _recepcionRepo;
     private readonly ICompraNavRepository _compraRepo;
-    private readonly IVentaNavRepository _ventaRepo;
+    private readonly IReservaBloqueoNavRepository _bloqueoRepo;
     private readonly IAlmacenRepository _almacenRepo;
     private readonly ITemporadaActualService _temporadaActual;
     private readonly ICurrentUserService _currentUser;
@@ -32,7 +32,7 @@ public class StockNavService : IStockNavService
         IProductoNavRepository productoRepo,
         IRecepcionNavRepository recepcionRepo,
         ICompraNavRepository compraRepo,
-        IVentaNavRepository ventaRepo,
+        IReservaBloqueoNavRepository bloqueoRepo,
         IAlmacenRepository almacenRepo,
         ITemporadaActualService temporadaActual,
         ICurrentUserService currentUser,
@@ -43,7 +43,7 @@ public class StockNavService : IStockNavService
         _productoRepo = productoRepo;
         _recepcionRepo = recepcionRepo;
         _compraRepo = compraRepo;
-        _ventaRepo = ventaRepo;
+        _bloqueoRepo = bloqueoRepo;
         _almacenRepo = almacenRepo;
         _temporadaActual = temporadaActual;
         _currentUser = currentUser;
@@ -112,28 +112,26 @@ public class StockNavService : IStockNavService
             .Select(s => (int?)s.Cantidad)
             .FirstOrDefaultAsync() ?? 0;
 
-    public async Task<int> ObtenerBloqueadoAsync(int almacenId, int productoId, int? excluirVentaId = null)
-        => await _ventaRepo.AsQueryable()
+    // Bloqueado = Σ ReservaBloqueo.Unidades vigentes de reservas no anuladas (reemplaza al bloqueo por tienda de la reserva)
+    private IQueryable<ReservaBloqueo> BloqueosVigentes()
+        => _bloqueoRepo.AsQueryable()
             .AsNoTracking()
-            .Where(v => v.IsActive && !v.Anulada && v.Tipo == TipoVentaNav.Reserva && v.BloquearStock
-                && v.AlmacenId == almacenId && (excluirVentaId == null || v.Id != excluirVentaId))
-            .SelectMany(v => v.Detalles)
-            .Where(d => d.ProductoId == productoId && d.Unidades > d.UnidadesEntregadas)
-            .SumAsync(d => (int?)(d.Unidades - d.UnidadesEntregadas)) ?? 0;
+            .Where(b => b.IsActive && b.Venta!.IsActive && !b.Venta.Anulada && b.Venta.Tipo == TipoVentaNav.Reserva);
+
+    public async Task<int> ObtenerBloqueadoAsync(int almacenId, int productoId, int? excluirVentaId = null)
+        => await BloqueosVigentes()
+            .Where(b => b.AlmacenId == almacenId && b.ProductoId == productoId && (excluirVentaId == null || b.VentaId != excluirVentaId))
+            .SumAsync(b => (int?)b.Unidades) ?? 0;
 
     public async Task<Dictionary<(int AlmacenId, int ProductoId), int>> ObtenerBloqueadosAsync(int temporadaId, int? almacenId = null)
     {
-        var query = _ventaRepo.AsQueryable()
-            .AsNoTracking()
-            .Where(v => v.IsActive && !v.Anulada && v.Tipo == TipoVentaNav.Reserva && v.BloquearStock && v.TemporadaId == temporadaId);
+        var query = BloqueosVigentes().Where(b => b.Venta!.TemporadaId == temporadaId);
         if (almacenId.HasValue)
-            query = query.Where(v => v.AlmacenId == almacenId.Value);
+            query = query.Where(b => b.AlmacenId == almacenId.Value);
 
         var filas = await query
-            .SelectMany(v => v.Detalles.Where(d => d.Unidades > d.UnidadesEntregadas)
-                .Select(d => new { v.AlmacenId, d.ProductoId, Pendiente = d.Unidades - d.UnidadesEntregadas }))
-            .GroupBy(x => new { x.AlmacenId, x.ProductoId })
-            .Select(g => new { g.Key.AlmacenId, g.Key.ProductoId, Total = g.Sum(x => x.Pendiente) })
+            .GroupBy(b => new { b.AlmacenId, b.ProductoId })
+            .Select(g => new { g.Key.AlmacenId, g.Key.ProductoId, Total = g.Sum(x => x.Unidades) })
             .ToListAsync();
 
         return filas.ToDictionary(f => (f.AlmacenId, f.ProductoId), f => f.Total);
@@ -159,18 +157,10 @@ public class StockNavService : IStockNavService
         var bloqueado = await ObtenerBloqueadoAsync(almacenId, productoId, ventaIdPropia);
         if (bloqueado <= 0 || disponible - bloqueado >= unidades) return;
 
-        var reservas = await _ventaRepo.AsQueryable()
-            .AsNoTracking()
-            .Where(v => v.IsActive && !v.Anulada && v.Tipo == TipoVentaNav.Reserva && v.BloquearStock
-                && v.AlmacenId == almacenId && (ventaIdPropia == null || v.Id != ventaIdPropia))
-            .Select(v => new
-            {
-                v.NroVenta,
-                Cliente = v.Cliente != null ? v.Cliente.Nombre : null,
-                Bloqueadas = v.Detalles.Where(d => d.ProductoId == productoId && d.Unidades > d.UnidadesEntregadas)
-                    .Sum(d => (int?)(d.Unidades - d.UnidadesEntregadas)) ?? 0
-            })
-            .Where(x => x.Bloqueadas > 0)
+        var reservas = await BloqueosVigentes()
+            .Where(x => x.AlmacenId == almacenId && x.ProductoId == productoId && (ventaIdPropia == null || x.VentaId != ventaIdPropia))
+            .GroupBy(x => new { x.Venta!.NroVenta, Cliente = x.Venta.Cliente != null ? x.Venta.Cliente.Nombre : null })
+            .Select(g => new { g.Key.NroVenta, g.Key.Cliente, Bloqueadas = g.Sum(x => x.Unidades) })
             .OrderBy(x => x.NroVenta)
             .ToListAsync();
 

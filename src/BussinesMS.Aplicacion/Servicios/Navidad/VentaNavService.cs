@@ -14,13 +14,14 @@ using ProductoNav = BussinesMS.Dominio.Entidades.Navidad.Producto;
 
 namespace BussinesMS.Aplicacion.Servicios.Navidad;
 
-// Ventas de tienda (módulo 6). La cabecera guarda los estados (pago y entrega); las entregas son lo único que mueve stock
+// Ventas de tienda (módulo 6; las reservas se registran en ReservaNavService, que reutiliza los helpers internal de esta clase). La cabecera guarda los estados (pago y entrega); las entregas son lo único que mueve stock
 // y los cobros viven en su tabla. DTOs armados a mano (CreatedAt → hora de Bolivia aquí; nombres desde AuthDB).
 // Transacciones con INavidadUnitOfWork; stock siempre vía IStockNavService.
 public class VentaNavService : IVentaNavService
 {
     private const int SistemaNavidadId = 2;
     private const string ReferenciaVenta = "Venta";
+    internal const string MensajeReservaEnReservas = "Las reservas se registran en /Reservas";
 
     private readonly IVentaNavRepository _repo;
     private readonly IEntregaVentaNavRepository _entregaRepo;
@@ -34,7 +35,6 @@ public class VentaNavService : IVentaNavService
     private readonly IRolRepository _rolRepo;
     private readonly IStockNavService _stock;
     private readonly IConteoNavService _conteo;
-    private readonly IReservaNavService _reservas;
     private readonly ITemporadaActualService _temporadaActual;
     private readonly INavidadUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
@@ -53,7 +53,6 @@ public class VentaNavService : IVentaNavService
         IRolRepository rolRepo,
         IStockNavService stock,
         IConteoNavService conteo,
-        IReservaNavService reservas,
         ITemporadaActualService temporadaActual,
         INavidadUnitOfWork uow,
         ICurrentUserService currentUser,
@@ -71,7 +70,6 @@ public class VentaNavService : IVentaNavService
         _rolRepo = rolRepo;
         _stock = stock;
         _conteo = conteo;
-        _reservas = reservas;
         _temporadaActual = temporadaActual;
         _uow = uow;
         _currentUser = currentUser;
@@ -91,6 +89,7 @@ public class VentaNavService : IVentaNavService
                 .Include(x => x.Cliente)
                 .Include(x => x.Vendedor)
                 .Include(x => x.Detalles)
+                .Include(x => x.Bloqueos.Where(b => b.IsActive))
                 .Where(x => x.IsActive && x.TemporadaId == temporadaId);
 
             if (query.Canal.HasValue)
@@ -136,7 +135,9 @@ public class VentaNavService : IVentaNavService
                     : baseQuery.Where(x => x.EstadoEntrega == EstadoEntregaVentaNav.Entregado);
             }
             if (query.Bloqueada.HasValue)
-                baseQuery = baseQuery.Where(x => x.BloquearStock == query.Bloqueada.Value);
+                baseQuery = query.Bloqueada.Value
+                    ? baseQuery.Where(x => x.Bloqueos.Any(b => b.IsActive))
+                    : baseQuery.Where(x => !x.Bloqueos.Any(b => b.IsActive));
             if (query.AlmacenId.HasValue)
                 baseQuery = baseQuery.Where(x => x.AlmacenId == query.AlmacenId.Value);
             if (query.VendedorId.HasValue)
@@ -175,7 +176,7 @@ public class VentaNavService : IVentaNavService
             (var filteredQuery, var totalCount) = baseQuery.ApplyFilters(query, skipSorting: sinOrden);
             var entidades = await filteredQuery.ToListAsync();
 
-            var almacenes = await ObtenerNombresAlmacenAsync(entidades.Select(e => e.AlmacenId));
+            var almacenes = await ObtenerNombresAlmacenAsync(entidades.Where(e => e.AlmacenId.HasValue).Select(e => e.AlmacenId!.Value));
             var usuarios = await ObtenerNombresUsuarioAsync(
                 entidades.Select(e => e.UsuarioId).Concat(entidades.Where(e => e.Vendedor != null).Select(e => e.Vendedor!.UsuarioId)));
             var (esAdmin, vendedorActual) = await ObtenerPermisosAsync(temporadaId);
@@ -310,28 +311,7 @@ public class VentaNavService : IVentaNavService
             var (total, descuento, neto) = CalcularTotales(dto.Detalles, dto.Descuento);
             ValidarPrecios(dto.Detalles, productos, neto, esAdmin);
 
-            // Cobro inicial
-            decimal cobroMonto = 0;
-            if (neto > 0)
-            {
-                if (condicion == CondicionPagoVentaNav.Contado)
-                {
-                    if (dto.Cobro == null)
-                        throw new ValidacionException("El medio de pago es obligatorio para una venta al contado");
-                    if (dto.Cobro.Monto.HasValue && Redondear(dto.Cobro.Monto.Value) != neto)
-                        throw new ValidacionException($"En una venta al contado el cobro debe ser igual al neto ({neto})");
-                    cobroMonto = neto;
-                }
-                else if (dto.Cobro != null)
-                {
-                    var m = Redondear(dto.Cobro.Monto ?? 0);
-                    if (m <= 0 || m >= neto)
-                        throw new ValidacionException($"El pago inicial debe ser mayor a 0 y menor al neto ({neto}); si se cobra todo, use contado");
-                    cobroMonto = m;
-                }
-            }
-            if (dto.Cobro != null && !Enum.IsDefined(dto.Cobro.Medio))
-                throw new ValidacionException("El medio de pago es inválido");
+            var cobroMonto = ResolverCobroInicial(neto, condicion, dto.Cobro);
 
             var saldo = neto - cobroMonto;
             if (dto.ClienteId.HasValue)
@@ -339,17 +319,8 @@ public class VentaNavService : IVentaNavService
             else if (tipo == TipoVentaNav.Reserva || condicion == CondicionPagoVentaNav.Credito || saldo > 0)
                 throw new ValidacionException("El cliente es obligatorio en reservas, ventas a crédito o con saldo pendiente");
 
-            if (tipo == TipoVentaNav.Directa)
-            {
-                // Sale stock de la tienda en el momento: exige apertura de hoy si la tienda lleva conteo
-                await _conteo.VerificarAperturaParaVentaAsync(dto.AlmacenId);
-            }
-            else if (dto.BloquearStock)
-            {
-                // El stock libre (sin lo bloqueado por otras reservas) tiene que alcanzar
-                foreach (var l in dto.Detalles)
-                    await _stock.VerificarLibreAsync(dto.AlmacenId, l.ProductoId, l.Unidades);
-            }
+            // Sale stock de la tienda en el momento: exige apertura de hoy si la tienda lleva conteo
+            await _conteo.VerificarAperturaParaVentaAsync(dto.AlmacenId);
 
             var usuarioId = _currentUser.GetUsuarioId() ?? 1;
             var ahora = DateTime.UtcNow;
@@ -366,7 +337,6 @@ public class VentaNavService : IVentaNavService
                 ClienteId = dto.ClienteId,
                 Tipo = tipo,
                 CondicionPago = condicion,
-                BloquearStock = tipo == TipoVentaNav.Reserva && dto.BloquearStock,
                 MontoTotal = total,
                 Descuento = descuento,
                 MontoNeto = neto,
@@ -432,7 +402,7 @@ public class VentaNavService : IVentaNavService
 
                 if (tipo == TipoVentaNav.Directa)
                     foreach (var d in creada.Detalles)
-                        await _stock.RegistrarSalidaAsync(temporada.Id, creada.AlmacenId, d.ProductoId, d.Unidades,
+                        await _stock.RegistrarSalidaAsync(temporada.Id, dto.AlmacenId, d.ProductoId, d.Unidades,
                             TipoMovimientoNav.Venta, ReferenciaVenta, creada.Id);
 
                 await _uow.CommitAsync();
@@ -445,11 +415,8 @@ public class VentaNavService : IVentaNavService
 
             _logger.LogInformation("Venta creada: {Id} #{Nro} ({Tipo}, temporada {TemporadaId})", venta.Id, venta.NroVenta, tipo, temporada.Id);
 
-            var resultado = await ObtenerPorIdAsync(venta.Id)
+            return await ObtenerPorIdAsync(venta.Id)
                 ?? throw new EntidadNoEncontradaException("Venta", venta.Id);
-            if (tipo == TipoVentaNav.Reserva)
-                resultado.Advertencias = await _reservas.ObtenerAdvertenciasAsync(temporada.Id, dto.Detalles.Select(d => d.ProductoId));
-            return resultado;
         }
         catch (Exception ex)
         {
@@ -469,8 +436,11 @@ public class VentaNavService : IVentaNavService
             var venta = await ObtenerVentaParaEdicionAsync(id);
             if (venta.Anulada)
                 throw new ValidacionException("La venta está anulada");
+            if (venta.Tipo == TipoVentaNav.Reserva)
+                throw new ValidacionException(MensajeReservaEnReservas);
             if (venta.Canal != CanalVentaNav.Tienda)
                 throw new ValidacionException("Solo se pueden editar ventas de tienda; las de ruta se editan desde el módulo de ruta");
+            var almacenVentaId = venta.AlmacenId ?? throw new ValidacionException("La venta no tiene tienda asignada");
 
             await _temporadaActual.VerificarEditableAsync(venta.TemporadaId);
             var (esAdmin, vendedorActual) = await ObtenerPermisosAsync(venta.TemporadaId);
@@ -522,18 +492,7 @@ public class VentaNavService : IVentaNavService
 
             // Directa: el extra sale de la tienda (apertura de hoy si lleva conteo)
             if (aSumarEnEntrega > 0)
-                await _conteo.VerificarAperturaParaVentaAsync(venta.AlmacenId);
-
-            // Reserva bloqueada: el stock libre tiene que cubrir todo lo pendiente de las líneas que suben
-            if (venta.Tipo == TipoVentaNav.Reserva && venta.BloquearStock)
-                foreach (var l in nuevas.Values)
-                {
-                    existentes.TryGetValue(l.ProductoId, out var previa);
-                    var pendienteAntes = previa == null ? 0 : previa.Unidades - previa.UnidadesEntregadas;
-                    var pendienteDespues = l.Unidades - (previa?.UnidadesEntregadas ?? 0);
-                    if (pendienteDespues > pendienteAntes)
-                        await _stock.VerificarLibreAsync(venta.AlmacenId, l.ProductoId, pendienteDespues, venta.Id);
-                }
+                await _conteo.VerificarAperturaParaVentaAsync(almacenVentaId);
 
             var usuarioId = _currentUser.GetUsuarioId() ?? 1;
             var ahora = DateTime.UtcNow;
@@ -544,7 +503,7 @@ public class VentaNavService : IVentaNavService
                 // 1) Bajar unidades ya entregadas: vuelven a la tienda de la venta (DevolucionVenta) y se descuentan de las entregas más recientes
                 foreach (var (linea, cantidad) in aDevolver)
                 {
-                    await _stock.RegistrarEntradaAsync(venta.TemporadaId, venta.AlmacenId, linea.ProductoId, cantidad,
+                    await _stock.RegistrarEntradaAsync(venta.TemporadaId, almacenVentaId, linea.ProductoId, cantidad,
                         TipoMovimientoNav.DevolucionVenta, ReferenciaVenta, venta.Id);
                     ReducirEntregas(venta, linea, cantidad);
                     linea.UnidadesEntregadas -= cantidad;
@@ -587,11 +546,11 @@ public class VentaNavService : IVentaNavService
                     if (extras.Count > 0)
                     {
                         var hoy = BoliviaTimeZone.Now().Date;
-                        var entrega = NuevaEntrega(venta.AlmacenId, hoy, usuarioId, ahora);
+                        var entrega = NuevaEntrega(almacenVentaId, hoy, usuarioId, ahora);
                         foreach (var d in extras)
                         {
                             var cantidad = d.Unidades - d.UnidadesEntregadas;
-                            await _stock.RegistrarSalidaAsync(venta.TemporadaId, venta.AlmacenId, d.ProductoId, cantidad,
+                            await _stock.RegistrarSalidaAsync(venta.TemporadaId, almacenVentaId, d.ProductoId, cantidad,
                                 TipoMovimientoNav.Venta, ReferenciaVenta, venta.Id);
                             entrega.Detalles.Add(new EntregaVentaDetalle
                             {
@@ -628,11 +587,8 @@ public class VentaNavService : IVentaNavService
 
             _logger.LogInformation("Venta editada: {Id} #{Nro}", venta.Id, venta.NroVenta);
 
-            var resultado = await ObtenerPorIdAsync(venta.Id)
+            return await ObtenerPorIdAsync(venta.Id)
                 ?? throw new EntidadNoEncontradaException("Venta", venta.Id);
-            if (venta.Tipo == TipoVentaNav.Reserva)
-                resultado.Advertencias = await _reservas.ObtenerAdvertenciasAsync(venta.TemporadaId, dto.Detalles.Select(d => d.ProductoId));
-            return resultado;
         }
         catch (Exception ex)
         {
@@ -642,89 +598,6 @@ public class VentaNavService : IVentaNavService
     }
 
     // ================= Entregas =================
-
-    public async Task<VentaNavDto> RegistrarEntregaAsync(int ventaId, RegistrarEntregaVentaDto dto)
-    {
-        try
-        {
-            if (dto.AlmacenId <= 0)
-                throw new ValidacionException("El almacén es obligatorio");
-            if (dto.Detalles == null || dto.Detalles.Count == 0)
-                throw new ValidacionException("Debe indicar al menos una línea a entregar");
-            if (dto.Detalles.Any(d => d.Unidades <= 0))
-                throw new ValidacionException("Las unidades a entregar deben ser mayores a 0");
-            if (dto.Detalles.Select(d => d.VentaDetalleId).Distinct().Count() != dto.Detalles.Count)
-                throw new ValidacionException("Hay líneas repetidas en la entrega");
-
-            var venta = await ObtenerVentaParaEdicionAsync(ventaId);
-            if (venta.Anulada)
-                throw new ValidacionException("La venta está anulada");
-            if (venta.Tipo != TipoVentaNav.Reserva)
-                throw new ValidacionException("Las entregas se registran solo en reservas: una venta directa se entrega al guardarse");
-
-            await _temporadaActual.VerificarEditableAsync(venta.TemporadaId);
-            await ValidarAlmacenAsync(dto.AlmacenId, exigirTienda: false);
-
-            var lineas = new List<(VentaNavDetalle Linea, int Unidades)>();
-            foreach (var item in dto.Detalles)
-            {
-                var linea = venta.Detalles.FirstOrDefault(d => d.Id == item.VentaDetalleId)
-                    ?? throw new ValidacionException($"La línea {item.VentaDetalleId} no pertenece a la venta");
-                var pendiente = linea.Unidades - linea.UnidadesEntregadas;
-                if (item.Unidades > pendiente)
-                    throw new ValidacionException($"La línea {item.VentaDetalleId} tiene {pendiente} unidades pendientes y se intentó entregar {item.Unidades}");
-                lineas.Add((linea, item.Unidades));
-            }
-
-            // Sale stock del almacén: exige apertura de hoy si es tienda con conteo
-            await _conteo.VerificarAperturaParaVentaAsync(dto.AlmacenId);
-
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
-            var ahora = DateTime.UtcNow;
-            var hoy = BoliviaTimeZone.Now().Date;
-
-            await _uow.BeginTransactionAsync();
-            try
-            {
-                var entrega = NuevaEntrega(dto.AlmacenId, hoy, usuarioId, ahora);
-                foreach (var (linea, unidades) in lineas)
-                {
-                    // La propia reserva no se bloquea a sí misma (ventaIdPropia)
-                    await _stock.RegistrarSalidaAsync(venta.TemporadaId, dto.AlmacenId, linea.ProductoId, unidades,
-                        TipoMovimientoNav.EntregaReserva, ReferenciaVenta, venta.Id, ventaIdPropia: venta.Id);
-                    entrega.Detalles.Add(new EntregaVentaDetalle
-                    {
-                        VentaDetalleId = linea.Id,
-                        ProductoId = linea.ProductoId,
-                        Unidades = unidades,
-                        CreatedByUsuarioId = usuarioId,
-                        CreatedAt = ahora
-                    });
-                    linea.UnidadesEntregadas += unidades;
-                    Tocar(linea, usuarioId, ahora);
-                }
-                venta.Entregas.Add(entrega);
-
-                RecalcularEntrega(venta);
-                Tocar(venta, usuarioId, ahora);
-                await _uow.SaveChangesAsync();
-                await _uow.CommitAsync();
-            }
-            catch
-            {
-                await _uow.RollbackAsync();
-                throw;
-            }
-
-            _logger.LogInformation("Entrega registrada en venta {Id}", ventaId);
-            return await ObtenerPorIdAsync(ventaId) ?? throw new EntidadNoEncontradaException("Venta", ventaId);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error al registrar entrega de la venta {Id}", ventaId);
-            throw;
-        }
-    }
 
     public async Task<VentaNavDto> AnularEntregaAsync(int entregaId)
     {
@@ -904,56 +777,7 @@ public class VentaNavService : IVentaNavService
         }
     }
 
-    // ================= Bloqueo y anulación =================
-
-    public async Task<VentaNavDto> CambiarBloqueoAsync(int ventaId, bool bloquear)
-    {
-        try
-        {
-            var venta = await ObtenerVentaParaEdicionAsync(ventaId);
-            if (venta.Anulada)
-                throw new ValidacionException("La venta está anulada");
-            if (venta.Tipo != TipoVentaNav.Reserva)
-                throw new ValidacionException("Solo las reservas pueden bloquear stock");
-            if (venta.EstadoEntrega == EstadoEntregaVentaNav.Entregado)
-                throw new ValidacionException("La reserva ya está entregada: no hay nada que bloquear");
-
-            await _temporadaActual.VerificarEditableAsync(venta.TemporadaId);
-            var (esAdmin, vendedorActual) = await ObtenerPermisosAsync(venta.TemporadaId);
-
-            if (!bloquear)
-            {
-                // Desbloquear: solo el admin (el vendedor llama al admin)
-                if (!esAdmin)
-                    throw new ExcepcionDominio("Solo el admin puede desbloquear el stock de una reserva", 403, "SIN_PERMISO");
-            }
-            else
-            {
-                VerificarPropietario(venta, esAdmin, vendedorActual);
-                if (!venta.BloquearStock)
-                {
-                    // El stock libre (sin lo bloqueado por otras reservas) tiene que cubrir lo pendiente
-                    foreach (var d in venta.Detalles.Where(d => d.Unidades > d.UnidadesEntregadas))
-                        await _stock.VerificarLibreAsync(venta.AlmacenId, d.ProductoId, d.Unidades - d.UnidadesEntregadas, venta.Id);
-                }
-            }
-
-            if (venta.BloquearStock != bloquear)
-            {
-                venta.BloquearStock = bloquear;
-                Tocar(venta, _currentUser.GetUsuarioId() ?? 1, DateTime.UtcNow);
-                await _uow.SaveChangesAsync();
-                _logger.LogInformation("Venta {Id}: bloqueo {Bloquear}", ventaId, bloquear);
-            }
-
-            return await ObtenerPorIdAsync(ventaId) ?? throw new EntidadNoEncontradaException("Venta", ventaId);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error al cambiar bloqueo de la venta {Id}", ventaId);
-            throw;
-        }
-    }
+    // ================= Anulación =================
 
     public async Task AnularAsync(int id)
     {
@@ -991,6 +815,10 @@ public class VentaNavService : IVentaNavService
                     Tocar(cobro, usuarioId, ahora);
                 }
 
+                // Reserva: se eliminan sus bloqueos de stock
+                foreach (var bloqueo in venta.Bloqueos.Where(b => b.IsActive))
+                    ReservaBloqueoHelper.Desactivar(bloqueo, usuarioId, ahora);
+
                 // Queda marcada como anulada; los reportes de deuda y cobertura la excluyen
                 venta.Anulada = true;
                 venta.MontoCobrado = 0;
@@ -1025,8 +853,8 @@ public class VentaNavService : IVentaNavService
             throw new ValidacionException("El tipo de venta es inválido");
         if (!Enum.IsDefined(typeof(CondicionPagoVentaNav), dto.CondicionPago))
             throw new ValidacionException("La condición de pago es inválida");
-        if (dto.BloquearStock && dto.Tipo != (int)TipoVentaNav.Reserva)
-            throw new ValidacionException("El bloqueo de stock solo aplica a reservas");
+        if (dto.Tipo == (int)TipoVentaNav.Reserva)
+            throw new ValidacionException(MensajeReservaEnReservas);
         if (dto.Observacion != null && dto.Observacion.Trim().Length > 500)
             throw new ValidacionException("La observación no puede superar 500 caracteres");
         if (dto.Cobro != null)
@@ -1046,7 +874,7 @@ public class VentaNavService : IVentaNavService
         ValidarLineas(dto.Detalles, dto.Descuento);
     }
 
-    private static void ValidarLineas(List<VentaLineaDto> detalles, decimal descuento)
+    internal static void ValidarLineas(List<VentaLineaDto> detalles, decimal descuento)
     {
         if (descuento < 0)
             throw new ValidacionException("El descuento no puede ser negativo");
@@ -1062,8 +890,35 @@ public class VentaNavService : IVentaNavService
             throw new ValidacionException("El precio unitario no puede ser negativo");
     }
 
+    // Cobro inicial: Contado = neto (medio obligatorio); Crédito = pago inicial opcional (> 0 y < neto). Devuelve el monto cobrado al crear
+    internal static decimal ResolverCobroInicial(decimal neto, CondicionPagoVentaNav condicion, CobroInicialVentaDto? cobro)
+    {
+        decimal cobroMonto = 0;
+        if (neto > 0)
+        {
+            if (condicion == CondicionPagoVentaNav.Contado)
+            {
+                if (cobro == null)
+                    throw new ValidacionException("El medio de pago es obligatorio para una venta al contado");
+                if (cobro.Monto.HasValue && Redondear(cobro.Monto.Value) != neto)
+                    throw new ValidacionException($"En una venta al contado el cobro debe ser igual al neto ({neto})");
+                cobroMonto = neto;
+            }
+            else if (cobro != null)
+            {
+                var m = Redondear(cobro.Monto ?? 0);
+                if (m <= 0 || m >= neto)
+                    throw new ValidacionException($"El pago inicial debe ser mayor a 0 y menor al neto ({neto}); si se cobra todo, use contado");
+                cobroMonto = m;
+            }
+        }
+        if (cobro != null && !Enum.IsDefined(cobro.Medio))
+            throw new ValidacionException("El medio de pago es inválido");
+        return cobroMonto;
+    }
+
     // Total de líneas (subtotales redondeados), descuento y neto
-    private static (decimal Total, decimal Descuento, decimal Neto) CalcularTotales(List<VentaLineaDto> detalles, decimal descuentoDto)
+    internal static (decimal Total, decimal Descuento, decimal Neto) CalcularTotales(List<VentaLineaDto> detalles, decimal descuentoDto)
     {
         var total = Redondear(detalles.Sum(l => Redondear(l.Unidades * l.PrecioUnitario)));
         var descuento = Redondear(descuentoDto);
@@ -1073,7 +928,7 @@ public class VentaNavService : IVentaNavService
     }
 
     // R4: nunca por debajo del precio de compra (por línea y en el neto); solo el admin puede. Compra 0 = sin restricción
-    private static void ValidarPrecios(List<VentaLineaDto> detalles, Dictionary<int, ProductoNav> productos, decimal neto, bool esAdmin)
+    internal static void ValidarPrecios(List<VentaLineaDto> detalles, Dictionary<int, ProductoNav> productos, decimal neto, bool esAdmin)
     {
         if (esAdmin) return;
 
@@ -1093,7 +948,7 @@ public class VentaNavService : IVentaNavService
                 400, "PRECIO_BAJO_COMPRA");
     }
 
-    private async Task<Dictionary<int, ProductoNav>> CargarProductosAsync(int temporadaId, IEnumerable<int> ids)
+    internal async Task<Dictionary<int, ProductoNav>> CargarProductosAsync(int temporadaId, IEnumerable<int> ids)
     {
         var lista = ids.Distinct().ToList();
         var productos = await _productoRepo.AsQueryable()
@@ -1108,7 +963,7 @@ public class VentaNavService : IVentaNavService
         return productos;
     }
 
-    private async Task ValidarClienteAsync(int clienteId)
+    internal async Task ValidarClienteAsync(int clienteId)
     {
         var cliente = await _clienteRepo.AsQueryable().AsNoTracking().FirstOrDefaultAsync(c => c.Id == clienteId);
         if (cliente == null || !cliente.IsActive)
@@ -1116,7 +971,7 @@ public class VentaNavService : IVentaNavService
     }
 
     // AuthDB: existe, es del sistema navideño y está activo (y tienda, si se exige)
-    private async Task ValidarAlmacenAsync(int almacenId, bool exigirTienda)
+    internal async Task ValidarAlmacenAsync(int almacenId, bool exigirTienda)
     {
         var almacen = await _almacenRepo.AsQueryable().AsNoTracking().FirstOrDefaultAsync(a => a.Id == almacenId);
         if (almacen == null || !almacen.IsActive || almacen.SistemaId != SistemaNavidadId)
@@ -1126,7 +981,7 @@ public class VentaNavService : IVentaNavService
     }
 
     // Admin = rol "Admin" (mismo criterio que EsAdminAsync del regular); vendedor = el activo de la temporada vinculado al usuario
-    private async Task<(bool EsAdmin, Vendedor? Vendedor)> ObtenerPermisosAsync(int temporadaId)
+    internal async Task<(bool EsAdmin, Vendedor? Vendedor)> ObtenerPermisosAsync(int temporadaId)
     {
         var esAdmin = false;
         var rolId = _currentUser.GetRolId();
@@ -1147,7 +1002,7 @@ public class VentaNavService : IVentaNavService
     }
 
     // Si el usuario es vendedor de la temporada queda él mismo; si no, tiene que elegir uno activo
-    private async Task<int> ResolverVendedorAsync(int temporadaId, Vendedor? vendedorActual, int? vendedorId, bool esAdmin = false)
+    internal async Task<int> ResolverVendedorAsync(int temporadaId, Vendedor? vendedorActual, int? vendedorId, bool esAdmin = false)
     {
         // Admin: si manda vendedorId se respeta (vende a nombre de otro); si no, usa el suyo
         var adminElige = esAdmin && vendedorId.HasValue && vendedorId.Value > 0;
@@ -1165,14 +1020,14 @@ public class VentaNavService : IVentaNavService
     }
 
     // El vendedor opera solo sus propias ventas; el admin, cualquiera
-    private static void VerificarPropietario(VentaNav venta, bool esAdmin, Vendedor? vendedorActual)
+    internal static void VerificarPropietario(VentaNav venta, bool esAdmin, Vendedor? vendedorActual)
     {
         if (esAdmin) return;
         if (vendedorActual != null && vendedorActual.Id == venta.VendedorId) return;
         throw new ExcepcionDominio("Solo el vendedor de la venta o el admin pueden realizar esta acción", 403, "SIN_PERMISO");
     }
 
-    private async Task<VentaNav> ObtenerVentaParaEdicionAsync(int id)
+    internal async Task<VentaNav> ObtenerVentaParaEdicionAsync(int id)
     {
         var venta = await _repo.ObtenerParaEdicionAsync(id);
         if (venta == null || !venta.IsActive)
@@ -1182,11 +1037,11 @@ public class VentaNavService : IVentaNavService
 
     // ================= Cálculo de estados =================
 
-    private static EstadoPagoVentaNav EstadoPagoDe(decimal neto, decimal cobrado)
+    internal static EstadoPagoVentaNav EstadoPagoDe(decimal neto, decimal cobrado)
         => neto - cobrado <= 0 ? EstadoPagoVentaNav.Pagado
             : cobrado > 0 ? EstadoPagoVentaNav.Parcial : EstadoPagoVentaNav.Pendiente;
 
-    private static void RecalcularPago(VentaNav venta)
+    internal static void RecalcularPago(VentaNav venta)
     {
         venta.MontoCobrado = Redondear(venta.Cobros.Where(c => !c.Anulado).Sum(c => c.Monto));
         venta.MontoSaldo = venta.MontoNeto - venta.MontoCobrado;
@@ -1194,7 +1049,7 @@ public class VentaNavService : IVentaNavService
     }
 
     // Estado de cada línea y de la cabecera (solo cuentan las líneas con unidades)
-    private static void RecalcularEntrega(VentaNav venta)
+    internal static void RecalcularEntrega(VentaNav venta)
     {
         foreach (var d in venta.Detalles)
             d.EstadoEntrega = d.Unidades == 0 || d.UnidadesEntregadas == 0 ? EstadoEntregaVentaNav.Pendiente
@@ -1208,7 +1063,7 @@ public class VentaNavService : IVentaNavService
     }
 
     // Mantiene Σ entregas no anuladas = UnidadesEntregadas: al bajar una línea ya entregada se descuenta de las entregas más recientes
-    private static void ReducirEntregas(VentaNav venta, VentaNavDetalle linea, int cantidad)
+    internal static void ReducirEntregas(VentaNav venta, VentaNavDetalle linea, int cantidad)
     {
         var restante = cantidad;
         var detallesEntrega = venta.Entregas
@@ -1225,7 +1080,7 @@ public class VentaNavService : IVentaNavService
         }
     }
 
-    private static EntregaVenta NuevaEntrega(int almacenId, DateTime fecha, int usuarioId, DateTime ahora) => new()
+    internal static EntregaVenta NuevaEntrega(int almacenId, DateTime fecha, int usuarioId, DateTime ahora) => new()
     {
         AlmacenId = almacenId,
         Fecha = fecha,
@@ -1236,7 +1091,7 @@ public class VentaNavService : IVentaNavService
     };
 
     // Auditoría de modificación en entidades hijas / cabecera (RepositorioBase solo la pone en la raíz al guardar por repositorio)
-    private static void Tocar(BussinesMS.Dominio.Entidades.Compartido.EntidadBase entidad, int usuarioId, DateTime ahora)
+    internal static void Tocar(BussinesMS.Dominio.Entidades.Compartido.EntidadBase entidad, int usuarioId, DateTime ahora)
     {
         entidad.UpdatedByUsuarioId = usuarioId;
         entidad.UpdatedAt = ahora;
@@ -1272,7 +1127,7 @@ public class VentaNavService : IVentaNavService
             NroVenta = e.NroVenta,
             Fecha = e.Fecha,
             AlmacenId = e.AlmacenId,
-            AlmacenNombre = almacenes.TryGetValue(e.AlmacenId, out var a) ? a : string.Empty,
+            AlmacenNombre = e.AlmacenId.HasValue && almacenes.TryGetValue(e.AlmacenId.Value, out var a) ? a : string.Empty,
             Canal = (int)e.Canal,
             CanalNombre = NombreCanal(e.Canal),
             UsuarioId = e.UsuarioId,
@@ -1285,7 +1140,8 @@ public class VentaNavService : IVentaNavService
             TipoNombre = NombreTipo(e.Tipo),
             CondicionPago = (int)e.CondicionPago,
             CondicionPagoNombre = NombreCondicion(e.CondicionPago),
-            BloquearStock = e.BloquearStock,
+            BloquearStock = e.Bloqueos.Any(b => b.IsActive),
+            UnidadesBloqueadas = e.Bloqueos.Where(b => b.IsActive).Sum(b => b.Unidades),
             MontoTotal = e.MontoTotal,
             Descuento = e.Descuento,
             MontoNeto = e.MontoNeto,
@@ -1309,7 +1165,9 @@ public class VentaNavService : IVentaNavService
 
     private async Task<VentaNavDto> MapearConDetallesAsync(VentaNav e)
     {
-        var almacenIds = new[] { e.AlmacenId }.Concat(e.Entregas.Select(x => x.AlmacenId));
+        var almacenIds = e.Entregas.Select(x => x.AlmacenId)
+            .Concat(e.AlmacenId.HasValue ? new[] { e.AlmacenId.Value } : Array.Empty<int>())
+            .Concat(e.Bloqueos.Select(x => x.AlmacenId));
         var almacenes = await ObtenerNombresAlmacenAsync(almacenIds);
         var usuarioIds = new List<int> { e.UsuarioId };
         if (e.Vendedor != null) usuarioIds.Add(e.Vendedor.UsuarioId);
@@ -1340,7 +1198,25 @@ public class VentaNavService : IVentaNavService
                 UnidadesEntregadas = d.UnidadesEntregadas,
                 UnidadesPendientes = d.Unidades - d.UnidadesEntregadas,
                 EstadoEntrega = (int)d.EstadoEntrega,
-                EstadoEntregaNombre = NombreEstadoEntrega(d.EstadoEntrega)
+                EstadoEntregaNombre = NombreEstadoEntrega(d.EstadoEntrega),
+                Bloqueado = e.Bloqueos.Where(b => b.IsActive && b.VentaDetalleId == d.Id).Sum(b => b.Unidades),
+                SinBloqueo = e.Tipo == TipoVentaNav.Reserva && !e.Anulada
+                    ? Math.Max(0, d.Unidades - d.UnidadesEntregadas - e.Bloqueos.Where(b => b.IsActive && b.VentaDetalleId == d.Id).Sum(b => b.Unidades))
+                    : 0,
+                Bloqueos = e.Bloqueos
+                    .Where(b => b.IsActive && b.VentaDetalleId == d.Id)
+                    .OrderBy(b => b.CreatedAt).ThenBy(b => b.Id)
+                    .Select(b => new ReservaBloqueoNavDto
+                    {
+                        Id = b.Id,
+                        VentaDetalleId = b.VentaDetalleId,
+                        ProductoId = b.ProductoId,
+                        AlmacenId = b.AlmacenId,
+                        AlmacenNombre = almacenes.TryGetValue(b.AlmacenId, out var bn) ? bn : string.Empty,
+                        Unidades = b.Unidades,
+                        RecepcionId = b.RecepcionId,
+                        CreatedAt = BoliviaTimeZone.ToLocal(b.CreatedAt)
+                    }).ToList()
             }).ToList();
 
         dto.Entregas = e.Entregas
@@ -1391,7 +1267,7 @@ public class VentaNavService : IVentaNavService
         return dto;
     }
 
-    private async Task<Dictionary<int, string>> ObtenerNombresAlmacenAsync(IEnumerable<int> almacenIds)
+    internal async Task<Dictionary<int, string>> ObtenerNombresAlmacenAsync(IEnumerable<int> almacenIds)
     {
         var ids = almacenIds.Distinct().ToList();
         if (ids.Count == 0) return new Dictionary<int, string>();
@@ -1414,11 +1290,11 @@ public class VentaNavService : IVentaNavService
         return usuarios.ToDictionary(u => u.Id, u => $"{u.Nombre?.Trim()} {u.Apellido?.Trim()}".Trim());
     }
 
-    private static string NombreMostrar(ProductoNav p) => p.Nombre ?? p.Descripcion;
+    internal static string NombreMostrar(ProductoNav p) => p.Nombre ?? p.Descripcion;
 
-    private static decimal Redondear(decimal valor) => Math.Round(valor, 2, MidpointRounding.AwayFromZero);
+    internal static decimal Redondear(decimal valor) => Math.Round(valor, 2, MidpointRounding.AwayFromZero);
 
-    private static string? NormalizarTexto(string? texto)
+    internal static string? NormalizarTexto(string? texto)
     {
         var t = texto?.Trim();
         return string.IsNullOrEmpty(t) ? null : t;

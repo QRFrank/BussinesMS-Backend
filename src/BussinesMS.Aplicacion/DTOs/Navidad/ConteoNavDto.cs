@@ -89,6 +89,14 @@ public class ConteoEstadoNavDto
     public bool CierreHecho { get; set; }
     public int? AperturaId { get; set; }
     public int? CierreId { get; set; }
-    // Fecha más antigua anterior a `fecha` con apertura sin cierre
+    // Fecha de la apertura anterior a `fecha` que sigue sin cierre (el último conteo es esa apertura)
     public DateTime? CierrePendienteFecha { get; set; }
+    // Turnos secuenciales: la tienda está abierta si el último conteo (global) es una Apertura de hoy
+    public bool Abierta { get; set; }
+    public int? UltimoTipo { get; set; }
+    public DateTime? UltimaFecha { get; set; }
+    // Hora Bolivia en que se registró el último conteo
+    public DateTime? UltimaHora { get; set; }
+    // Cantidad de aperturas del día `fecha`
+    public int TurnosHoy { get; set; }
 }

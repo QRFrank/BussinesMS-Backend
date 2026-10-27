@@ -600,6 +600,7 @@ public class NavidadDbContext : DbContext
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.VentaNavDetalle> VentasNavDetalle => Set<BussinesMS.Dominio.Entidades.Navidad.VentaNavDetalle>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.EntregaVenta> EntregasVenta => Set<BussinesMS.Dominio.Entidades.Navidad.EntregaVenta>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.EntregaVentaDetalle> EntregasVentaDetalle => Set<BussinesMS.Dominio.Entidades.Navidad.EntregaVentaDetalle>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.ReservaBloqueo> ReservasBloqueo => Set<BussinesMS.Dominio.Entidades.Navidad.ReservaBloqueo>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.CobroVenta> CobrosVenta => Set<BussinesMS.Dominio.Entidades.Navidad.CobroVenta>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.ConsumoNav> ConsumosNav => Set<BussinesMS.Dominio.Entidades.Navidad.ConsumoNav>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.ConsumoNavDetalle> ConsumosNavDetalle => Set<BussinesMS.Dominio.Entidades.Navidad.ConsumoNavDetalle>();
@@ -1102,9 +1103,9 @@ public class NavidadDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.TemporadaId)
                 .OnDelete(DeleteBehavior.Restrict);
+            // No único: turnos secuenciales (varias aperturas/cierres por día)
             entity.HasIndex(e => new { e.TemporadaId, e.AlmacenId, e.Fecha, e.Tipo })
-                .IsUnique()
-                .HasDatabaseName("UX_ConteoInventario_Temporada_Almacen_Fecha_Tipo");
+                .HasDatabaseName("IX_ConteoInventario_Temporada_Almacen_Fecha_Tipo");
             entity.HasIndex(e => e.AlmacenId);
             entity.HasIndex(e => e.Fecha);
         });
@@ -1226,6 +1227,34 @@ public class NavidadDbContext : DbContext
             entity.HasIndex(e => e.EntregaId);
             entity.HasIndex(e => e.VentaDetalleId);
             entity.HasIndex(e => e.ProductoId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.ReservaBloqueo>(entity =>
+        {
+            entity.ToTable("ReservaBloqueo", t => t.HasCheckConstraint("CK_ReservaBloqueo_UnidadesPositivas", "[Unidades] > 0"));
+            entity.HasKey(e => e.Id);
+            // AlmacenId sin FK: vive en AuthDB
+            entity.HasOne(e => e.Venta)
+                .WithMany(v => v.Bloqueos)
+                .HasForeignKey(e => e.VentaId)
+                .OnDelete(DeleteBehavior.Cascade);
+            // Sin cascada desde la línea, el producto ni la recepción (evita múltiples rutas de cascada)
+            entity.HasOne(e => e.VentaDetalle)
+                .WithMany()
+                .HasForeignKey(e => e.VentaDetalleId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Producto)
+                .WithMany()
+                .HasForeignKey(e => e.ProductoId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Recepcion)
+                .WithMany()
+                .HasForeignKey(e => e.RecepcionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.AlmacenId, e.ProductoId });
+            entity.HasIndex(e => e.VentaDetalleId);
+            entity.HasIndex(e => e.RecepcionId);
+            entity.HasIndex(e => e.VentaId);
         });
 
         modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.CobroVenta>(entity =>

@@ -24,6 +24,7 @@ public class VentaNavRepository : NavidadRepositorioBase<VentaNav>, IVentaNavRep
                 .ThenInclude(e => e.Detalles)
                     .ThenInclude(d => d.Producto)
             .Include(v => v.Cobros)
+            .Include(v => v.Bloqueos.Where(b => b.IsActive))
             .FirstOrDefaultAsync(v => v.Id == id);
 
     public async Task<VentaNav?> ObtenerParaEdicionAsync(int id)
@@ -34,6 +35,7 @@ public class VentaNavRepository : NavidadRepositorioBase<VentaNav>, IVentaNavRep
             .Include(v => v.Entregas)
                 .ThenInclude(e => e.Detalles)
             .Include(v => v.Cobros)
+            .Include(v => v.Bloqueos.Where(b => b.IsActive))
             .FirstOrDefaultAsync(v => v.Id == id);
 
     public async Task<int> ObtenerSiguienteNroAsync(int temporadaId)
@@ -53,6 +55,13 @@ public class EntregaVentaNavRepository : NavidadRepositorioBase<EntregaVenta>, I
 public class CobroVentaNavRepository : NavidadRepositorioBase<CobroVenta>, ICobroVentaNavRepository
 {
     public CobroVentaNavRepository(NavidadDbContext contexto, ICurrentUserService currentUser) : base(contexto, currentUser)
+    {
+    }
+}
+
+public class ReservaBloqueoNavRepository : NavidadRepositorioBase<ReservaBloqueo>, IReservaBloqueoNavRepository
+{
+    public ReservaBloqueoNavRepository(NavidadDbContext contexto, ICurrentUserService currentUser) : base(contexto, currentUser)
     {
     }
 }

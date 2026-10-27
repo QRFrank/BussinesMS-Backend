@@ -10,12 +10,12 @@ namespace BussinesMS.API.Controllers.Navidad;
 public class VentasNavController : BaseController
 {
     private readonly IVentaNavService _servicio;
-    private readonly IReservaNavService _reservas;
+    private readonly IReservaCoberturaNavService _cobertura;
 
-    public VentasNavController(IVentaNavService servicio, IReservaNavService reservas)
+    public VentasNavController(IVentaNavService servicio, IReservaCoberturaNavService cobertura)
     {
         _servicio = servicio;
-        _reservas = reservas;
+        _cobertura = cobertura;
     }
 
     [HttpGet]
@@ -48,10 +48,11 @@ public class VentasNavController : BaseController
         return RespuestaOk(resultado);
     }
 
+    // Ruta antigua: apunta al mismo cálculo que GET api/Navidad/Reservas/cobertura
     [HttpGet("reservas/cobertura")]
     public async Task<IActionResult> ObtenerCobertura([FromQuery] ReservaCoberturaNavFiltroDto filtro)
     {
-        var resultado = await _reservas.ObtenerCoberturaAsync(filtro);
+        var resultado = await _cobertura.ObtenerCoberturaAsync(filtro);
         return RespuestaOk(resultado);
     }
 
@@ -67,13 +68,6 @@ public class VentasNavController : BaseController
     {
         var resultado = await _servicio.EditarAsync(id, dto);
         return RespuestaOk(resultado, "Venta actualizada");
-    }
-
-    [HttpPost("{id:int}/entregas")]
-    public async Task<IActionResult> RegistrarEntrega(int id, [FromBody] RegistrarEntregaVentaDto dto)
-    {
-        var resultado = await _servicio.RegistrarEntregaAsync(id, dto);
-        return RespuestaCreado(resultado, "Entrega registrada");
     }
 
     [HttpPost("entregas/{entregaId:int}/anular")]
@@ -95,13 +89,6 @@ public class VentasNavController : BaseController
     {
         var resultado = await _servicio.AnularCobroAsync(cobroId);
         return RespuestaOk(resultado, "Cobro anulado");
-    }
-
-    [HttpPut("{id:int}/bloqueo")]
-    public async Task<IActionResult> CambiarBloqueo(int id, [FromBody] BloqueoVentaDto dto)
-    {
-        var resultado = await _servicio.CambiarBloqueoAsync(id, dto.Bloquear);
-        return RespuestaOk(resultado, dto.Bloquear ? "Stock bloqueado" : "Stock desbloqueado");
     }
 
     [HttpPost("{id:int}/anular")]

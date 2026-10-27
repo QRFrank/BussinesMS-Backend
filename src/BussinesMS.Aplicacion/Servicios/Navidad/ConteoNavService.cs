@@ -208,16 +208,30 @@ public class ConteoNavService : IConteoNavService
             var delDia = await _repo.AsQueryable()
                 .AsNoTracking()
                 .Where(c => c.IsActive && c.TemporadaId == temporada.Id && c.AlmacenId == almacenId && c.Fecha == dia)
+                .OrderBy(c => c.Id)
                 .Select(c => new { c.Id, c.Tipo })
                 .ToListAsync();
 
-            var apertura = delDia.FirstOrDefault(c => c.Tipo == TipoConteoInventario.Apertura);
-            var cierre = delDia.FirstOrDefault(c => c.Tipo == TipoConteoInventario.Cierre);
+            // Criterio del último turno del día: aperturaHecha = hubo alguna apertura;
+            // cierreHecho = el último conteo del día es un cierre (turno cerrado)
+            var apertura = delDia.LastOrDefault(c => c.Tipo == TipoConteoInventario.Apertura);
+            var ultimoDia = delDia.LastOrDefault();
+            var cierreHecho = ultimoDia != null && ultimoDia.Tipo == TipoConteoInventario.Cierre;
             estado.AperturaHecha = apertura != null;
             estado.AperturaId = apertura?.Id;
-            estado.CierreHecho = cierre != null;
-            estado.CierreId = cierre?.Id;
+            estado.CierreHecho = cierreHecho;
+            estado.CierreId = cierreHecho ? ultimoDia!.Id : null;
+            estado.TurnosHoy = delDia.Count(c => c.Tipo == TipoConteoInventario.Apertura);
             estado.CierrePendienteFecha = await ObtenerCierrePendienteAsync(temporada.Id, almacenId, dia);
+
+            var ultimo = await ObtenerUltimoConteoAsync(temporada.Id, almacenId);
+            if (ultimo != null)
+            {
+                estado.UltimoTipo = (int)ultimo.Tipo;
+                estado.UltimaFecha = ultimo.Fecha;
+                estado.UltimaHora = BoliviaTimeZone.ToLocal(ultimo.CreatedAt);
+                estado.Abierta = ultimo.Tipo == TipoConteoInventario.Apertura && ultimo.Fecha == BoliviaTimeZone.Now().Date;
+            }
 
             return estado;
         }
@@ -235,15 +249,17 @@ public class ConteoNavService : IConteoNavService
             return;
 
         var hoy = BoliviaTimeZone.Now().Date;
-        var existe = await _repo.AsQueryable()
-            .AsNoTracking()
-            .AnyAsync(c => c.IsActive && c.TemporadaId == temporada.Id && c.AlmacenId == almacenId
-                && c.Tipo == TipoConteoInventario.Apertura && c.Fecha == hoy);
-        if (existe) return;
+        // Turnos secuenciales: abierta = el último conteo es una Apertura de hoy
+        var ultimo = await ObtenerUltimoConteoAsync(temporada.Id, almacenId);
+        if (ultimo != null && ultimo.Tipo == TipoConteoInventario.Apertura && ultimo.Fecha == hoy)
+            return;
+
+        if (ultimo != null && ultimo.Tipo == TipoConteoInventario.Apertura && ultimo.Fecha < hoy)
+            throw new ExcepcionDominio($"Falta el cierre del día {ultimo.Fecha:dd/MM/yyyy}", 409, "CIERRE_PENDIENTE");
 
         var nombres = await ObtenerNombresAlmacenAsync(new[] { almacenId });
         var nombre = nombres.TryGetValue(almacenId, out var n) ? n : $"#{almacenId}";
-        throw new ExcepcionDominio($"La tienda {nombre} no tiene apertura de hoy", 409, "SIN_APERTURA");
+        throw new ExcepcionDominio($"La tienda {nombre} no está abierta: hacé la apertura", 409, "SIN_APERTURA");
     }
 
     public async Task<ConteoNavDto> CrearAsync(CrearConteoNavDto dto)
@@ -284,39 +300,32 @@ public class ConteoNavService : IConteoNavService
                     throw new ValidacionException($"El producto {NombreMostrar(producto)} está inactivo");
             }
 
-            // Conteos de hoy y estado de días anteriores
-            var existentes = await _repo.AsQueryable()
-                .AsNoTracking()
-                .Where(c => c.IsActive && c.TemporadaId == temporada.Id && c.AlmacenId == dto.AlmacenId && c.Fecha == hoy)
-                .Select(c => c.Tipo)
-                .ToListAsync();
-
-            if (!atrasado && existentes.Contains(tipo))
-                throw new ExcepcionDominio(
-                    $"Ya existe {(tipo == TipoConteoInventario.Apertura ? "la apertura" : "el cierre")} de hoy en este almacén",
-                    409, "CONTEO_YA_EXISTE");
+            // Turnos secuenciales: manda el último conteo activo de la tienda en la temporada
+            var ultimo = await ObtenerUltimoConteoAsync(temporada.Id, dto.AlmacenId);
+            var ultimaEsApertura = ultimo != null && ultimo.Tipo == TipoConteoInventario.Apertura;
 
             if (atrasado)
             {
-                var pendientes = await ObtenerPendientesAsync(temporada.Id, dto.AlmacenId, hoy);
-                if (!pendientes.Contains(dia))
+                if (!ultimaEsApertura || ultimo!.Fecha != dia)
                     throw new ValidacionException($"El día {dia:dd/MM/yyyy} no es un día pendiente de cierre: no tiene apertura o ya tiene cierre");
-                if (pendientes[0] != dia)
-                    throw new ValidacionException($"Primero hay que cerrar el día pendiente más antiguo: {pendientes[0]:dd/MM/yyyy}");
             }
             else if (tipo == TipoConteoInventario.Cierre)
             {
-                if (!existentes.Contains(TipoConteoInventario.Apertura))
+                if (ultimaEsApertura && ultimo!.Fecha < hoy)
+                    throw new ValidacionException(
+                        $"Falta el cierre del día {ultimo.Fecha:dd/MM/yyyy}: use el cierre atrasado de ese día");
+                if (!ultimaEsApertura)
                     throw new ExcepcionDominio(
                         "No hay apertura de hoy en este almacén: haga la apertura antes del cierre",
                         409, "CIERRE_SIN_APERTURA");
             }
-            else
+            else if (ultimaEsApertura)
             {
-                var pendiente = await ObtenerCierrePendienteAsync(temporada.Id, dto.AlmacenId, hoy);
-                if (pendiente.HasValue)
+                if (ultimo!.Fecha < hoy)
                     throw new ExcepcionDominio(
-                        $"Falta el cierre del día {pendiente.Value:dd/MM/yyyy}", 409, "CIERRE_PENDIENTE");
+                        $"Falta el cierre del día {ultimo.Fecha:dd/MM/yyyy}", 409, "CIERRE_PENDIENTE");
+                var nombreTienda = almacenes[dto.AlmacenId];
+                throw new ExcepcionDominio($"La tienda {nombreTienda} ya está abierta", 409, "TIENDA_YA_ABIERTA");
             }
 
             var usuarioId = _currentUser.GetUsuarioId() ?? 1;
@@ -440,22 +449,30 @@ public class ConteoNavService : IConteoNavService
         return pendientes.Count > 0 ? pendientes[0] : null;
     }
 
-    // Días anteriores a `dia` con apertura y sin cierre, del más antiguo al más reciente
+    // Con turnos secuenciales hay a lo sumo un día pendiente: el último conteo es una Apertura anterior a `dia`
     private async Task<List<DateTime>> ObtenerPendientesAsync(int temporadaId, int almacenId, DateTime dia)
     {
-        var previos = await _repo.AsQueryable()
-            .AsNoTracking()
-            .Where(c => c.IsActive && c.TemporadaId == temporadaId && c.AlmacenId == almacenId && c.Fecha < dia)
-            .Select(c => new { c.Fecha, c.Tipo })
-            .ToListAsync();
+        var ultimo = await ObtenerUltimoConteoAsync(temporadaId, almacenId);
+        if (ultimo != null && ultimo.Tipo == TipoConteoInventario.Apertura && ultimo.Fecha.Date < dia)
+            return new List<DateTime> { ultimo.Fecha.Date };
+        return new List<DateTime>();
+    }
 
-        var cierres = previos.Where(p => p.Tipo == TipoConteoInventario.Cierre).Select(p => p.Fecha.Date).ToHashSet();
-        return previos
-            .Where(p => p.Tipo == TipoConteoInventario.Apertura && !cierres.Contains(p.Fecha.Date))
-            .Select(p => p.Fecha.Date)
-            .Distinct()
-            .OrderBy(f => f)
-            .ToList();
+    // Último conteo activo de la tienda en la temporada (por Fecha y luego Id)
+    private async Task<UltimoConteo?> ObtenerUltimoConteoAsync(int temporadaId, int almacenId)
+        => await _repo.AsQueryable()
+            .AsNoTracking()
+            .Where(c => c.IsActive && c.TemporadaId == temporadaId && c.AlmacenId == almacenId)
+            .OrderByDescending(c => c.Fecha).ThenByDescending(c => c.Id)
+            .Select(c => new UltimoConteo { Id = c.Id, Fecha = c.Fecha, Tipo = c.Tipo, CreatedAt = c.CreatedAt })
+            .FirstOrDefaultAsync();
+
+    private sealed class UltimoConteo
+    {
+        public int Id { get; set; }
+        public DateTime Fecha { get; set; }
+        public TipoConteoInventario Tipo { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 
     // AuthDB: existen, son del sistema navideño y están activos. Devuelve id → nombre

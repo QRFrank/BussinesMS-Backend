@@ -28,6 +28,7 @@ public class RecepcionNavService : IRecepcionNavService
     private readonly IPedidoNavRepository _pedidoRepo;
     private readonly IAlmacenRepository _almacenRepo;
     private readonly IStockNavService _stock;
+    private readonly IReservaCoberturaNavService _reservas;
     private readonly ITemporadaActualService _temporadaActual;
     private readonly INavidadUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
@@ -41,6 +42,7 @@ public class RecepcionNavService : IRecepcionNavService
         IPedidoNavRepository pedidoRepo,
         IAlmacenRepository almacenRepo,
         IStockNavService stock,
+        IReservaCoberturaNavService reservas,
         ITemporadaActualService temporadaActual,
         INavidadUnitOfWork uow,
         ICurrentUserService currentUser,
@@ -53,6 +55,7 @@ public class RecepcionNavService : IRecepcionNavService
         _pedidoRepo = pedidoRepo;
         _almacenRepo = almacenRepo;
         _stock = stock;
+        _reservas = reservas;
         _temporadaActual = temporadaActual;
         _uow = uow;
         _currentUser = currentUser;
@@ -234,6 +237,10 @@ public class RecepcionNavService : IRecepcionNavService
                         await _stock.RegistrarEntradaAsync(temporada.Id, dist.AlmacenId, detalle.ProductoId,
                             dist.CantidadUnidades, TipoMovimientoNav.Recepcion, ReferenciaRecepcion, creada.Id);
 
+                // Bloqueo automático: las reservas vigentes con parte sin bloqueo (la más antigua primero) quedan bloqueadas en el almacén donde llegó
+                await _reservas.BloquearPorRecepcionAsync(temporada.Id, creada.Id,
+                    creada.Detalles.SelectMany(d => d.Distribuciones.Select(x => (x.AlmacenId, d.ProductoId, x.CantidadUnidades))));
+
                 await _uow.CommitAsync();
             }
             catch
@@ -291,6 +298,9 @@ public class RecepcionNavService : IRecepcionNavService
             await _uow.BeginTransactionAsync();
             try
             {
+                // Primero se quitan los bloqueos que generó la recepción; después se revierte el stock con las reglas de siempre
+                await _reservas.QuitarBloqueosDeRecepcionAsync(recepcion.Id);
+
                 foreach (var r in aRevertir)
                     await _stock.RegistrarSalidaAsync(recepcion.TemporadaId, r.AlmacenId, r.ProductoId, r.Unidades,
                         TipoMovimientoNav.AnulacionRecepcion, ReferenciaRecepcion, recepcion.Id);
