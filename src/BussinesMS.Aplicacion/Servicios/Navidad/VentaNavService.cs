@@ -291,7 +291,13 @@ public class VentaNavService : IVentaNavService
 
     // ================= Crear =================
 
-    public async Task<VentaNavDto> CrearAsync(CrearVentaNavDto dto)
+    public Task<VentaNavDto> CrearAsync(CrearVentaNavDto dto) => CrearCoreAsync(dto, desdeCierre: false);
+
+    // Venta del faltante "Venta no registrada" del cierre de conteo: corre dentro de la transacción del conteo
+    // (no abre otra), a precio de catálogo (sin R4) y sin exigir apertura de hoy (el cierre atrasado también la crea)
+    public Task<VentaNavDto> CrearDesdeCierreAsync(CrearVentaNavDto dto) => CrearCoreAsync(dto, desdeCierre: true);
+
+    private async Task<VentaNavDto> CrearCoreAsync(CrearVentaNavDto dto, bool desdeCierre)
     {
         try
         {
@@ -314,7 +320,8 @@ public class VentaNavService : IVentaNavService
                     throw new ValidacionException($"El producto {NombreMostrar(productos[l.ProductoId])} está inactivo");
 
             var (total, descuento, neto) = CalcularTotales(dto.Detalles, dto.Descuento);
-            ValidarPrecios(dto.Detalles, productos, neto, esAdmin);
+            if (!desdeCierre)
+                ValidarPrecios(dto.Detalles, productos, neto, esAdmin);
 
             var cobroMonto = ResolverCobroInicial(neto, condicion, dto.Cobro);
 
@@ -325,7 +332,8 @@ public class VentaNavService : IVentaNavService
                 throw new ValidacionException("El cliente es obligatorio en reservas, ventas a crédito o con saldo pendiente");
 
             // Sale stock de la tienda en el momento: exige apertura de hoy si la tienda lleva conteo
-            await _conteo.VerificarAperturaParaVentaAsync(dto.AlmacenId);
+            if (!desdeCierre)
+                await _conteo.VerificarAperturaParaVentaAsync(dto.AlmacenId);
 
             var usuarioId = _currentUser.GetUsuarioId() ?? 1;
             var ahora = DateTime.UtcNow;
@@ -374,6 +382,7 @@ public class VentaNavService : IVentaNavService
                     Medio = dto.Cobro!.Medio,
                     Comprobante = NormalizarTexto(dto.Cobro.Comprobante),
                     Observacion = NormalizarTexto(dto.Cobro.Observacion),
+                    AlmacenId = dto.AlmacenId,
                     CreatedByUsuarioId = usuarioId,
                     CreatedAt = ahora
                 });
@@ -399,7 +408,7 @@ public class VentaNavService : IVentaNavService
             }
             RecalcularEntrega(venta);
 
-            await _uow.BeginTransactionAsync();
+            if (!desdeCierre) await _uow.BeginTransactionAsync();
             try
             {
                 venta.NroVenta = await _repo.ObtenerSiguienteNroAsync(temporada.Id);
@@ -410,11 +419,12 @@ public class VentaNavService : IVentaNavService
                         await _stock.RegistrarSalidaAsync(temporada.Id, dto.AlmacenId, d.ProductoId, d.Unidades,
                             TipoMovimientoNav.Venta, ReferenciaVenta, creada.Id);
 
-                await _uow.CommitAsync();
+                if (!desdeCierre) await _uow.CommitAsync();
             }
             catch
             {
-                await _uow.RollbackAsync();
+                // Desde el cierre, el rollback lo hace quien abrió la transacción
+                if (!desdeCierre) await _uow.RollbackAsync();
                 throw;
             }
 
@@ -694,6 +704,13 @@ public class VentaNavService : IVentaNavService
             if (monto > venta.MontoSaldo)
                 throw new ValidacionException($"El cobro ({monto}) supera el saldo de la venta ({venta.MontoSaldo})");
 
+            // Caja de tienda: la tienda de la sesión (opcional) tiene que ser una tienda navideña activa
+            if (dto.AlmacenId.HasValue)
+            {
+                await ValidarAlmacenAsync(dto.AlmacenId.Value, exigirTienda: true);
+                await _acceso.VerificarAlmacenAsync(venta.TemporadaId, dto.AlmacenId.Value);
+            }
+
             var usuarioId = _currentUser.GetUsuarioId() ?? 1;
             var ahora = DateTime.UtcNow;
 
@@ -707,6 +724,7 @@ public class VentaNavService : IVentaNavService
                     Medio = dto.Medio,
                     Comprobante = NormalizarTexto(dto.Comprobante),
                     Observacion = NormalizarTexto(dto.Observacion),
+                    AlmacenId = dto.AlmacenId,
                     CreatedByUsuarioId = usuarioId,
                     CreatedAt = ahora
                 });
@@ -749,6 +767,8 @@ public class VentaNavService : IVentaNavService
                 throw new ValidacionException("El cobro ya está anulado");
             if (venta.Anulada)
                 throw new ValidacionException("La venta está anulada");
+            if (cobro.AbonoVendedorId != null)
+                throw new ExcepcionDominio("El cobro pertenece a un abono de vendedor: anule el abono", 409, "COBRO_DE_ABONO");
 
             await _temporadaActual.VerificarEditableAsync(venta.TemporadaId);
             var (esAdmin, vendedorActual) = await ObtenerPermisosAsync(venta.TemporadaId);
@@ -1286,7 +1306,7 @@ public class VentaNavService : IVentaNavService
     }
 
     // AuthDB (solo lectura): "Nombre Apellido"; vacío si el usuario ya no existe
-    private async Task<Dictionary<int, string>> ObtenerNombresUsuarioAsync(IEnumerable<int> usuarioIds)
+    internal async Task<Dictionary<int, string>> ObtenerNombresUsuarioAsync(IEnumerable<int> usuarioIds)
     {
         var ids = usuarioIds.Distinct().ToList();
         if (ids.Count == 0) return new Dictionary<int, string>();

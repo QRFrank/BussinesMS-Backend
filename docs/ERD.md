@@ -565,6 +565,8 @@ Ref: GastoOperativo.PagoCompraId > PagoCompra.Id
 | CategoriaGastoNav | ✅ | Categorías de gasto navideñas (global) |
 | GastoNav | ✅ | Gastos de la temporada |
 | TemporadaAlmacenConteo | ✅ | Tiendas navideñas con apertura y cierre diario obligatorios en la temporada (0..N, opción B 2026-10-01) |
+| SalidaRuta, SalidaRutaCarga, SalidaRutaCargaDetalle, DevolucionRuta, DevolucionRutaDetalle, AbonoVendedor, AbonoVendedorAplicacion | ✅ | Módulo 7 (ruta). Migración `20261027174234_RutaNav` (7 tablas + `CobroVenta.AbonoVendedorId`). Lógica `docs/navidad/logica-ruta.md`, contratos `docs/navidad/contratos-ruta.md` |
+| CierreCajaTienda | ✅ | Entrega de efectivo por turno de tienda (montos congelados: vendido, esperado, transferencias, crédito, entregado, diferencia); único por `ConteoCierreId`. Migración `20261027180716_CierreCajaTienda` (+ `CobroVenta.AlmacenId?`). Lógica `docs/navidad/logica-cierre-caja.md` |
 | TemporadaAlmacenEncargado | ✅ | Encargados de almacén por temporada (`TemporadaId` FK, `AlmacenId`/`UsuarioId` sin FK, único por los tres). Migración `20261027164057_TemporadaAlmacenEncargado`. Lógica `docs/navidad/logica-encargados.md` |
 
 > Migraciones: `20261001163014_InicialTemporadaCapital` (crea la BD y las 6 tablas) y `20261001191956_TemporadaAlmacenConteo` (crea `TemporadaAlmacenConteo`, migra la antigua `TiendaPrincipalAlmacenId` como una fila y borra esa columna).

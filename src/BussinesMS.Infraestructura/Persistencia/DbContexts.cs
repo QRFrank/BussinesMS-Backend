@@ -604,6 +604,14 @@ public class NavidadDbContext : DbContext
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.CobroVenta> CobrosVenta => Set<BussinesMS.Dominio.Entidades.Navidad.CobroVenta>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.ConsumoNav> ConsumosNav => Set<BussinesMS.Dominio.Entidades.Navidad.ConsumoNav>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.ConsumoNavDetalle> ConsumosNavDetalle => Set<BussinesMS.Dominio.Entidades.Navidad.ConsumoNavDetalle>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.SalidaRuta> SalidasRuta => Set<BussinesMS.Dominio.Entidades.Navidad.SalidaRuta>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.SalidaRutaCarga> SalidasRutaCarga => Set<BussinesMS.Dominio.Entidades.Navidad.SalidaRutaCarga>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.SalidaRutaCargaDetalle> SalidasRutaCargaDetalle => Set<BussinesMS.Dominio.Entidades.Navidad.SalidaRutaCargaDetalle>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.DevolucionRuta> DevolucionesRuta => Set<BussinesMS.Dominio.Entidades.Navidad.DevolucionRuta>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.DevolucionRutaDetalle> DevolucionesRutaDetalle => Set<BussinesMS.Dominio.Entidades.Navidad.DevolucionRutaDetalle>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.AbonoVendedor> AbonosVendedor => Set<BussinesMS.Dominio.Entidades.Navidad.AbonoVendedor>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.AbonoVendedorAplicacion> AbonosVendedorAplicacion => Set<BussinesMS.Dominio.Entidades.Navidad.AbonoVendedorAplicacion>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.CierreCajaTienda> CierresCajaTienda => Set<BussinesMS.Dominio.Entidades.Navidad.CierreCajaTienda>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.TemporadaAlmacenEncargado> TemporadaAlmacenEncargados => Set<BussinesMS.Dominio.Entidades.Navidad.TemporadaAlmacenEncargado>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -1286,7 +1294,35 @@ public class NavidadDbContext : DbContext
                 .WithMany(v => v.Cobros)
                 .HasForeignKey(e => e.VentaId)
                 .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.AbonoVendedor)
+                .WithMany()
+                .HasForeignKey(e => e.AbonoVendedorId)
+                .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(e => e.VentaId);
+            entity.HasIndex(e => e.AbonoVendedorId);
+            // AlmacenId sin FK: vive en AuthDB
+            entity.HasIndex(e => e.AlmacenId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.CierreCajaTienda>(entity =>
+        {
+            entity.ToTable("CierreCajaTienda");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Desde).HasColumnType("datetime2");
+            entity.Property(e => e.Hasta).HasColumnType("datetime2");
+            entity.Property(e => e.TotalVendido).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.EfectivoEsperado).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Transferencias).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Credito).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.EfectivoEntregado).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Diferencia).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Observacion).HasMaxLength(500);
+            entity.HasOne(e => e.Temporada).WithMany().HasForeignKey(e => e.TemporadaId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.ConteoApertura).WithMany().HasForeignKey(e => e.ConteoAperturaId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.ConteoCierre).WithMany().HasForeignKey(e => e.ConteoCierreId).OnDelete(DeleteBehavior.Restrict);
+            // Una entrega por cierre de conteo
+            entity.HasIndex(e => e.ConteoCierreId).IsUnique();
+            entity.HasIndex(e => new { e.TemporadaId, e.AlmacenId });
         });
 
         modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.ConsumoNav>(entity =>
@@ -1320,6 +1356,137 @@ public class NavidadDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(e => new { e.ConsumoId, e.ProductoId }).IsUnique();
             entity.HasIndex(e => e.ProductoId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.SalidaRuta>(entity =>
+        {
+            entity.ToTable("SalidaRuta");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FechaApertura).HasColumnType("datetime2");
+            entity.Property(e => e.FechaCierre).HasColumnType("datetime2");
+            entity.Property(e => e.Estado).HasConversion<int>();
+            entity.Property(e => e.Observacion).HasMaxLength(500);
+            entity.HasOne(e => e.Temporada)
+                .WithMany()
+                .HasForeignKey(e => e.TemporadaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Vendedor)
+                .WithMany()
+                .HasForeignKey(e => e.VendedorId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Venta)
+                .WithMany()
+                .HasForeignKey(e => e.VentaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.TemporadaId, e.VendedorId, e.Estado });
+            // Una sola salida abierta por vendedor y temporada
+            entity.HasIndex(e => new { e.TemporadaId, e.VendedorId })
+                .IsUnique()
+                .HasFilter("[IsActive] = 1 AND [Estado] = 1");
+            entity.HasIndex(e => e.VendedorId);
+            entity.HasIndex(e => e.VentaId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.SalidaRutaCarga>(entity =>
+        {
+            entity.ToTable("SalidaRutaCarga");
+            entity.HasKey(e => e.Id);
+            // UsuarioId sin FK: vive en AuthDB
+            entity.Property(e => e.Fecha).HasColumnType("datetime2");
+            entity.HasOne(e => e.SalidaRuta)
+                .WithMany(s => s.Cargas)
+                .HasForeignKey(e => e.SalidaRutaId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.SalidaRutaId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.SalidaRutaCargaDetalle>(entity =>
+        {
+            entity.ToTable("SalidaRutaCargaDetalle", t => t.HasCheckConstraint("CK_SalidaRutaCargaDetalle_UnidadesPositivas", "[Unidades] > 0"));
+            entity.HasKey(e => e.Id);
+            // AlmacenOrigenId sin FK: vive en AuthDB
+            entity.HasOne(e => e.Carga)
+                .WithMany(c => c.Detalles)
+                .HasForeignKey(e => e.CargaId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Producto)
+                .WithMany()
+                .HasForeignKey(e => e.ProductoId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.CargaId, e.AlmacenOrigenId, e.ProductoId }).IsUnique();
+            entity.HasIndex(e => e.ProductoId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.DevolucionRuta>(entity =>
+        {
+            entity.ToTable("DevolucionRuta");
+            entity.HasKey(e => e.Id);
+            // UsuarioId sin FK: vive en AuthDB
+            entity.Property(e => e.Fecha).HasColumnType("datetime2");
+            entity.Property(e => e.Observacion).HasMaxLength(500);
+            entity.HasOne(e => e.SalidaRuta)
+                .WithMany(s => s.Devoluciones)
+                .HasForeignKey(e => e.SalidaRutaId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.SalidaRutaId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.DevolucionRutaDetalle>(entity =>
+        {
+            entity.ToTable("DevolucionRutaDetalle", t => t.HasCheckConstraint("CK_DevolucionRutaDetalle_UnidadesPositivas", "[Unidades] > 0"));
+            entity.HasKey(e => e.Id);
+            // AlmacenDestinoId sin FK: vive en AuthDB
+            entity.HasOne(e => e.Devolucion)
+                .WithMany(d => d.Detalles)
+                .HasForeignKey(e => e.DevolucionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Producto)
+                .WithMany()
+                .HasForeignKey(e => e.ProductoId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.DevolucionId, e.AlmacenDestinoId, e.ProductoId }).IsUnique();
+            entity.HasIndex(e => e.ProductoId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.AbonoVendedor>(entity =>
+        {
+            entity.ToTable("AbonoVendedor", t => t.HasCheckConstraint("CK_AbonoVendedor_Montos", "[Monto] >= 0 AND [Descuento] >= 0 AND [Monto] + [Descuento] > 0"));
+            entity.HasKey(e => e.Id);
+            // UsuarioId sin FK: vive en AuthDB
+            entity.Property(e => e.Fecha).HasColumnType("date");
+            entity.Property(e => e.Monto).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Descuento).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Medio).HasConversion<int?>();
+            entity.Property(e => e.Comprobante).HasMaxLength(100);
+            entity.Property(e => e.Observacion).HasMaxLength(500);
+            entity.HasOne(e => e.Temporada)
+                .WithMany()
+                .HasForeignKey(e => e.TemporadaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Vendedor)
+                .WithMany()
+                .HasForeignKey(e => e.VendedorId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.TemporadaId, e.VendedorId });
+            entity.HasIndex(e => e.VendedorId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.AbonoVendedorAplicacion>(entity =>
+        {
+            entity.ToTable("AbonoVendedorAplicacion", t => t.HasCheckConstraint("CK_AbonoVendedorAplicacion_Montos", "[MontoCobrado] >= 0 AND [MontoDescuento] >= 0 AND [MontoCobrado] + [MontoDescuento] > 0"));
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.MontoCobrado).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.MontoDescuento).HasColumnType("decimal(18,2)");
+            entity.HasOne(e => e.AbonoVendedor)
+                .WithMany(a => a.Aplicaciones)
+                .HasForeignKey(e => e.AbonoVendedorId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Venta)
+                .WithMany()
+                .HasForeignKey(e => e.VentaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.AbonoVendedorId);
+            entity.HasIndex(e => e.VentaId);
         });
     }
 }

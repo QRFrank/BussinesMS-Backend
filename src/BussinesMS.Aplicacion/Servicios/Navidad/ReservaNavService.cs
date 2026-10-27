@@ -35,6 +35,7 @@ public class ReservaNavService : IReservaNavService
     private readonly ITemporadaActualService _temporadaActual;
     private readonly INavidadUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
+    private readonly IAlmacenAccesoNavService _acceso;
     private readonly ILogger<ReservaNavService> _logger;
 
     public ReservaNavService(
@@ -50,6 +51,7 @@ public class ReservaNavService : IReservaNavService
         ITemporadaActualService temporadaActual,
         INavidadUnitOfWork uow,
         ICurrentUserService currentUser,
+        IAlmacenAccesoNavService acceso,
         ILogger<ReservaNavService> logger)
     {
         _ventas = ventas;
@@ -64,6 +66,7 @@ public class ReservaNavService : IReservaNavService
         _temporadaActual = temporadaActual;
         _uow = uow;
         _currentUser = currentUser;
+        _acceso = acceso;
         _logger = logger;
     }
 
@@ -183,6 +186,13 @@ public class ReservaNavService : IReservaNavService
 
             await _ventas.ValidarClienteAsync(dto.ClienteId!.Value);
 
+            // Caja de tienda: la tienda de la sesión (opcional) tiene que ser una tienda navideña activa
+            if (dto.AlmacenId.HasValue)
+            {
+                await _ventas.ValidarAlmacenAsync(dto.AlmacenId.Value, exigirTienda: true);
+                await _acceso.VerificarAlmacenAsync(temporada.Id, dto.AlmacenId.Value);
+            }
+
             // Bloqueos: almacenes navideños activos y stock libre (stock − bloqueos de otras reservas) en cada uno
             var bloqueos = dto.Detalles.ToDictionary(l => l.ProductoId, l => (l.Bloqueos ?? new List<ReservaBloqueoItemDto>()));
             foreach (var almacenId in bloqueos.Values.SelectMany(b => b).Select(b => b.AlmacenId).Distinct())
@@ -243,6 +253,7 @@ public class ReservaNavService : IReservaNavService
                     Medio = dto.Cobro!.Medio,
                     Comprobante = NormalizarTexto(dto.Cobro.Comprobante),
                     Observacion = NormalizarTexto(dto.Cobro.Observacion),
+                    AlmacenId = dto.AlmacenId,
                     CreatedByUsuarioId = usuarioId,
                     CreatedAt = ahora
                 });

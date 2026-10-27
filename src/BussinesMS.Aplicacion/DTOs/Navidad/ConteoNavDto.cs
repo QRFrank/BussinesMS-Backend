@@ -28,6 +28,8 @@ public class ConteoNavDto
     public int CantidadDiferencias { get; set; }
     // Vacío en la lista
     public List<ConteoDetalleNavDto> Detalles { get; set; } = new();
+    // Solo en la respuesta del POST de un cierre: venta creada por los faltantes "Venta no registrada" (null si no hubo)
+    public ConteoVentaGeneradaNavDto? VentaGenerada { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
 }
@@ -57,6 +59,8 @@ public class CrearConteoNavDto
     // Solo para Cierre (tipo 2): día pendiente (apertura sin cierre) anterior a hoy. Con Apertura → 400. Sin valor: hoy.
     public DateTime? Fecha { get; set; }
     public string? Observacion { get; set; }
+    // Solo para Cierre con líneas "Venta no registrada" cuando el usuario no es vendedor de la temporada: vendedor al que se le asigna la venta
+    public int? VendedorId { get; set; }
     public List<CrearConteoDetalleNavDto> Detalles { get; set; } = new();
 }
 
@@ -99,4 +103,15 @@ public class ConteoEstadoNavDto
     public DateTime? UltimaHora { get; set; }
     // Cantidad de aperturas del día `fecha`
     public int TurnosHoy { get; set; }
+    // Cierre de caja: el último conteo es un Cierre y su entrega de efectivo todavía no se registró (bloquea la siguiente apertura con 409 CAJA_PENDIENTE)
+    public bool CajaPendiente { get; set; }
+}
+
+// Venta creada por el cierre a partir de los faltantes con motivo "Venta no registrada" (solo en la respuesta del POST)
+public class ConteoVentaGeneradaNavDto
+{
+    public int VentaId { get; set; }
+    public int NroVenta { get; set; }
+    public decimal MontoNeto { get; set; }
+    public int TotalUnidades { get; set; }
 }

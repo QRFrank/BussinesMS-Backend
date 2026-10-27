@@ -226,6 +226,8 @@ public class RegistrarCobroVentaDto
     public MedioPagoNav Medio { get; set; }
     public string? Comprobante { get; set; }
     public string? Observacion { get; set; }
+    // Opcional: tienda de la sesión donde se recibe el dinero (caja de tienda). Debe ser una tienda navideña activa
+    public int? AlmacenId { get; set; }
 }
 
 // ---------- Auxiliares de la pantalla ----------

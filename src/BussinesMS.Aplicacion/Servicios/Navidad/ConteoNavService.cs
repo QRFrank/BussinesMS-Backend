@@ -9,6 +9,7 @@ using BussinesMS.Dominio.Entidades.Navidad;
 using BussinesMS.Dominio.Enums.Navidad;
 using BussinesMS.Dominio.Excepciones;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ProductoNav = BussinesMS.Dominio.Entidades.Navidad.Producto;
 
@@ -31,6 +32,8 @@ public class ConteoNavService : IConteoNavService
     private readonly INavidadUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
     private readonly IAlmacenAccesoNavService _acceso;
+    private readonly ICierreCajaNavRepository _cajaRepo;
+    private readonly IServiceProvider _services;
     private readonly ILogger<ConteoNavService> _logger;
 
     public ConteoNavService(
@@ -44,6 +47,8 @@ public class ConteoNavService : IConteoNavService
         INavidadUnitOfWork uow,
         ICurrentUserService currentUser,
         IAlmacenAccesoNavService acceso,
+        ICierreCajaNavRepository cajaRepo,
+        IServiceProvider services,
         ILogger<ConteoNavService> logger)
     {
         _repo = repo;
@@ -56,6 +61,8 @@ public class ConteoNavService : IConteoNavService
         _uow = uow;
         _currentUser = currentUser;
         _acceso = acceso;
+        _cajaRepo = cajaRepo;
+        _services = services;
         _logger = logger;
     }
 
@@ -243,6 +250,8 @@ public class ConteoNavService : IConteoNavService
                 estado.UltimaFecha = ultimo.Fecha;
                 estado.UltimaHora = BoliviaTimeZone.ToLocal(ultimo.CreatedAt);
                 estado.Abierta = ultimo.Tipo == TipoConteoInventario.Apertura && ultimo.Fecha == BoliviaTimeZone.Now().Date;
+                // Cierre de caja: el último conteo es un Cierre sin entrega de efectivo registrada
+                estado.CajaPendiente = ultimo.Tipo == TipoConteoInventario.Cierre && !await CajaRegistradaAsync(ultimo.Id);
             }
 
             return estado;
@@ -340,6 +349,12 @@ public class ConteoNavService : IConteoNavService
                 var nombreTienda = almacenes[dto.AlmacenId];
                 throw new ExcepcionDominio($"La tienda {nombreTienda} ya está abierta", 409, "TIENDA_YA_ABIERTA");
             }
+            else if (ultimo != null && !await CajaRegistradaAsync(ultimo.Id))
+            {
+                // Último = Cierre sin entrega de efectivo registrada (cierre de caja)
+                throw new ExcepcionDominio(
+                    "Falta registrar la entrega de caja del cierre anterior", 409, "CAJA_PENDIENTE");
+            }
 
             var usuarioId = _currentUser.GetUsuarioId() ?? 1;
             var ahora = DateTime.UtcNow;
@@ -353,6 +368,10 @@ public class ConteoNavService : IConteoNavService
                 UsuarioId = usuarioId,
                 Observacion = NormalizarTexto(dto.Observacion)
             };
+
+            // Cierre: los faltantes "Venta no registrada" se convierten en una venta (no en AjusteConteo)
+            var lineasVenta = new List<VentaLineaDto>();
+            ConteoVentaGeneradaNavDto? ventaGenerada = null;
 
             await _uow.BeginTransactionAsync();
             try
@@ -379,6 +398,14 @@ public class ConteoNavService : IConteoNavService
                         motivo = (MotivoDiferenciaConteo)item.MotivoDiferencia.Value;
                     }
 
+                    if (tipo == TipoConteoInventario.Cierre && diferencia < 0 && motivo == MotivoDiferenciaConteo.VentaNoRegistrada)
+                        lineasVenta.Add(new VentaLineaDto
+                        {
+                            ProductoId = item.ProductoId,
+                            Unidades = -diferencia,
+                            PrecioUnitario = productos[item.ProductoId].PrecioCatalogo
+                        });
+
                     // RepositorioBase solo pone auditoría en la raíz
                     conteo.Detalles.Add(new ConteoInventarioDetalle
                     {
@@ -393,9 +420,34 @@ public class ConteoNavService : IConteoNavService
                     });
                 }
 
+                // La venta se crea ANTES que el conteo: así sus horas quedan dentro del turno que cierra este conteo (cierre de caja)
+                if (lineasVenta.Count > 0)
+                {
+                    var ventas = _services.GetRequiredService<IVentaNavService>();
+                    var venta = await ventas.CrearDesdeCierreAsync(new CrearVentaNavDto
+                    {
+                        AlmacenId = dto.AlmacenId,
+                        VendedorId = dto.VendedorId,
+                        Tipo = (int)TipoVentaNav.Directa,
+                        CondicionPago = (int)CondicionPagoVentaNav.Contado,
+                        Observacion = $"Venta no registrada detectada en el cierre de conteo del {dia:dd/MM/yyyy}",
+                        Cobro = new CobroInicialVentaDto { Medio = MedioPagoNav.Efectivo },
+                        Detalles = lineasVenta
+                    });
+                    ventaGenerada = new ConteoVentaGeneradaNavDto
+                    {
+                        VentaId = venta.Id,
+                        NroVenta = venta.NroVenta,
+                        MontoNeto = venta.MontoNeto,
+                        TotalUnidades = venta.TotalUnidades
+                    };
+                }
+
                 var creado = await _repo.CrearAsync(conteo);
 
-                foreach (var d in creado.Detalles.Where(x => x.Diferencia != 0))
+                // Los faltantes "Venta no registrada" ya bajaron el stock con el movimiento Venta: sin AjusteConteo
+                foreach (var d in creado.Detalles.Where(x => x.Diferencia != 0 &&
+                    !(tipo == TipoConteoInventario.Cierre && x.Diferencia < 0 && x.MotivoDiferencia == MotivoDiferenciaConteo.VentaNoRegistrada)))
                 {
                     if (d.Diferencia > 0)
                         await _stock.RegistrarEntradaAsync(temporada.Id, creado.AlmacenId, d.ProductoId, d.Diferencia,
@@ -416,8 +468,10 @@ public class ConteoNavService : IConteoNavService
 
             _logger.LogInformation("Conteo creado: {Id} ({Tipo}, temporada {TemporadaId})", conteo.Id, tipo, temporada.Id);
 
-            return await ObtenerPorIdAsync(conteo.Id)
+            var respuesta = await ObtenerPorIdAsync(conteo.Id)
                 ?? throw new EntidadNoEncontradaException("Conteo", conteo.Id);
+            respuesta.VentaGenerada = ventaGenerada;
+            return respuesta;
         }
         catch (Exception ex)
         {
@@ -479,6 +533,10 @@ public class ConteoNavService : IConteoNavService
             .OrderByDescending(c => c.Fecha).ThenByDescending(c => c.Id)
             .Select(c => new UltimoConteo { Id = c.Id, Fecha = c.Fecha, Tipo = c.Tipo, CreatedAt = c.CreatedAt })
             .FirstOrDefaultAsync();
+
+    // ¿El cierre de conteo ya tiene su entrega de efectivo registrada?
+    private async Task<bool> CajaRegistradaAsync(int conteoCierreId)
+        => await _cajaRepo.AsQueryable().AsNoTracking().AnyAsync(c => c.IsActive && c.ConteoCierreId == conteoCierreId);
 
     private sealed class UltimoConteo
     {

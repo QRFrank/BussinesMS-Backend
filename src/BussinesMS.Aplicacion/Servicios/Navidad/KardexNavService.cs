@@ -252,6 +252,8 @@ public class KardexNavService : IKardexNavService
         TipoMovimientoNav.AnulacionTraslado => "Anulación de traslado",
         TipoMovimientoNav.DevolucionVenta => "Devolución de venta",
         TipoMovimientoNav.AnulacionConsumo => "Anulación de consumo",
+        TipoMovimientoNav.AnulacionSalidaRuta => "Anulación de salida a ruta",
+        TipoMovimientoNav.AnulacionDevolucionRuta => "Anulación de devolución de ruta",
         _ => tipo.ToString()
     };
 

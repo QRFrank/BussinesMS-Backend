@@ -28,6 +28,8 @@ public class CrearReservaNavDto
     public string? Observacion { get; set; }
     // Contado: obligatorio (monto = neto o sin monto); Crédito: adelanto opcional (> 0 y < neto)
     public CobroInicialVentaDto? Cobro { get; set; }
+    // Opcional: tienda de la sesión donde se recibe el cobro inicial (caja de tienda). Debe ser una tienda navideña activa. No se guarda en la reserva
+    public int? AlmacenId { get; set; }
     public List<ReservaLineaDto> Detalles { get; set; } = new();
 }
 

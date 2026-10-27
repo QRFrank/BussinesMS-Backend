@@ -60,7 +60,7 @@
 
   { "id": 150, "nombre": "Ventas",             "url": null,                            "icono": "solar:cart-large-2-bold-duotone",             "orden": 6, "isGroup": true,  "parentId": null, "sistemaId": 2 },
   { "id": 151, "nombre": "Venta tienda",       "url": "/navidad/venta-tienda",         "icono": "solar:cart-check-bold-duotone",                "orden": 1, "isGroup": false, "parentId": 150,  "sistemaId": 2 },
-  { "id": 155, "nombre": "Venta ruta",         "url": "/navidad/venta-ruta",           "icono": "solar:delivery-bold-duotone",                  "orden": 2, "isGroup": false, "parentId": 150,  "sistemaId": 2 },
+  { "id": 155, "nombre": "Ruta",               "url": "/navidad/venta-ruta",           "icono": "solar:delivery-bold-duotone",                  "orden": 2, "isGroup": false, "parentId": 150,  "sistemaId": 2 },
   { "id": 152, "nombre": "Reservas",           "url": "/navidad/reservas",             "icono": "solar:bookmark-bold-duotone",                  "orden": 3, "isGroup": false, "parentId": 150,  "sistemaId": 2 },
   { "id": 154, "nombre": "Todas las ventas",   "url": "/navidad/ventas",               "icono": "solar:checklist-minimalistic-bold-duotone",    "orden": 4, "isGroup": false, "parentId": 150,  "sistemaId": 2 },
   { "id": 153, "nombre": "Consumos",           "url": "/navidad/consumos",             "icono": "solar:gift-bold-duotone",                      "orden": 5, "isGroup": false, "parentId": 150,  "sistemaId": 2 },

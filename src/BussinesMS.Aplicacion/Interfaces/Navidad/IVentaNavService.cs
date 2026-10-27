@@ -15,6 +15,8 @@ public interface IVentaNavService
     Task<List<VentaProductoNavDto>> ObtenerProductosAsync(int almacenId);
 
     Task<VentaNavDto> CrearAsync(CrearVentaNavDto dto);
+    // Solo para el cierre de conteo (venta del faltante "Venta no registrada"): usa la transacción ya abierta por quien llama
+    Task<VentaNavDto> CrearDesdeCierreAsync(CrearVentaNavDto dto);
     Task<VentaNavDto> EditarAsync(int id, EditarVentaNavDto dto);
 
     Task<VentaNavDto> AnularEntregaAsync(int entregaId);

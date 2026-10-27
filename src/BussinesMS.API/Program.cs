@@ -254,12 +254,21 @@ builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IKardexNavSe
 // Apertura y cierre diario
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IConteoInventarioNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.ConteoInventarioNavRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IConteoNavService, BussinesMS.Aplicacion.Servicios.Navidad.ConteoNavService>();
+// Cierre de caja de tienda
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICierreCajaNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.CierreCajaNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICierreCajaNavService, BussinesMS.Aplicacion.Servicios.Navidad.CierreCajaNavService>();
 // Ventas (módulo 6)
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IVentaNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.VentaNavRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IEntregaVentaNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.EntregaVentaNavRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICobroVentaNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.CobroVentaNavRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IConsumoNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.ConsumoNavRepository>();
-builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IReservaBloqueoNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.ReservaBloqueoNavRepository>();
+// Ruta
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ISalidaRutaNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.SalidaRutaNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ISalidaRutaCargaNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.SalidaRutaCargaNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IDevolucionRutaNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.DevolucionRutaNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IAbonoVendedorNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.AbonoVendedorNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IRutaNavService, BussinesMS.Aplicacion.Servicios.Navidad.RutaNavService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IReservaBloqueoNavRepository,BussinesMS.Infraestructura.Repositorios.Navidad.ReservaBloqueoNavRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IReservaCoberturaNavService, BussinesMS.Aplicacion.Servicios.Navidad.ReservaCoberturaNavService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IReservaNavService, BussinesMS.Aplicacion.Servicios.Navidad.ReservaNavService>();
 // VentaNavService concreto: ReservaNavService reutiliza sus helpers internos
