@@ -32,6 +32,7 @@ public class CompraNavService : ICompraNavService
     private readonly ITemporadaActualService _temporadaActual;
     private readonly INavidadUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
+    private readonly IAlmacenAccesoNavService _acceso;
     private readonly ILogger<CompraNavService> _logger;
 
     public CompraNavService(
@@ -44,6 +45,7 @@ public class CompraNavService : ICompraNavService
         ITemporadaActualService temporadaActual,
         INavidadUnitOfWork uow,
         ICurrentUserService currentUser,
+        IAlmacenAccesoNavService acceso,
         ILogger<CompraNavService> logger)
     {
         _repo = repo;
@@ -55,6 +57,7 @@ public class CompraNavService : ICompraNavService
         _temporadaActual = temporadaActual;
         _uow = uow;
         _currentUser = currentUser;
+        _acceso = acceso;
         _logger = logger;
     }
 
@@ -164,6 +167,8 @@ public class CompraNavService : ICompraNavService
             // Cualquier proveedor (con o sin pedido); sin código de cliente
             var proveedor = await ObtenerProveedorValidoAsync(dto.ProveedorId, temporada.Id);
             await ValidarAlmacenesAsync(dto.Detalles.SelectMany(d => d.Distribucion).Select(x => x.AlmacenId));
+            // EncargadoAlmacen: toda la distribución tiene que ir a sus almacenes
+            await _acceso.VerificarAlmacenesAsync(temporada.Id, dto.Detalles.SelectMany(d => d.Distribucion).Select(x => x.AlmacenId));
 
             // Con tracking: la compra puede actualizar el precio de compra del producto
             var productoIds = dto.Detalles.Select(d => d.ProductoId).ToList();
@@ -306,6 +311,8 @@ public class CompraNavService : ICompraNavService
                 throw new ValidacionException("La compra ya está anulada");
 
             await _temporadaActual.VerificarEditableAsync(compra.TemporadaId);
+            // EncargadoAlmacen: solo anula si toda la distribución fue a sus almacenes
+            await _acceso.VerificarAlmacenesAsync(compra.TemporadaId, compra.Detalles.SelectMany(d => d.Distribuciones).Select(x => x.AlmacenId));
 
             // Lo que entró, agrupado por almacén + producto: el stock actual de cada uno tiene que alcanzar
             var aRevertir = compra.Detalles

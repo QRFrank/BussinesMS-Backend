@@ -266,6 +266,10 @@ builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IReservaNavS
 builder.Services.AddScoped<BussinesMS.Aplicacion.Servicios.Navidad.VentaNavService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IVentaNavService>(sp => sp.GetRequiredService<BussinesMS.Aplicacion.Servicios.Navidad.VentaNavService>());
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IConsumoNavService, BussinesMS.Aplicacion.Servicios.Navidad.ConsumoNavService>();
+// Encargados de almacén (restricción por almacén del rol EncargadoAlmacen)
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ITemporadaAlmacenEncargadoRepository, BussinesMS.Infraestructura.Repositorios.Navidad.TemporadaAlmacenEncargadoRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IAlmacenAccesoNavService, BussinesMS.Aplicacion.Servicios.Navidad.AlmacenAccesoNavService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IAlmacenNavService, BussinesMS.Aplicacion.Servicios.Navidad.AlmacenNavService>();
 
 // Background Services
 builder.Services.AddHostedService<BussinesMS.Infraestructura.Jobs.VencimientoLotesJob>();

@@ -38,6 +38,7 @@ public class VentaNavService : IVentaNavService
     private readonly ITemporadaActualService _temporadaActual;
     private readonly INavidadUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
+    private readonly IAlmacenAccesoNavService _acceso;
     private readonly ILogger<VentaNavService> _logger;
 
     public VentaNavService(
@@ -56,6 +57,7 @@ public class VentaNavService : IVentaNavService
         ITemporadaActualService temporadaActual,
         INavidadUnitOfWork uow,
         ICurrentUserService currentUser,
+        IAlmacenAccesoNavService acceso,
         ILogger<VentaNavService> logger)
     {
         _repo = repo;
@@ -73,6 +75,7 @@ public class VentaNavService : IVentaNavService
         _temporadaActual = temporadaActual;
         _uow = uow;
         _currentUser = currentUser;
+        _acceso = acceso;
         _logger = logger;
     }
 
@@ -299,6 +302,8 @@ public class VentaNavService : IVentaNavService
 
             var temporada = await _temporadaActual.ObtenerAbiertaAsync();
             await ValidarAlmacenAsync(dto.AlmacenId, exigirTienda: true);
+            // EncargadoAlmacen: solo vende en sus tiendas
+            await _acceso.VerificarAlmacenAsync(temporada.Id, dto.AlmacenId);
 
             var (esAdmin, vendedorActual) = await ObtenerPermisosAsync(temporada.Id);
             var vendedorId = await ResolverVendedorAsync(temporada.Id, vendedorActual, dto.VendedorId, esAdmin);
@@ -441,6 +446,7 @@ public class VentaNavService : IVentaNavService
             if (venta.Canal != CanalVentaNav.Tienda)
                 throw new ValidacionException("Solo se pueden editar ventas de tienda; las de ruta se editan desde el módulo de ruta");
             var almacenVentaId = venta.AlmacenId ?? throw new ValidacionException("La venta no tiene tienda asignada");
+            await _acceso.VerificarAlmacenAsync(venta.TemporadaId, almacenVentaId);
 
             await _temporadaActual.VerificarEditableAsync(venta.TemporadaId);
             var (esAdmin, vendedorActual) = await ObtenerPermisosAsync(venta.TemporadaId);
@@ -788,6 +794,8 @@ public class VentaNavService : IVentaNavService
                 throw new ValidacionException("La venta ya está anulada");
             if (venta.Canal != CanalVentaNav.Tienda)
                 throw new ValidacionException("Solo se pueden anular ventas de tienda; las de ruta se gestionan desde el módulo de ruta");
+            if (venta.AlmacenId.HasValue)
+                await _acceso.VerificarAlmacenAsync(venta.TemporadaId, venta.AlmacenId.Value);
 
             await _temporadaActual.VerificarEditableAsync(venta.TemporadaId);
             var (esAdmin, vendedorActual) = await ObtenerPermisosAsync(venta.TemporadaId);

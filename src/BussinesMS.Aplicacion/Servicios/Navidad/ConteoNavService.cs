@@ -30,6 +30,7 @@ public class ConteoNavService : IConteoNavService
     private readonly ITemporadaActualService _temporadaActual;
     private readonly INavidadUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
+    private readonly IAlmacenAccesoNavService _acceso;
     private readonly ILogger<ConteoNavService> _logger;
 
     public ConteoNavService(
@@ -42,6 +43,7 @@ public class ConteoNavService : IConteoNavService
         ITemporadaActualService temporadaActual,
         INavidadUnitOfWork uow,
         ICurrentUserService currentUser,
+        IAlmacenAccesoNavService acceso,
         ILogger<ConteoNavService> logger)
     {
         _repo = repo;
@@ -53,6 +55,7 @@ public class ConteoNavService : IConteoNavService
         _temporadaActual = temporadaActual;
         _uow = uow;
         _currentUser = currentUser;
+        _acceso = acceso;
         _logger = logger;
     }
 
@@ -66,6 +69,11 @@ public class ConteoNavService : IConteoNavService
                 .AsNoTracking()
                 .Include(x => x.Detalles)
                 .Where(x => x.IsActive && x.TemporadaId == temporadaId);
+
+            // EncargadoAlmacen: solo los conteos de sus tiendas
+            var aCargo = await _acceso.ObtenerRestriccionAsync(temporadaId);
+            if (aCargo != null)
+                baseQuery = baseQuery.Where(x => aCargo.Contains(x.AlmacenId));
 
             if (query.AlmacenId.HasValue)
                 baseQuery = baseQuery.Where(x => x.AlmacenId == query.AlmacenId.Value);
@@ -120,6 +128,8 @@ public class ConteoNavService : IConteoNavService
             var entidad = await _repo.ObtenerConDetallesAsync(id);
             if (entidad == null || !entidad.IsActive) return null;
 
+            await _acceso.VerificarAlmacenAsync(entidad.TemporadaId, entidad.AlmacenId);
+
             var almacenes = await ObtenerNombresAlmacenAsync(new[] { entidad.AlmacenId });
             var usuarios = await ObtenerNombresUsuarioAsync(new[] { entidad.UsuarioId });
             var dto = MapearCabecera(entidad, almacenes, usuarios);
@@ -159,6 +169,7 @@ public class ConteoNavService : IConteoNavService
                 throw new ValidacionException("El tipo de conteo es inválido");
 
             var temporada = await _temporadaActual.ObtenerAbiertaAsync();
+            await _acceso.VerificarAlmacenAsync(temporada.Id, almacenId);
             var almacenes = await ValidarAlmacenesAsync(new[] { almacenId });
             await ValidarRequiereConteoAsync(temporada.Id, almacenId, almacenes[almacenId]);
 
@@ -200,6 +211,7 @@ public class ConteoNavService : IConteoNavService
             var estado = new ConteoEstadoNavDto { AlmacenId = almacenId, Fecha = dia };
 
             var temporada = await _temporadaActual.ObtenerAbiertaAsync();
+            await _acceso.VerificarAlmacenAsync(temporada.Id, almacenId);
             if (!await _temporadaActual.RequiereConteoAsync(temporada.Id, almacenId))
                 return estado;
 
@@ -280,6 +292,7 @@ public class ConteoNavService : IConteoNavService
                 throw new ValidacionException("El cierre atrasado debe ser de un día anterior a hoy; para cerrar hoy no envíe fecha");
 
             var temporada = await _temporadaActual.ObtenerAbiertaAsync();
+            await _acceso.VerificarAlmacenAsync(temporada.Id, dto.AlmacenId);
             var almacenes = await ValidarAlmacenesAsync(new[] { dto.AlmacenId });
             await ValidarRequiereConteoAsync(temporada.Id, dto.AlmacenId, almacenes[dto.AlmacenId]);
 

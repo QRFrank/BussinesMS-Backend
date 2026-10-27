@@ -1780,6 +1780,55 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                     b.ToTable("TemporadaAlmacenConteo", (string)null);
                 });
 
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.TemporadaAlmacenEncargado", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AlmacenId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("TemporadaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TemporadaId", "UsuarioId");
+
+                    b.HasIndex("TemporadaId", "AlmacenId", "UsuarioId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_TemporadaAlmacenEncargado");
+
+                    b.ToTable("TemporadaAlmacenEncargado", (string)null);
+                });
+
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.Traslado", b =>
                 {
                     b.Property<int>("Id")
@@ -2599,6 +2648,17 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                 {
                     b.HasOne("BussinesMS.Dominio.Entidades.Navidad.Temporada", "Temporada")
                         .WithMany("AlmacenesConteo")
+                        .HasForeignKey("TemporadaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Temporada");
+                });
+
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.TemporadaAlmacenEncargado", b =>
+                {
+                    b.HasOne("BussinesMS.Dominio.Entidades.Navidad.Temporada", "Temporada")
+                        .WithMany()
                         .HasForeignKey("TemporadaId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

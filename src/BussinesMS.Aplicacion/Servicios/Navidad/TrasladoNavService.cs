@@ -29,6 +29,7 @@ public class TrasladoNavService : ITrasladoNavService
     private readonly ITemporadaActualService _temporadaActual;
     private readonly INavidadUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
+    private readonly IAlmacenAccesoNavService _acceso;
     private readonly ILogger<TrasladoNavService> _logger;
 
     public TrasladoNavService(
@@ -40,6 +41,7 @@ public class TrasladoNavService : ITrasladoNavService
         ITemporadaActualService temporadaActual,
         INavidadUnitOfWork uow,
         ICurrentUserService currentUser,
+        IAlmacenAccesoNavService acceso,
         ILogger<TrasladoNavService> logger)
     {
         _repo = repo;
@@ -50,6 +52,7 @@ public class TrasladoNavService : ITrasladoNavService
         _temporadaActual = temporadaActual;
         _uow = uow;
         _currentUser = currentUser;
+        _acceso = acceso;
         _logger = logger;
     }
 
@@ -63,6 +66,11 @@ public class TrasladoNavService : ITrasladoNavService
                 .AsNoTracking()
                 .Include(x => x.Detalles)
                 .Where(x => x.IsActive && x.TemporadaId == temporadaId);
+
+            // EncargadoAlmacen: solo los traslados que salen de o llegan a sus almacenes
+            var aCargo = await _acceso.ObtenerRestriccionAsync(temporadaId);
+            if (aCargo != null)
+                baseQuery = baseQuery.Where(x => aCargo.Contains(x.AlmacenOrigenId) || aCargo.Contains(x.AlmacenDestinoId));
 
             if (query.AlmacenId.HasValue)
             {
@@ -124,6 +132,10 @@ public class TrasladoNavService : ITrasladoNavService
             var entidad = await _repo.ObtenerConDetallesAsync(id);
             if (entidad == null || !entidad.IsActive) return null;
 
+            var aCargo = await _acceso.ObtenerRestriccionAsync(entidad.TemporadaId);
+            if (aCargo != null && !aCargo.Contains(entidad.AlmacenOrigenId) && !aCargo.Contains(entidad.AlmacenDestinoId))
+                await _acceso.VerificarAlmacenAsync(entidad.TemporadaId, entidad.AlmacenOrigenId);
+
             var almacenes = await ObtenerNombresAlmacenAsync(new[] { entidad.AlmacenOrigenId, entidad.AlmacenDestinoId });
             var usuarios = await ObtenerNombresUsuarioAsync(new[] { entidad.UsuarioId });
             var dto = MapearCabecera(entidad, almacenes, usuarios);
@@ -160,6 +172,8 @@ public class TrasladoNavService : ITrasladoNavService
                 throw new ValidacionException("La fecha del traslado no puede ser futura");
 
             var temporada = await _temporadaActual.ObtenerAbiertaAsync();
+            // EncargadoAlmacen: el origen tiene que ser suyo; el destino es libre
+            await _acceso.VerificarAlmacenAsync(temporada.Id, dto.AlmacenOrigenId);
             var almacenes = await ValidarAlmacenesAsync(new[] { dto.AlmacenOrigenId, dto.AlmacenDestinoId });
 
             var productoIds = dto.Detalles.Select(d => d.ProductoId).ToList();
@@ -261,6 +275,8 @@ public class TrasladoNavService : ITrasladoNavService
                 throw new ValidacionException("El traslado ya está anulado");
 
             await _temporadaActual.VerificarEditableAsync(traslado.TemporadaId);
+            // EncargadoAlmacen: solo anula traslados con origen suyo
+            await _acceso.VerificarAlmacenAsync(traslado.TemporadaId, traslado.AlmacenOrigenId);
 
             // El stock actual del destino tiene que alcanzar para devolver lo trasladado
             var nombresAlmacen = await ObtenerNombresAlmacenAsync(new[] { traslado.AlmacenOrigenId, traslado.AlmacenDestinoId });

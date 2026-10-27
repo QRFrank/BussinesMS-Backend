@@ -604,6 +604,7 @@ public class NavidadDbContext : DbContext
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.CobroVenta> CobrosVenta => Set<BussinesMS.Dominio.Entidades.Navidad.CobroVenta>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.ConsumoNav> ConsumosNav => Set<BussinesMS.Dominio.Entidades.Navidad.ConsumoNav>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.ConsumoNavDetalle> ConsumosNavDetalle => Set<BussinesMS.Dominio.Entidades.Navidad.ConsumoNavDetalle>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.TemporadaAlmacenEncargado> TemporadaAlmacenEncargados => Set<BussinesMS.Dominio.Entidades.Navidad.TemporadaAlmacenEncargado>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -635,6 +636,21 @@ public class NavidadDbContext : DbContext
                 .HasForeignKey(e => e.TemporadaId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => e.AlmacenId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.TemporadaAlmacenEncargado>(entity =>
+        {
+            entity.ToTable("TemporadaAlmacenEncargado");
+            entity.HasKey(e => e.Id);
+            // AlmacenId y UsuarioId sin FK: viven en AuthDB
+            entity.HasOne(e => e.Temporada)
+                .WithMany()
+                .HasForeignKey(e => e.TemporadaId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => new { e.TemporadaId, e.AlmacenId, e.UsuarioId })
+                .IsUnique()
+                .HasDatabaseName("UX_TemporadaAlmacenEncargado");
+            entity.HasIndex(e => new { e.TemporadaId, e.UsuarioId });
         });
 
         modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.Inversor>(entity =>

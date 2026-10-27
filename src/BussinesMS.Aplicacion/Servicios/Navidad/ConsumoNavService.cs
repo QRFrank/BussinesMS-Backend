@@ -30,6 +30,7 @@ public class ConsumoNavService : IConsumoNavService
     private readonly ITemporadaActualService _temporadaActual;
     private readonly INavidadUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
+    private readonly IAlmacenAccesoNavService _acceso;
     private readonly ILogger<ConsumoNavService> _logger;
 
     public ConsumoNavService(
@@ -42,6 +43,7 @@ public class ConsumoNavService : IConsumoNavService
         ITemporadaActualService temporadaActual,
         INavidadUnitOfWork uow,
         ICurrentUserService currentUser,
+        IAlmacenAccesoNavService acceso,
         ILogger<ConsumoNavService> logger)
     {
         _repo = repo;
@@ -53,6 +55,7 @@ public class ConsumoNavService : IConsumoNavService
         _temporadaActual = temporadaActual;
         _uow = uow;
         _currentUser = currentUser;
+        _acceso = acceso;
         _logger = logger;
     }
 
@@ -66,6 +69,11 @@ public class ConsumoNavService : IConsumoNavService
                 .AsNoTracking()
                 .Include(x => x.Detalles)
                 .Where(x => x.IsActive && x.TemporadaId == temporadaId);
+
+            // EncargadoAlmacen: solo los consumos de sus almacenes
+            var aCargo = await _acceso.ObtenerRestriccionAsync(temporadaId);
+            if (aCargo != null)
+                baseQuery = baseQuery.Where(x => aCargo.Contains(x.AlmacenId));
 
             if (query.AlmacenId.HasValue)
                 baseQuery = baseQuery.Where(x => x.AlmacenId == query.AlmacenId.Value);
@@ -125,6 +133,8 @@ public class ConsumoNavService : IConsumoNavService
             var entidad = await _repo.ObtenerConDetallesAsync(id);
             if (entidad == null || !entidad.IsActive) return null;
 
+            await _acceso.VerificarAlmacenAsync(entidad.TemporadaId, entidad.AlmacenId);
+
             var almacenes = await ObtenerNombresAlmacenAsync(new[] { entidad.AlmacenId });
             var usuarios = await ObtenerNombresUsuarioAsync(new[] { entidad.UsuarioId });
             var costos = await _stock.ObtenerCostosPromedioAsync(entidad.TemporadaId, entidad.Detalles.Select(d => d.ProductoId));
@@ -166,6 +176,7 @@ public class ConsumoNavService : IConsumoNavService
             ValidarEstructura(dto);
 
             var temporada = await _temporadaActual.ObtenerAbiertaAsync();
+            await _acceso.VerificarAlmacenAsync(temporada.Id, dto.AlmacenId);
             await ValidarAlmacenAsync(dto.AlmacenId);
 
             var productoIds = dto.Detalles.Select(d => d.ProductoId).ToList();
@@ -250,6 +261,7 @@ public class ConsumoNavService : IConsumoNavService
                 throw new ValidacionException("El consumo ya está anulado");
 
             await _temporadaActual.VerificarEditableAsync(consumo.TemporadaId);
+            await _acceso.VerificarAlmacenAsync(consumo.TemporadaId, consumo.AlmacenId);
 
             await _uow.BeginTransactionAsync();
             try

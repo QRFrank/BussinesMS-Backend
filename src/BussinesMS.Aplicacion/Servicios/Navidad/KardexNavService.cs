@@ -21,6 +21,7 @@ public class KardexNavService : IKardexNavService
     private readonly IConteoInventarioNavRepository _conteoRepo;
     private readonly IVentaNavRepository _ventaRepo;
     private readonly ITemporadaActualService _temporadaActual;
+    private readonly IAlmacenAccesoNavService _acceso;
     private readonly ILogger<KardexNavService> _logger;
 
     public KardexNavService(
@@ -32,6 +33,7 @@ public class KardexNavService : IKardexNavService
         IConteoInventarioNavRepository conteoRepo,
         IVentaNavRepository ventaRepo,
         ITemporadaActualService temporadaActual,
+        IAlmacenAccesoNavService acceso,
         ILogger<KardexNavService> logger)
     {
         _conteoRepo = conteoRepo;
@@ -42,6 +44,7 @@ public class KardexNavService : IKardexNavService
         _recepcionRepo = recepcionRepo;
         _compraRepo = compraRepo;
         _temporadaActual = temporadaActual;
+        _acceso = acceso;
         _logger = logger;
     }
 
@@ -54,6 +57,11 @@ public class KardexNavService : IKardexNavService
             var baseQuery = _movimientoRepo.AsQueryable()
                 .AsNoTracking()
                 .Where(m => m.TemporadaId == temporadaId);
+
+            // EncargadoAlmacen: solo el kardex de sus almacenes (aunque el filtro pida otro)
+            var aCargo = await _acceso.ObtenerRestriccionAsync(temporadaId);
+            if (aCargo != null)
+                baseQuery = baseQuery.Where(m => aCargo.Contains(m.AlmacenId));
 
             if (query.AlmacenId.HasValue)
                 baseQuery = baseQuery.Where(m => m.AlmacenId == query.AlmacenId.Value);

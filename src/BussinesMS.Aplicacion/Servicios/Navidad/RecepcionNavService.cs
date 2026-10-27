@@ -32,6 +32,7 @@ public class RecepcionNavService : IRecepcionNavService
     private readonly ITemporadaActualService _temporadaActual;
     private readonly INavidadUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
+    private readonly IAlmacenAccesoNavService _acceso;
     private readonly ILogger<RecepcionNavService> _logger;
 
     public RecepcionNavService(
@@ -46,6 +47,7 @@ public class RecepcionNavService : IRecepcionNavService
         ITemporadaActualService temporadaActual,
         INavidadUnitOfWork uow,
         ICurrentUserService currentUser,
+        IAlmacenAccesoNavService acceso,
         ILogger<RecepcionNavService> logger)
     {
         _repo = repo;
@@ -59,6 +61,7 @@ public class RecepcionNavService : IRecepcionNavService
         _temporadaActual = temporadaActual;
         _uow = uow;
         _currentUser = currentUser;
+        _acceso = acceso;
         _logger = logger;
     }
 
@@ -156,6 +159,8 @@ public class RecepcionNavService : IRecepcionNavService
                 throw new ValidacionException($"El proveedor {proveedor.Nombre} no trabaja con pedido: registre una compra");
             await ValidarCodigoClienteAsync(proveedor, dto.CodigoClienteId);
             await ValidarAlmacenesAsync(dto.Detalles.SelectMany(d => d.Distribucion).Select(x => x.AlmacenId));
+            // EncargadoAlmacen: toda la distribución tiene que ir a sus almacenes
+            await _acceso.VerificarAlmacenesAsync(temporada.Id, dto.Detalles.SelectMany(d => d.Distribucion).Select(x => x.AlmacenId));
 
             // Sin tracking: la recepción ya no modifica el producto
             var productoIds = dto.Detalles.Select(d => d.ProductoId).ToList();
@@ -272,6 +277,8 @@ public class RecepcionNavService : IRecepcionNavService
                 throw new ValidacionException("La recepción ya está anulada");
 
             await _temporadaActual.VerificarEditableAsync(recepcion.TemporadaId);
+            // EncargadoAlmacen: solo anula si toda la distribución fue a sus almacenes
+            await _acceso.VerificarAlmacenesAsync(recepcion.TemporadaId, recepcion.Detalles.SelectMany(d => d.Distribuciones).Select(x => x.AlmacenId));
 
             // Lo que entró, agrupado por almacén + producto: el stock actual de cada uno tiene que alcanzar
             var aRevertir = recepcion.Detalles

@@ -565,6 +565,7 @@ Ref: GastoOperativo.PagoCompraId > PagoCompra.Id
 | CategoriaGastoNav | ✅ | Categorías de gasto navideñas (global) |
 | GastoNav | ✅ | Gastos de la temporada |
 | TemporadaAlmacenConteo | ✅ | Tiendas navideñas con apertura y cierre diario obligatorios en la temporada (0..N, opción B 2026-10-01) |
+| TemporadaAlmacenEncargado | ✅ | Encargados de almacén por temporada (`TemporadaId` FK, `AlmacenId`/`UsuarioId` sin FK, único por los tres). Migración `20261027164057_TemporadaAlmacenEncargado`. Lógica `docs/navidad/logica-encargados.md` |
 
 > Migraciones: `20261001163014_InicialTemporadaCapital` (crea la BD y las 6 tablas) y `20261001191956_TemporadaAlmacenConteo` (crea `TemporadaAlmacenConteo`, migra la antigua `TiendaPrincipalAlmacenId` como una fila y borra esa columna).
 
@@ -936,6 +937,7 @@ Ref: PagoProveedor.CodigoClienteId > CodigoCliente.Id
 | | CategoriaGastoNav | ✅ |
 | | GastoNav | ✅ |
 | | TemporadaAlmacenConteo | ✅ |
+| | TemporadaAlmacenEncargado (27/10/2026) | ✅ |
 | **Navidad — catalogo** (DB_NAVIDAD) | | |
 | | Proveedor | ✅ |
 | | CodigoCliente | ✅ |
