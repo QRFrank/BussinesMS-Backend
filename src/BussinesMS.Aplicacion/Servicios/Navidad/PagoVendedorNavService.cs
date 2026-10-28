@@ -141,7 +141,8 @@ public class PagoVendedorNavService : IPagoVendedorNavService
             if (vendedorId.HasValue && vendedores.Count == 0)
                 throw new ValidacionException("El vendedor no existe o no es de la temporada");
 
-            return await ConstruirReportesAsync(temporadaId, vendedores, (CanalVentaNav?)filtro.Canal, filtro.Desde, filtro.Hasta, forzado == null);
+            return await ConstruirReportesAsync(temporadaId, vendedores, (CanalVentaNav?)filtro.Canal, filtro.Desde, filtro.Hasta, forzado == null,
+                filtro.AlmacenId, (TipoVentaNav?)filtro.Tipo);
         }
         catch (Exception ex)
         {
@@ -151,7 +152,8 @@ public class PagoVendedorNavService : IPagoVendedorNavService
     }
 
     private async Task<List<ReporteVentasVendedorDto>> ConstruirReportesAsync(
-        int temporadaId, List<Vendedor> vendedores, CanalVentaNav? canal, DateTime? desde, DateTime? hasta, bool incluirCobranza)
+        int temporadaId, List<Vendedor> vendedores, CanalVentaNav? canal, DateTime? desde, DateTime? hasta, bool incluirCobranza,
+        int? almacenId = null, TipoVentaNav? tipo = null)
     {
         var vendedorIds = vendedores.Select(v => v.Id).ToList();
         var nombres = await _ventas.ObtenerNombresUsuarioAsync(vendedores.Select(v => v.UsuarioId));
@@ -160,6 +162,10 @@ public class PagoVendedorNavService : IPagoVendedorNavService
             .Where(v => v.IsActive && !v.Anulada && v.TemporadaId == temporadaId && vendedorIds.Contains(v.VendedorId));
         if (canal.HasValue)
             query = query.Where(v => v.Canal == canal.Value);
+        if (almacenId.HasValue)
+            query = query.Where(v => v.AlmacenId == almacenId.Value);
+        if (tipo.HasValue)
+            query = query.Where(v => v.Tipo == tipo.Value);
         if (desde.HasValue)
         {
             var d = desde.Value.Date;
@@ -171,19 +177,44 @@ public class PagoVendedorNavService : IPagoVendedorNavService
             query = query.Where(v => v.Fecha < h);
         }
 
-        var ventas = await query
+        var ventasCrudas = await query
             .Select(v => new
             {
                 v.VendedorId,
                 v.Canal,
+                v.Tipo,
+                v.EstadoEntrega,
                 v.MontoTotal,
                 v.Descuento,
                 v.MontoNeto,
                 v.MontoCobrado,
                 v.MontoSaldo,
-                Lineas = v.Detalles.Where(d => d.Unidades > 0).Select(d => new { d.ProductoId, d.Unidades, d.Subtotal }).ToList()
+                Lineas = v.Detalles.Where(d => d.Unidades > 0).Select(d => new { d.ProductoId, d.Unidades, d.Subtotal, d.UnidadesEntregadas }).ToList()
             })
             .ToListAsync();
+
+        // Las reservas no entregadas no son venta: cada venta cuenta por su "peso" (reserva = lo entregado; ver ResumenNavCalculos.CalcularPeso)
+        var ventas = ventasCrudas
+            .Select(v =>
+            {
+                var peso = ResumenNavCalculos.CalcularPeso(v.Tipo, v.EstadoEntrega, v.MontoTotal, v.Lineas.Select(l => (l.Subtotal, l.Unidades, l.UnidadesEntregadas)));
+                return new
+                {
+                    v.VendedorId,
+                    v.Canal,
+                    v.Tipo,
+                    Peso = peso,
+                    FactorDescuento = v.MontoTotal > 0 ? v.MontoNeto / v.MontoTotal : 1m,
+                    MontoTotal = ResumenNavCalculos.Parte(v.MontoTotal, peso),
+                    Descuento = ResumenNavCalculos.Parte(v.Descuento, peso),
+                    MontoNeto = ResumenNavCalculos.Parte(v.MontoNeto, peso),
+                    MontoCobrado = ResumenNavCalculos.Parte(v.MontoCobrado, peso),
+                    MontoSaldo = ResumenNavCalculos.Parte(v.MontoSaldo, peso),
+                    v.Lineas
+                };
+            })
+            .Where(v => v.Peso > 0)
+            .ToList();
 
         var productoIds = ventas.SelectMany(v => v.Lineas).Select(l => l.ProductoId).Distinct().ToList();
         var productos = productoIds.Count == 0
@@ -203,15 +234,19 @@ public class PagoVendedorNavService : IPagoVendedorNavService
             foreach (var venta in suyas)
             {
                 // Parte proporcional del descuento de la venta en cada línea
-                var factor = venta.MontoTotal > 0 ? venta.MontoNeto / venta.MontoTotal : 1m;
+                var factor = venta.FactorDescuento;
                 foreach (var l in venta.Lineas)
                 {
+                    // Reserva: solo las unidades entregadas
+                    var unidades = venta.Tipo == TipoVentaNav.Reserva ? Math.Min(l.UnidadesEntregadas, l.Unidades) : l.Unidades;
+                    if (unidades <= 0) continue;
+                    var parteLinea = (decimal)unidades / l.Unidades;
                     var f = filas.GetValueOrDefault(l.ProductoId);
                     filas[l.ProductoId] = (
-                        f.Ruta + (venta.Canal == CanalVentaNav.Ruta ? l.Unidades : 0),
-                        f.Tienda + (venta.Canal == CanalVentaNav.Tienda ? l.Unidades : 0),
-                        f.Bruto + l.Subtotal,
-                        f.Neto + l.Subtotal * factor);
+                        f.Ruta + (venta.Canal == CanalVentaNav.Ruta ? unidades : 0),
+                        f.Tienda + (venta.Canal == CanalVentaNav.Tienda ? unidades : 0),
+                        f.Bruto + l.Subtotal * parteLinea,
+                        f.Neto + l.Subtotal * factor * parteLinea);
                 }
             }
 

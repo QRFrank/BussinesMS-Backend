@@ -285,6 +285,12 @@ builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ITemporadaAl
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IAlmacenAccesoNavService, BussinesMS.Aplicacion.Servicios.Navidad.AlmacenAccesoNavService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IPrecioCompraAccesoService, BussinesMS.Aplicacion.Servicios.Navidad.PrecioCompraAccesoService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IAlmacenNavService, BussinesMS.Aplicacion.Servicios.Navidad.AlmacenNavService>();
+// Dashboard por rol (solo lectura)
+// Cálculos compartidos entre el dashboard y los reportes (un solo método por total)
+builder.Services.AddScoped<BussinesMS.Aplicacion.Servicios.Navidad.ResumenNavCalculos>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IDashboardNavService, BussinesMS.Aplicacion.Servicios.Navidad.DashboardNavService>();
+// Reportes del sistema navideño (módulo 9, solo admin)
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IReportesNavService, BussinesMS.Aplicacion.Servicios.Navidad.ReportesNavService>();
 
 // Background Services
 builder.Services.AddHostedService<BussinesMS.Infraestructura.Jobs.VencimientoLotesJob>();

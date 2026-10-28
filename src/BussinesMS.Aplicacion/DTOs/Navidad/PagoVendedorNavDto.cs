@@ -36,6 +36,10 @@ public class ReporteVentasVendedorFiltroDto
     public int? Canal { get; set; }
     public DateTime? Desde { get; set; }
     public DateTime? Hasta { get; set; }
+    // Opcionales, usados por los reportes del módulo 9 (null = sin filtro)
+    public int? AlmacenId { get; set; }
+    // 1 Directa | 2 Reserva
+    public int? Tipo { get; set; }
 }
 
 public class ReporteVentasVendedorDto
