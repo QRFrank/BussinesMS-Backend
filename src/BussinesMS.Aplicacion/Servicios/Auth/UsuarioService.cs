@@ -121,7 +121,9 @@ public class UsuarioService : IUsuarioService
                 RolNombre = usuario.Rol?.Nombre,
                 IsActive = usuario.IsActive,
                 CreatedAt = BoliviaTimeZone.ToLocal(usuario.CreatedAt),
-                Menus = menus
+                Menus = menus,
+                VerPreciosCompra = string.Equals(usuario.Rol?.Nombre, "Admin", StringComparison.OrdinalIgnoreCase)
+                    || await _repositorio.ObtenerVerPreciosCompraAsync(usuario.Id, 2)
             };
         }
         catch (Exception ex)
@@ -249,6 +251,17 @@ public class UsuarioService : IUsuarioService
                 ? await ResolverSistemaIdsAsync(dto.SistemaIds, dto.SistemaIdDefault)
                 : await ResolverSistemaIdsAsync(await _repositorio.ObtenerSistemaIdsAsync(id), dto.SistemaIdDefault);
 
+            if (dto.VerPreciosCompra.HasValue)
+            {
+                var actual = await _repositorio.ObtenerVerPreciosCompraAsync(id, 2);
+                if (actual != dto.VerPreciosCompra.Value)
+                {
+                    if (!await EsAdminActualAsync())
+                        throw new ExcepcionDominio("Solo el administrador puede cambiar el permiso de ver precios de compra", 403, "SIN_PERMISO");
+                    await _repositorio.EstablecerVerPreciosCompraAsync(id, 2, dto.VerPreciosCompra.Value);
+                }
+            }
+
             var resultado = await _repositorio.ActualizarAsync(usuario);
             await _repositorio.ReemplazarSistemasAsync(id, sistemaIds);
             return _mapper.Map<UsuarioDto>(resultado);
@@ -353,6 +366,8 @@ public class UsuarioService : IUsuarioService
             {
                 Usuario = _mapper.Map<UsuarioDto>(usuario),
                 Token = token,
+                VerPreciosCompra = string.Equals(usuario.Rol?.Nombre, "Admin", StringComparison.OrdinalIgnoreCase)
+                    || await _repositorio.ObtenerVerPreciosCompraAsync(usuario.Id, 2),
                 RolNombre = usuario.Rol?.Nombre,
                 SistemaId = sistemaElegido,
                 SistemaNombre = sistema?.Nombre,
@@ -433,6 +448,14 @@ public class UsuarioService : IUsuarioService
             _logger.LogError(ex, "Error al reactivar usuario {Id}", id);
             throw;
         }
+    }
+
+    private async Task<bool> EsAdminActualAsync()
+    {
+        var rolId = _currentUser.GetRolId();
+        if (!rolId.HasValue) return false;
+        var rol = await _rolRepositorio.ObtenerPorIdAsync(rolId.Value);
+        return string.Equals(rol?.Nombre, "Admin", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

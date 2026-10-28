@@ -1,3 +1,5 @@
+using BussinesMS.Aplicacion.Seguridad;
+
 using BussinesMS.Aplicacion.DTOs.Plantillas;
 
 namespace BussinesMS.Aplicacion.DTOs.Navidad;
@@ -30,7 +32,7 @@ public class ConsumoNavDto
     public int CantidadProductos { get; set; }
     public int TotalUnidades { get; set; }
     // Solo en GET /{id}: Σ unidades × costo promedio (informativo, pérdida estimada); 0 en la lista
-    public decimal CostoEstimado { get; set; }
+    [OcultoSinPrecioCompra] public decimal? CostoEstimado { get; set; }
     // Vacío en la lista
     public List<ConsumoDetalleNavDto> Detalles { get; set; } = new();
     public bool IsActive { get; set; }
@@ -47,8 +49,8 @@ public class ConsumoDetalleNavDto
     public string? Color { get; set; }
     public int Unidades { get; set; }
     // Costo promedio del producto (redondeado a 2) y unidades × costo promedio; solo en GET /{id}
-    public decimal CostoPromedio { get; set; }
-    public decimal CostoEstimado { get; set; }
+    [OcultoSinPrecioCompra] public decimal? CostoPromedio { get; set; }
+    [OcultoSinPrecioCompra] public decimal? CostoEstimado { get; set; }
 }
 
 public class CrearConsumoNavDto

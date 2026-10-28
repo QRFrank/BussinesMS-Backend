@@ -1,3 +1,5 @@
+using BussinesMS.Aplicacion.Seguridad;
+
 using BussinesMS.Aplicacion.DTOs.Plantillas;
 
 namespace BussinesMS.Aplicacion.DTOs.Navidad;
@@ -30,7 +32,7 @@ public class RecepcionNavDto
     public bool Anulada { get; set; }
     public int CantidadProductos { get; set; }
     public int TotalUnidades { get; set; }
-    public decimal MontoTotal { get; set; }
+    [OcultoSinPrecioCompra] public decimal? MontoTotal { get; set; }
     // Vacío en la lista
     public List<RecepcionDetalleNavDto> Detalles { get; set; } = new();
     public bool IsActive { get; set; }
@@ -46,8 +48,8 @@ public class RecepcionDetalleNavDto
     public int? UnidadesPorEmpaque { get; set; }
     public string? NombreEmpaque { get; set; }
     public int CantidadUnidades { get; set; }
-    public decimal PrecioCompraUnidad { get; set; }
-    public decimal Subtotal { get; set; }
+    [OcultoSinPrecioCompra] public decimal? PrecioCompraUnidad { get; set; }
+    [OcultoSinPrecioCompra] public decimal? Subtotal { get; set; }
     public List<RecepcionDistribucionNavDto> Distribucion { get; set; } = new();
 }
 

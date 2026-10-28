@@ -39,6 +39,7 @@ public class VentaNavService : IVentaNavService
     private readonly INavidadUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
     private readonly IAlmacenAccesoNavService _acceso;
+    private readonly IPrecioCompraAccesoService _precioAcceso;
     private readonly ILogger<VentaNavService> _logger;
 
     public VentaNavService(
@@ -58,6 +59,7 @@ public class VentaNavService : IVentaNavService
         INavidadUnitOfWork uow,
         ICurrentUserService currentUser,
         IAlmacenAccesoNavService acceso,
+        IPrecioCompraAccesoService precioAcceso,
         ILogger<VentaNavService> logger)
     {
         _repo = repo;
@@ -76,6 +78,7 @@ public class VentaNavService : IVentaNavService
         _uow = uow;
         _currentUser = currentUser;
         _acceso = acceso;
+        _precioAcceso = precioAcceso;
         _logger = logger;
     }
 
@@ -321,7 +324,7 @@ public class VentaNavService : IVentaNavService
 
             var (total, descuento, neto) = CalcularTotales(dto.Detalles, dto.Descuento);
             if (!desdeCierre)
-                ValidarPrecios(dto.Detalles, productos, neto, esAdmin);
+                ValidarPrecios(dto.Detalles, productos, neto, esAdmin, await _precioAcceso.PuedeVerPreciosCompraAsync());
 
             var cobroMonto = ResolverCobroInicial(neto, condicion, dto.Cobro);
 
@@ -475,7 +478,7 @@ public class VentaNavService : IVentaNavService
             }
 
             var (total, descuento, neto) = CalcularTotales(dto.Detalles, dto.Descuento);
-            ValidarPrecios(dto.Detalles, productos, neto, esAdmin);
+            ValidarPrecios(dto.Detalles, productos, neto, esAdmin, await _precioAcceso.PuedeVerPreciosCompraAsync());
 
             if (neto < venta.MontoCobrado)
                 throw new ExcepcionDominio(
@@ -956,7 +959,7 @@ public class VentaNavService : IVentaNavService
     }
 
     // R4: nunca por debajo del precio de compra (por línea y en el neto); solo el admin puede. Compra 0 = sin restricción
-    internal static void ValidarPrecios(List<VentaLineaDto> detalles, Dictionary<int, ProductoNav> productos, decimal neto, bool esAdmin)
+    internal static void ValidarPrecios(List<VentaLineaDto> detalles, Dictionary<int, ProductoNav> productos, decimal neto, bool esAdmin, bool verCosto = true)
     {
         if (esAdmin) return;
 
@@ -965,14 +968,18 @@ public class VentaNavService : IVentaNavService
             var p = productos[l.ProductoId];
             if (p.PrecioCompraUnidad > 0 && l.PrecioUnitario < p.PrecioCompraUnidad)
                 throw new ExcepcionDominio(
-                    $"El precio de {NombreMostrar(p)} ({Redondear(l.PrecioUnitario)}) es menor al precio de compra ({p.PrecioCompraUnidad}). Solo el admin puede vender por debajo de la compra",
+                    verCosto
+                        ? $"El precio de {NombreMostrar(p)} ({Redondear(l.PrecioUnitario)}) es menor al precio de compra ({p.PrecioCompraUnidad}). Solo el admin puede vender por debajo de la compra"
+                        : $"El precio de {NombreMostrar(p)} está por debajo del permitido",
                     400, "PRECIO_BAJO_COMPRA");
         }
 
         var costo = Redondear(detalles.Sum(l => l.Unidades * productos[l.ProductoId].PrecioCompraUnidad));
         if (neto < costo)
             throw new ExcepcionDominio(
-                $"El neto de la venta ({neto}) es menor al precio de compra de los productos ({costo}). Solo el admin puede vender por debajo de la compra",
+                verCosto
+                    ? $"El neto de la venta ({neto}) es menor al precio de compra de los productos ({costo}). Solo el admin puede vender por debajo de la compra"
+                    : $"El neto de la venta ({neto}) está por debajo del permitido",
                 400, "PRECIO_BAJO_COMPRA");
     }
 

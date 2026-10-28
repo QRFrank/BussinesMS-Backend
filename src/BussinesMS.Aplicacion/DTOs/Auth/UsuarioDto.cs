@@ -41,6 +41,8 @@ public class ActualizarUsuarioDto
     public int SistemaIdDefault { get; set; }
     public string Username { get; set; } = string.Empty;
     public int RolId { get; set; }
+    // Permiso "Ver precios de compra" del sistema Navideño. null = no cambiarlo. Solo lo puede cambiar el admin
+    public bool? VerPreciosCompra { get; set; }
     public List<int>? SistemaIds { get; set; }
 }
 
@@ -69,6 +71,8 @@ public class UsuarioConMenusDto
     public List<int> SistemaIds { get; set; } = [];
     public int RolId { get; set; }
     public string? RolNombre { get; set; }
+    // Permiso "Ver precios de compra" en el sistema Navideño (el admin lo tiene siempre, aparte de esta casilla)
+    public bool VerPreciosCompra { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<MenuArbolDto> Menus { get; set; } = [];

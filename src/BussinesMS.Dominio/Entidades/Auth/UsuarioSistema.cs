@@ -7,4 +7,7 @@ public class UsuarioSistema
 
     public int SistemaId { get; set; }
     public Sistema? Sistema { get; set; }
+
+    // Solo se usa en el sistema Navideño (SistemaId = 2): permiso "Ver precios de compra"
+    public bool VerPreciosCompra { get; set; }
 }

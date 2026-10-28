@@ -328,6 +328,11 @@ namespace BussinesMS.Infraestructura.Migrations.AuthDb
                     b.Property<int>("SistemaId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("VerPreciosCompra")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.HasKey("UsuarioId", "SistemaId");
 
                     b.HasIndex("SistemaId");

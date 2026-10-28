@@ -18,7 +18,7 @@
 | Rol | Admin, VendedorTienda, VendedorRuta, EncargadoAlmacen, Contador |
 | Usuario | Usuarios del sistema con JWT |
 | Almacen | Almacenes por sistema (`SistemaId`, default 1 = Regular). Seed: Tienda Principal, Almacén 1, Almacén 2 |
-| UsuarioSistema | A qué sistemas puede entrar cada usuario (login multisistema) |
+| UsuarioSistema | A qué sistemas puede entrar cada usuario (login multisistema) + permiso `VerPreciosCompra` por sistema |
 
 ### Esquema
 
@@ -63,6 +63,7 @@ Table Almacen {
 Table UsuarioSistema {
   UsuarioId int [pk, note: 'FK a Usuario (cascade)']
   SistemaId int [pk, note: 'FK a Sistema. Backfill: una fila por usuario con su SistemaIdDefault']
+  VerPreciosCompra bit [default: 0, note: 'Permiso "Ver precios de compra" (usado en sistema 2, Navideño). Admin lo tiene siempre. Migración 20261027225031_AgregarVerPreciosCompra']
 }
 
 Ref: Usuario.RolId > Rol.Id
@@ -566,6 +567,8 @@ Ref: GastoOperativo.PagoCompraId > PagoCompra.Id
 | GastoNav | ✅ | Gastos de la temporada |
 | TemporadaAlmacenConteo | ✅ | Tiendas navideñas con apertura y cierre diario obligatorios en la temporada (0..N, opción B 2026-10-01) |
 | SalidaRuta, SalidaRutaCarga, SalidaRutaCargaDetalle, DevolucionRuta, DevolucionRutaDetalle, AbonoVendedor, AbonoVendedorAplicacion | ✅ | Módulo 7 (ruta). Migración `20261027174234_RutaNav` (7 tablas + `CobroVenta.AbonoVendedorId`). Lógica `docs/navidad/logica-ruta.md`, contratos `docs/navidad/contratos-ruta.md` |
+| PagoVendedor, PagoVendedorDetalle | ✅ | Módulo 8 (pagos a vendedores). Migración `20261027222058_PagosVendedores`. Lógica `docs/navidad/logica-pagos-vendedores.md` |
+| VentaClienteRuta, VentaClienteRutaDetalle, CobroClienteRuta | ✅ | Registro personal y privado del vendedor de ruta (ventas a sus clientes `ClienteNav`, precio libre, cobros; no afecta stock ni ventas del sistema). Migración `20261027224033_VentasClienteRuta`. Lógica `docs/navidad/logica-ventas-cliente-ruta.md` |
 | CierreCajaTienda | ✅ | Entrega de efectivo por turno de tienda (montos congelados: vendido, esperado, transferencias, crédito, entregado, diferencia); único por `ConteoCierreId`. Migración `20261027180716_CierreCajaTienda` (+ `CobroVenta.AlmacenId?`). Lógica `docs/navidad/logica-cierre-caja.md` |
 | TemporadaAlmacenEncargado | ✅ | Encargados de almacén por temporada (`TemporadaId` FK, `AlmacenId`/`UsuarioId` sin FK, único por los tres). Migración `20261027164057_TemporadaAlmacenEncargado`. Lógica `docs/navidad/logica-encargados.md` |
 

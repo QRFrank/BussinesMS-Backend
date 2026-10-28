@@ -34,6 +34,7 @@ public class RutaNavService : IRutaNavService
     private readonly INavidadUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
     private readonly IAlmacenAccesoNavService _acceso;
+    private readonly IPrecioCompraAccesoService _precioAcceso;
     private readonly ILogger<RutaNavService> _logger;
 
     public RutaNavService(
@@ -49,6 +50,7 @@ public class RutaNavService : IRutaNavService
         INavidadUnitOfWork uow,
         ICurrentUserService currentUser,
         IAlmacenAccesoNavService acceso,
+        IPrecioCompraAccesoService precioAcceso,
         ILogger<RutaNavService> logger)
     {
         _ventas = ventas;
@@ -63,6 +65,7 @@ public class RutaNavService : IRutaNavService
         _uow = uow;
         _currentUser = currentUser;
         _acceso = acceso;
+        _precioAcceso = precioAcceso;
         _logger = logger;
     }
 
@@ -598,7 +601,7 @@ public class RutaNavService : IRutaNavService
 
             var esAdmin = await _acceso.EsAdminAsync();
             var (total, descuento, neto) = CalcularTotales(lineas, descuentoPedido);
-            ValidarPrecios(lineas, productos, neto, esAdmin);
+            ValidarPrecios(lineas, productos, neto, esAdmin, await _precioAcceso.PuedeVerPreciosCompraAsync());
 
             if (dinero > neto)
                 throw new ValidacionException($"El dinero entregado ({dinero}) supera el neto de la venta ({neto})");
@@ -1159,7 +1162,7 @@ public class RutaNavService : IRutaNavService
                             var lineas = venta.Detalles.Where(d => d.Unidades > 0)
                                 .Select(d => new VentaLineaDto { ProductoId = d.ProductoId, Unidades = d.Unidades, PrecioUnitario = d.PrecioUnitario })
                                 .ToList();
-                            ValidarPrecios(lineas, productos, venta.MontoNeto, esAdmin);
+                            ValidarPrecios(lineas, productos, venta.MontoNeto, esAdmin, await _precioAcceso.PuedeVerPreciosCompraAsync());
                         }
                     }
                     RecalcularPago(venta);

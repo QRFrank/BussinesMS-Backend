@@ -20,6 +20,7 @@ public class ProductoNavService : IProductoNavService
     private readonly ITemporadaActualService _temporadaActual;
     private readonly INavidadUnitOfWork _uow;
     private readonly IMapper _mapper;
+    private readonly IPrecioCompraAccesoService _precioAcceso;
     private readonly ILogger<ProductoNavService> _logger;
 
     public ProductoNavService(
@@ -28,6 +29,7 @@ public class ProductoNavService : IProductoNavService
         ICategoriaProductoNavRepository categoriaRepo,
         ITemporadaActualService temporadaActual,
         INavidadUnitOfWork uow,
+        IPrecioCompraAccesoService precioAcceso,
         IMapper mapper,
         ILogger<ProductoNavService> logger)
     {
@@ -36,6 +38,7 @@ public class ProductoNavService : IProductoNavService
         _categoriaRepo = categoriaRepo;
         _temporadaActual = temporadaActual;
         _uow = uow;
+        _precioAcceso = precioAcceso;
         _mapper = mapper;
         _logger = logger;
     }
@@ -167,7 +170,10 @@ public class ProductoNavService : IProductoNavService
 
             var descripcion = ValidarDescripcion(dto.Descripcion);
             var nombre = NormalizarNombre(dto.Nombre);
-            ValidarMontos(dto.PrecioCompraUnidad, dto.PrecioCatalogo);
+            var precioCompra = await _precioAcceso.PuedeVerPreciosCompraAsync() && dto.PrecioCompraUnidad.HasValue
+                ? dto.PrecioCompraUnidad.Value
+                : existente.PrecioCompraUnidad;
+            ValidarMontos(precioCompra, dto.PrecioCatalogo);
             var (unidadesPorEmpaque, nombreEmpaque) = NormalizarEmpaque(dto.UnidadesPorEmpaque, dto.NombreEmpaque);
             var color = NormalizarColor(dto.Color);
 
@@ -181,7 +187,7 @@ public class ProductoNavService : IProductoNavService
             existente.CategoriaProductoId = dto.CategoriaProductoId;
             existente.Descripcion = descripcion;
             existente.Nombre = nombre;
-            existente.PrecioCompraUnidad = dto.PrecioCompraUnidad;
+            existente.PrecioCompraUnidad = precioCompra;
             existente.PrecioCatalogo = dto.PrecioCatalogo;
             existente.UnidadesPorEmpaque = unidadesPorEmpaque;
             existente.NombreEmpaque = nombreEmpaque;
@@ -271,8 +277,9 @@ public class ProductoNavService : IProductoNavService
             if (items.Select(i => i.Id).Distinct().Count() != items.Count)
                 throw new ValidacionException("Hay productos repetidos en la lista");
 
+            var puedeVerCompra = await _precioAcceso.PuedeVerPreciosCompraAsync();
             foreach (var item in items)
-                ValidarMontos(item.PrecioCompraUnidad, item.PrecioCatalogo);
+                ValidarMontos(puedeVerCompra && item.PrecioCompraUnidad.HasValue ? item.PrecioCompraUnidad.Value : 0, item.PrecioCatalogo);
 
             var temporada = await _temporadaActual.ObtenerAbiertaAsync();
 
@@ -301,7 +308,8 @@ public class ProductoNavService : IProductoNavService
                 foreach (var item in items)
                 {
                     var producto = porId[item.Id];
-                    producto.PrecioCompraUnidad = item.PrecioCompraUnidad;
+                    if (puedeVerCompra && item.PrecioCompraUnidad.HasValue)
+                        producto.PrecioCompraUnidad = item.PrecioCompraUnidad.Value;
                     producto.PrecioCatalogo = item.PrecioCatalogo;
                     await _repo.ActualizarAsync(producto);
                 }

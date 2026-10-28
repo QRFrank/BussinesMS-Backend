@@ -36,6 +36,7 @@ public class ReservaNavService : IReservaNavService
     private readonly INavidadUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
     private readonly IAlmacenAccesoNavService _acceso;
+    private readonly IPrecioCompraAccesoService _precioAcceso;
     private readonly ILogger<ReservaNavService> _logger;
 
     public ReservaNavService(
@@ -52,6 +53,7 @@ public class ReservaNavService : IReservaNavService
         INavidadUnitOfWork uow,
         ICurrentUserService currentUser,
         IAlmacenAccesoNavService acceso,
+        IPrecioCompraAccesoService precioAcceso,
         ILogger<ReservaNavService> logger)
     {
         _ventas = ventas;
@@ -67,6 +69,7 @@ public class ReservaNavService : IReservaNavService
         _uow = uow;
         _currentUser = currentUser;
         _acceso = acceso;
+        _precioAcceso = precioAcceso;
         _logger = logger;
     }
 
@@ -179,7 +182,7 @@ public class ReservaNavService : IReservaNavService
                     throw new ValidacionException($"El producto {NombreMostrar(productos[l.ProductoId])} está inactivo");
 
             var (total, descuento, neto) = CalcularTotales(lineas, dto.Descuento);
-            ValidarPrecios(lineas, productos, neto, esAdmin);
+            ValidarPrecios(lineas, productos, neto, esAdmin, await _precioAcceso.PuedeVerPreciosCompraAsync());
 
             var cobroMonto = ResolverCobroInicial(neto, condicion, dto.Cobro);
             var saldo = neto - cobroMonto;
@@ -342,7 +345,7 @@ public class ReservaNavService : IReservaNavService
             }
 
             var (total, descuento, neto) = CalcularTotales(lineas, dto.Descuento);
-            ValidarPrecios(lineas, productos, neto, esAdmin);
+            ValidarPrecios(lineas, productos, neto, esAdmin, await _precioAcceso.PuedeVerPreciosCompraAsync());
 
             if (neto < venta.MontoCobrado)
                 throw new ExcepcionDominio(

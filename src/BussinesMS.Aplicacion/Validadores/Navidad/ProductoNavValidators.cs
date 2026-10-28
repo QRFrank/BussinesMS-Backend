@@ -54,7 +54,8 @@ public class ActualizarProductoNavDtoValidator : AbstractValidator<ActualizarPro
             .MaximumLength(150).WithMessage("El nombre no puede superar 150 caracteres")
             .When(x => x.Nombre != null);
         RuleFor(x => x.PrecioCompraUnidad)
-            .GreaterThanOrEqualTo(0).WithMessage("El precio de compra por unidad no puede ser negativo");
+            .GreaterThanOrEqualTo(0).WithMessage("El precio de compra por unidad no puede ser negativo")
+            .When(x => x.PrecioCompraUnidad.HasValue);
         RuleFor(x => x.PrecioCatalogo)
             .GreaterThanOrEqualTo(0).WithMessage("El precio de catálogo no puede ser negativo");
         // Empaque: NombreEmpaque vacío o solo espacios cuenta como null

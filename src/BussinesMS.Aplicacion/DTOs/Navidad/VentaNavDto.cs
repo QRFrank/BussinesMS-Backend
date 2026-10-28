@@ -1,3 +1,5 @@
+using BussinesMS.Aplicacion.Seguridad;
+
 using BussinesMS.Aplicacion.DTOs.Plantillas;
 using BussinesMS.Dominio.Enums.Navidad;
 
@@ -95,7 +97,7 @@ public class VentaNavDetalleDto
     public decimal Subtotal { get; set; }
     // Valores ACTUALES del producto (referencia para el vendedor)
     public decimal PrecioCatalogo { get; set; }
-    public decimal PrecioCompraUnidad { get; set; }
+    [OcultoSinPrecioCompra] public decimal? PrecioCompraUnidad { get; set; }
     public int UnidadesEntregadas { get; set; }
     public int UnidadesPendientes { get; set; }
     public int EstadoEntrega { get; set; }
@@ -255,7 +257,7 @@ public class VentaProductoNavDto
     public string? NombreEmpaque { get; set; }
     public string? Color { get; set; }
     public decimal PrecioCatalogo { get; set; }
-    public decimal PrecioCompraUnidad { get; set; }
+    [OcultoSinPrecioCompra] public decimal? PrecioCompraUnidad { get; set; }
     // En el almacén pedido
     public int Stock { get; set; }
     public int Bloqueado { get; set; }

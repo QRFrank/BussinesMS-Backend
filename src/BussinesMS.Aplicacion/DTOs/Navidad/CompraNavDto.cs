@@ -1,3 +1,5 @@
+using BussinesMS.Aplicacion.Seguridad;
+
 using BussinesMS.Aplicacion.DTOs.Plantillas;
 using BussinesMS.Dominio.Enums.Navidad;
 
@@ -35,13 +37,13 @@ public class CompraNavDto
     public bool Anulada { get; set; }
     public int CantidadProductos { get; set; }
     public int TotalUnidades { get; set; }
-    public decimal MontoTotal { get; set; }
+    [OcultoSinPrecioCompra] public decimal? MontoTotal { get; set; }
     // Solo el pago automático (el creado con la compra) si está activo (0 si se anuló o no hay)
-    public decimal MontoPagoInicial { get; set; }
+    [OcultoSinPrecioCompra] public decimal? MontoPagoInicial { get; set; }
     // Σ de los pagos activos vinculados a la compra (el automático y los posteriores)
-    public decimal MontoPagado { get; set; }
+    [OcultoSinPrecioCompra] public decimal? MontoPagado { get; set; }
     // MontoTotal - MontoPagado
-    public decimal SaldoCompra { get; set; }
+    [OcultoSinPrecioCompra] public decimal? SaldoCompra { get; set; }
     // 1 Pagada (saldo 0) | 2 Pendiente (saldo > 0); null si la compra está anulada
     public int? EstadoPago { get; set; }
     // Forma elegida al registrar (fija): "contado" | "credito" | "inicial"
@@ -64,8 +66,8 @@ public class CompraDetalleNavDto
     public int? UnidadesPorEmpaque { get; set; }
     public string? NombreEmpaque { get; set; }
     public int CantidadUnidades { get; set; }
-    public decimal PrecioCompraUnidad { get; set; }
-    public decimal Subtotal { get; set; }
+    [OcultoSinPrecioCompra] public decimal? PrecioCompraUnidad { get; set; }
+    [OcultoSinPrecioCompra] public decimal? Subtotal { get; set; }
     public List<CompraDistribucionNavDto> Distribucion { get; set; } = new();
 }
 

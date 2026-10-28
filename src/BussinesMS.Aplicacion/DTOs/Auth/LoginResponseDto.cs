@@ -8,4 +8,7 @@ public class LoginResponseDto
     public int SistemaId { get; set; }
     public string? SistemaNombre { get; set; }
     public List<MenuArbolDto> Menus { get; set; } = [];
+
+    // Permiso "Ver precios de compra" del sistema Navideño (true siempre para el rol Admin)
+    public bool VerPreciosCompra { get; set; }
 }

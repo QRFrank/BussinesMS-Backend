@@ -109,4 +109,20 @@ public class UsuarioRepository : RepositorioBase<Usuario>, IUsuarioRepository
             .Select(sistemaId => new UsuarioSistema { UsuarioId = usuarioId, SistemaId = sistemaId }));
         await contexto.SaveChangesAsync();
     }
+
+    public async Task<bool> ObtenerVerPreciosCompraAsync(int usuarioId, int sistemaId)
+    {
+        return await ((AuthDbContext)_contexto).UsuarioSistemas
+            .AsNoTracking()
+            .AnyAsync(us => us.UsuarioId == usuarioId && us.SistemaId == sistemaId && us.VerPreciosCompra);
+    }
+
+    public async Task EstablecerVerPreciosCompraAsync(int usuarioId, int sistemaId, bool valor)
+    {
+        var contexto = (AuthDbContext)_contexto;
+        var fila = await contexto.UsuarioSistemas.FirstOrDefaultAsync(us => us.UsuarioId == usuarioId && us.SistemaId == sistemaId);
+        if (fila == null || fila.VerPreciosCompra == valor) return;
+        fila.VerPreciosCompra = valor;
+        await contexto.SaveChangesAsync();
+    }
 }

@@ -1,3 +1,5 @@
+using BussinesMS.Aplicacion.Seguridad;
+
 using BussinesMS.Aplicacion.DTOs.Plantillas;
 
 namespace BussinesMS.Aplicacion.DTOs.Navidad;
@@ -27,9 +29,9 @@ public class PedidoNavDto
     // Siempre true desde el Ajuste 2 (solo proveedores con pedido)
     public bool TrabajaConPedido { get; set; }
     // Σ cantidad × precio de compra de las líneas
-    public decimal MontoTotalCalculado { get; set; }
-    public decimal MontoTotalProveedor { get; set; }
-    public bool DifiereMonto { get; set; }
+    [OcultoSinPrecioCompra] public decimal? MontoTotalCalculado { get; set; }
+    [OcultoSinPrecioCompra] public decimal? MontoTotalProveedor { get; set; }
+    [OcultoSinPrecioCompra] public bool? DifiereMonto { get; set; }
     // Vacío en la lista
     public List<PedidoDetalleNavDto> Detalles { get; set; } = new();
     public bool IsActive { get; set; }
@@ -44,8 +46,8 @@ public class PedidoDetalleNavDto
     public int? UnidadesPorEmpaque { get; set; }
     public string? NombreEmpaque { get; set; }
     public int CantidadUnidades { get; set; }
-    public decimal PrecioCompraUnidad { get; set; }
-    public decimal Subtotal { get; set; }
+    [OcultoSinPrecioCompra] public decimal? PrecioCompraUnidad { get; set; }
+    [OcultoSinPrecioCompra] public decimal? Subtotal { get; set; }
     // Σ recibido de ese proveedor + código + producto (mínimo de la fila al editar)
     public int Recibido { get; set; }
 }

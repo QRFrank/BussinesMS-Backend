@@ -1,3 +1,5 @@
+using BussinesMS.Aplicacion.Seguridad;
+
 namespace BussinesMS.Aplicacion.DTOs.Navidad;
 
 // ---------- Crear / editar reservas (api/Navidad/Reservas) ----------
@@ -59,7 +61,7 @@ public class ReservaProductoNavDto
     public string? NombreEmpaque { get; set; }
     public string? Color { get; set; }
     public decimal PrecioCatalogo { get; set; }
-    public decimal PrecioCompraUnidad { get; set; }
+    [OcultoSinPrecioCompra] public decimal? PrecioCompraUnidad { get; set; }
     // Σ stock de los almacenes navideños activos
     public int StockTotal { get; set; }
     // Lo pedido y todavía no recibido (misma fuente que Faltantes)

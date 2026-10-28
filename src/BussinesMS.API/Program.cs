@@ -26,7 +26,7 @@ Log.Logger = new LoggerConfiguration()
 builder.Host.UseSerilog();
 
 Console.WriteLine("Agregando servicios MVC...");
-builder.Services.AddControllers();
+builder.Services.AddControllers(options => options.Filters.Add<BussinesMS.API.Filtros.OcultarPreciosCompraFilter>());
 
 // Después de builder.Services.AddControllers();
 builder.Services.AddCors(options =>
@@ -268,6 +268,11 @@ builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ISalidaRutaC
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IDevolucionRutaNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.DevolucionRutaNavRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IAbonoVendedorNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.AbonoVendedorNavRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IRutaNavService, BussinesMS.Aplicacion.Servicios.Navidad.RutaNavService>();
+// Registro personal de ventas del vendedor de ruta a sus clientes
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IVentaClienteRutaNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.VentaClienteRutaNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IVentaClienteRutaNavService, BussinesMS.Aplicacion.Servicios.Navidad.VentaClienteRutaNavService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IPagoVendedorNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.PagoVendedorNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IPagoVendedorNavService, BussinesMS.Aplicacion.Servicios.Navidad.PagoVendedorNavService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IReservaBloqueoNavRepository,BussinesMS.Infraestructura.Repositorios.Navidad.ReservaBloqueoNavRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IReservaCoberturaNavService, BussinesMS.Aplicacion.Servicios.Navidad.ReservaCoberturaNavService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IReservaNavService, BussinesMS.Aplicacion.Servicios.Navidad.ReservaNavService>();
@@ -278,6 +283,7 @@ builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IConsumoNavS
 // Encargados de almacén (restricción por almacén del rol EncargadoAlmacen)
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ITemporadaAlmacenEncargadoRepository, BussinesMS.Infraestructura.Repositorios.Navidad.TemporadaAlmacenEncargadoRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IAlmacenAccesoNavService, BussinesMS.Aplicacion.Servicios.Navidad.AlmacenAccesoNavService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IPrecioCompraAccesoService, BussinesMS.Aplicacion.Servicios.Navidad.PrecioCompraAccesoService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IAlmacenNavService, BussinesMS.Aplicacion.Servicios.Navidad.AlmacenNavService>();
 
 // Background Services

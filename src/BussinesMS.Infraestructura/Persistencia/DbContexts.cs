@@ -67,6 +67,7 @@ public class AuthDbContext : DbContext
         modelBuilder.Entity<UsuarioSistema>(entity =>
         {
             entity.HasKey(e => new { e.UsuarioId, e.SistemaId });
+            entity.Property(e => e.VerPreciosCompra).HasDefaultValue(false);
 
             entity.HasOne(us => us.Usuario)
                 .WithMany(u => u.UsuarioSistemas)
@@ -610,7 +611,12 @@ public class NavidadDbContext : DbContext
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.DevolucionRuta> DevolucionesRuta => Set<BussinesMS.Dominio.Entidades.Navidad.DevolucionRuta>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.DevolucionRutaDetalle> DevolucionesRutaDetalle => Set<BussinesMS.Dominio.Entidades.Navidad.DevolucionRutaDetalle>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.AbonoVendedor> AbonosVendedor => Set<BussinesMS.Dominio.Entidades.Navidad.AbonoVendedor>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.VentaClienteRuta> VentasClienteRuta => Set<BussinesMS.Dominio.Entidades.Navidad.VentaClienteRuta>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.VentaClienteRutaDetalle> VentasClienteRutaDetalle => Set<BussinesMS.Dominio.Entidades.Navidad.VentaClienteRutaDetalle>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.CobroClienteRuta> CobrosClienteRuta => Set<BussinesMS.Dominio.Entidades.Navidad.CobroClienteRuta>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.AbonoVendedorAplicacion> AbonosVendedorAplicacion => Set<BussinesMS.Dominio.Entidades.Navidad.AbonoVendedorAplicacion>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.PagoVendedor> PagosVendedor => Set<BussinesMS.Dominio.Entidades.Navidad.PagoVendedor>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.PagoVendedorDetalle> PagosVendedorDetalle => Set<BussinesMS.Dominio.Entidades.Navidad.PagoVendedorDetalle>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.CierreCajaTienda> CierresCajaTienda => Set<BussinesMS.Dominio.Entidades.Navidad.CierreCajaTienda>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.TemporadaAlmacenEncargado> TemporadaAlmacenEncargados => Set<BussinesMS.Dominio.Entidades.Navidad.TemporadaAlmacenEncargado>();
 
@@ -1358,6 +1364,53 @@ public class NavidadDbContext : DbContext
             entity.HasIndex(e => e.ProductoId);
         });
 
+        // Registro personal de ventas del vendedor de ruta (privado, no afecta stock ni ventas del sistema)
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.VentaClienteRuta>(entity =>
+        {
+            entity.ToTable("VentaClienteRuta");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Fecha).HasColumnType("date");
+            entity.Property(e => e.Total).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Pagado).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Saldo).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Observacion).HasMaxLength(500);
+            entity.HasOne(e => e.Temporada).WithMany().HasForeignKey(e => e.TemporadaId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Vendedor).WithMany().HasForeignKey(e => e.VendedorId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Cliente).WithMany().HasForeignKey(e => e.ClienteId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.SalidaRuta).WithMany().HasForeignKey(e => e.SalidaRutaId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.TemporadaId, e.VendedorId, e.Fecha });
+            entity.HasIndex(e => new { e.VendedorId, e.ClienteId });
+            entity.HasIndex(e => e.SalidaRutaId);
+            entity.HasIndex(e => e.ClienteId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.VentaClienteRutaDetalle>(entity =>
+        {
+            entity.ToTable("VentaClienteRutaDetalle", t =>
+            {
+                t.HasCheckConstraint("CK_VentaClienteRutaDetalle_UnidadesPositivas", "[Unidades] > 0");
+                t.HasCheckConstraint("CK_VentaClienteRutaDetalle_PrecioNoNegativo", "[PrecioUnitario] >= 0");
+            });
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PrecioUnitario).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Subtotal).HasColumnType("decimal(18,2)");
+            entity.HasOne(e => e.VentaClienteRuta).WithMany(v => v.Detalles).HasForeignKey(e => e.VentaClienteRutaId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Producto).WithMany().HasForeignKey(e => e.ProductoId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.VentaClienteRutaId, e.ProductoId }).IsUnique();
+            entity.HasIndex(e => e.ProductoId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.CobroClienteRuta>(entity =>
+        {
+            entity.ToTable("CobroClienteRuta", t => t.HasCheckConstraint("CK_CobroClienteRuta_MontoPositivo", "[Monto] > 0"));
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Fecha).HasColumnType("date");
+            entity.Property(e => e.Monto).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Medio).HasConversion<int?>();
+            entity.HasOne(e => e.VentaClienteRuta).WithMany(v => v.Cobros).HasForeignKey(e => e.VentaClienteRutaId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.VentaClienteRutaId);
+        });
+
         modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.SalidaRuta>(entity =>
         {
             entity.ToTable("SalidaRuta");
@@ -1487,6 +1540,55 @@ public class NavidadDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(e => e.AbonoVendedorId);
             entity.HasIndex(e => e.VentaId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.PagoVendedor>(entity =>
+        {
+            entity.ToTable("PagoVendedor", t => t.HasCheckConstraint("CK_PagoVendedor_Monto", "[Monto] > 0"));
+            entity.HasKey(e => e.Id);
+            // UsuarioId sin FK: vive en AuthDB
+            entity.Property(e => e.Fecha).HasColumnType("date");
+            entity.Property(e => e.Tipo).HasConversion<int>();
+            entity.Property(e => e.Periodo).HasMaxLength(7);
+            entity.Property(e => e.ModoComision).HasConversion<int?>();
+            entity.Property(e => e.Porcentaje).HasColumnType("decimal(5,2)");
+            entity.Property(e => e.MontoBase).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Monto).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Medio).HasConversion<int>();
+            entity.Property(e => e.Observacion).HasMaxLength(500);
+            entity.HasOne(e => e.Temporada)
+                .WithMany()
+                .HasForeignKey(e => e.TemporadaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Vendedor)
+                .WithMany()
+                .HasForeignKey(e => e.VendedorId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.TemporadaId, e.VendedorId, e.Tipo });
+            entity.HasIndex(e => e.VendedorId);
+            // Un solo pago de comisión vigente por vendedor y temporada
+            entity.HasIndex(e => new { e.TemporadaId, e.VendedorId })
+                .IsUnique()
+                .HasFilter("[Tipo] = 2 AND [Anulado] = 0 AND [IsActive] = 1")
+                .HasDatabaseName("UX_PagoVendedor_ComisionVigente");
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.PagoVendedorDetalle>(entity =>
+        {
+            entity.ToTable("PagoVendedorDetalle", t => t.HasCheckConstraint("CK_PagoVendedorDetalle_Montos", "[Unidades] > 0 AND [ComisionUnidad] >= 0 AND [Subtotal] >= 0"));
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ComisionUnidad).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Subtotal).HasColumnType("decimal(18,2)");
+            entity.HasOne(e => e.PagoVendedor)
+                .WithMany(p => p.Detalles)
+                .HasForeignKey(e => e.PagoVendedorId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Producto)
+                .WithMany()
+                .HasForeignKey(e => e.ProductoId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.PagoVendedorId, e.ProductoId }).IsUnique();
+            entity.HasIndex(e => e.ProductoId);
         });
     }
 }

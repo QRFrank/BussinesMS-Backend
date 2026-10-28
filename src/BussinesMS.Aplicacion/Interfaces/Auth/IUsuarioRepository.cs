@@ -16,4 +16,6 @@ public interface IUsuarioRepository : IRepositorio<Usuario>
     Task<List<int>> ObtenerSistemaIdsAsync(int usuarioId);
     Task<Dictionary<int, List<int>>> ObtenerSistemaIdsPorUsuariosAsync(List<int> usuarioIds);
     Task ReemplazarSistemasAsync(int usuarioId, List<int> sistemaIds);
+    Task<bool> ObtenerVerPreciosCompraAsync(int usuarioId, int sistemaId);
+    Task EstablecerVerPreciosCompraAsync(int usuarioId, int sistemaId, bool valor);
 }

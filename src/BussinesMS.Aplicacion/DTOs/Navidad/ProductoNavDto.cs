@@ -1,3 +1,5 @@
+using BussinesMS.Aplicacion.Seguridad;
+
 using BussinesMS.Aplicacion.DTOs.Plantillas;
 
 namespace BussinesMS.Aplicacion.DTOs.Navidad;
@@ -24,7 +26,7 @@ public class ProductoNavDto
     public string? Nombre { get; set; }
     // Nombre ?? Descripcion (calculado en el mapeo, no se guarda)
     public string NombreMostrar { get; set; } = string.Empty;
-    public decimal PrecioCompraUnidad { get; set; }
+    [OcultoSinPrecioCompra] public decimal? PrecioCompraUnidad { get; set; }
     public decimal PrecioCatalogo { get; set; }
     public int? UnidadesPorEmpaque { get; set; }
     public string? NombreEmpaque { get; set; }
@@ -55,7 +57,8 @@ public class ActualizarProductoNavDto
     public int CategoriaProductoId { get; set; }
     public string Descripcion { get; set; } = string.Empty;
     public string? Nombre { get; set; }
-    public decimal PrecioCompraUnidad { get; set; }
+    // Opcional: sin el permiso "Ver precios de compra" se ignora; null = conservar el actual
+    public decimal? PrecioCompraUnidad { get; set; }
     public decimal PrecioCatalogo { get; set; }
     // Opcionales, van juntos
     public int? UnidadesPorEmpaque { get; set; }
@@ -67,7 +70,8 @@ public class ActualizarProductoNavDto
 public class ActualizarPrecioProductoNavDto
 {
     public int Id { get; set; }
-    public decimal PrecioCompraUnidad { get; set; }
+    // Opcional: sin el permiso "Ver precios de compra" se ignora; null = conservar el actual
+    public decimal? PrecioCompraUnidad { get; set; }
     public decimal PrecioCatalogo { get; set; }
 }
 

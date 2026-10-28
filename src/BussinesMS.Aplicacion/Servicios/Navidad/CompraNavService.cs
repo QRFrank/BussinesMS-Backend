@@ -33,6 +33,7 @@ public class CompraNavService : ICompraNavService
     private readonly INavidadUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
     private readonly IAlmacenAccesoNavService _acceso;
+    private readonly IPrecioCompraAccesoService _precioAcceso;
     private readonly ILogger<CompraNavService> _logger;
 
     public CompraNavService(
@@ -46,6 +47,7 @@ public class CompraNavService : ICompraNavService
         INavidadUnitOfWork uow,
         ICurrentUserService currentUser,
         IAlmacenAccesoNavService acceso,
+        IPrecioCompraAccesoService precioAcceso,
         ILogger<CompraNavService> logger)
     {
         _repo = repo;
@@ -58,6 +60,7 @@ public class CompraNavService : ICompraNavService
         _uow = uow;
         _currentUser = currentUser;
         _acceso = acceso;
+        _precioAcceso = precioAcceso;
         _logger = logger;
     }
 
@@ -176,6 +179,9 @@ public class CompraNavService : ICompraNavService
                 .Where(p => productoIds.Contains(p.Id))
                 .ToDictionaryAsync(p => p.Id);
 
+            // Sin permiso "Ver precios de compra" no se puede pisar el costo del producto
+            var puedeActualizarPrecio = await _precioAcceso.PuedeVerPreciosCompraAsync();
+
             var usuarioId = _currentUser.GetUsuarioId() ?? 1;
             var ahora = DateTime.UtcNow;
 
@@ -207,7 +213,7 @@ public class CompraNavService : ICompraNavService
                     throw new ValidacionException($"El precio de compra de {NombreMostrar(producto)} debe ser mayor a 0");
 
                 // Solo el precio de compra; nunca el de catálogo
-                if (item.ActualizarPrecioProducto && producto.PrecioCompraUnidad != item.PrecioCompraUnidad)
+                if (puedeActualizarPrecio && item.ActualizarPrecioProducto && producto.PrecioCompraUnidad != item.PrecioCompraUnidad)
                 {
                     producto.PrecioCompraUnidad = item.PrecioCompraUnidad;
                     productosActualizados.Add(producto);
