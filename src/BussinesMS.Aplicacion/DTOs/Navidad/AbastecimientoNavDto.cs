@@ -19,6 +19,7 @@ public class FaltanteNavDto
     public string ProductoNombreMostrar { get; set; } = string.Empty;
     public int? UnidadesPorEmpaque { get; set; }
     public string? NombreEmpaque { get; set; }
+    public string? Color { get; set; }
     public int Pedido { get; set; }
     public int Recibido { get; set; }
     public int Faltante { get; set; }

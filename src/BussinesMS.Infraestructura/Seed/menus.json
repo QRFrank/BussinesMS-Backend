@@ -74,7 +74,10 @@
   { "id": 161, "nombre": "Ventas por vendedor","url": "/navidad/ventas-vendedor",      "icono": "solar:chart-2-bold-duotone",                   "orden": 1, "isGroup": false, "parentId": 160,  "sistemaId": 2 },
   { "id": 162, "nombre": "Pagos a vendedores", "url": "/navidad/pagos-vendedores",     "icono": "solar:wallet-money-bold-duotone",              "orden": 2, "isGroup": false, "parentId": 160,  "sistemaId": 2 },
 
-  { "id": 170, "nombre": "Reportes",          "url": "/navidad/reportes",             "icono": "solar:chart-square-bold-duotone",              "orden": 8, "isGroup": false, "parentId": null, "sistemaId": 2 },
+  { "id": 170, "nombre": "Reportes",           "url": null,                            "icono": "solar:chart-square-bold-duotone",              "orden": 8, "isGroup": true,  "parentId": null, "sistemaId": 2 },
+  { "id": 171, "nombre": "Resultado",          "url": "/navidad/reportes/resultado",   "icono": "solar:chart-square-bold-duotone",              "orden": 1, "isGroup": false, "parentId": 170,  "sistemaId": 2 },
+  { "id": 172, "nombre": "Ventas y stock",      "url": "/navidad/reportes/ventas-stock", "icono": "solar:cart-large-2-bold-duotone",              "orden": 2, "isGroup": false, "parentId": 170,  "sistemaId": 2 },
+  { "id": 173, "nombre": "Deudas y pagos",     "url": "/navidad/reportes/deudas-pagos", "icono": "solar:wallet-money-bold-duotone",                       "orden": 3, "isGroup": false, "parentId": 170,  "sistemaId": 2 },
 
   { "id": 120, "nombre": "Seguridad",        "url": null,                            "icono": "solar:shield-bold-duotone",                    "orden": 9, "isGroup": true,  "parentId": null, "sistemaId": 2 },
   { "id": 121, "nombre": "Usuarios",           "url": "/navidad/usuarios",             "icono": "solar:users-bold-duotone",                     "orden": 1, "isGroup": false, "parentId": 120,  "sistemaId": 2 }

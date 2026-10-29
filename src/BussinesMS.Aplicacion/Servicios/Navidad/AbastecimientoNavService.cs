@@ -91,7 +91,7 @@ public class AbastecimientoNavService : IAbastecimientoNavService
             var productoIds = filas.Keys.Select(k => k.ProductoId).Distinct().ToList();
             var productos = await _productoRepo.AsQueryable().AsNoTracking()
                 .Where(p => productoIds.Contains(p.Id))
-                .Select(p => new { p.Id, NombreMostrar = p.Nombre ?? p.Descripcion, p.UnidadesPorEmpaque, p.NombreEmpaque })
+                .Select(p => new { p.Id, NombreMostrar = p.Nombre ?? p.Descripcion, p.UnidadesPorEmpaque, p.NombreEmpaque, p.Color })
                 .ToDictionaryAsync(p => p.Id);
 
             return filas
@@ -113,6 +113,7 @@ public class AbastecimientoNavService : IAbastecimientoNavService
                         ProductoNombreMostrar = prod?.NombreMostrar ?? string.Empty,
                         UnidadesPorEmpaque = prod?.UnidadesPorEmpaque,
                         NombreEmpaque = prod?.NombreEmpaque,
+                        Color = prod?.Color,
                         Pedido = f.Value.Pedido,
                         Recibido = f.Value.Recibido,
                         Faltante = faltante,

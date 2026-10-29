@@ -217,6 +217,7 @@ public class DashboardFaltanteNavDto
     public string ProductoNombreMostrar { get; set; } = string.Empty;
     public int? UnidadesPorEmpaque { get; set; }
     public string? NombreEmpaque { get; set; }
+    public string? Color { get; set; }
     public int Pedido { get; set; }
     public int Recibido { get; set; }
     public int Faltante { get; set; }
@@ -291,6 +292,8 @@ public class DashboardRecepcionadoVendidoNavDto
     public int Vendido { get; set; }
     // Stock actual en todos los almacenes
     public int EnStock { get; set; }
+    // Unidades consumidas (consumo propio, invitación, otro) en la temporada; mismo criterio que Pérdidas
+    public int Consumo { get; set; }
 }
 
 public class DashboardGastosNavDto

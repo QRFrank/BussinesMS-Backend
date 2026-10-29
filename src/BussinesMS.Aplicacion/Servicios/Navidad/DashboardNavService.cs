@@ -36,6 +36,7 @@ public class DashboardNavService : IDashboardNavService
     private readonly ISalidaRutaNavRepository _salidaRepo;
     private readonly IProductoNavRepository _productoRepo;
     private readonly IAlmacenRepository _almacenRepo;
+    private readonly IConsumoNavRepository _consumoRepo;
     private readonly ResumenNavCalculos _calc;
     private readonly ILogger<DashboardNavService> _logger;
 
@@ -59,6 +60,7 @@ public class DashboardNavService : IDashboardNavService
         ISalidaRutaNavRepository salidaRepo,
         IProductoNavRepository productoRepo,
         IAlmacenRepository almacenRepo,
+        IConsumoNavRepository consumoRepo,
         ResumenNavCalculos calc,
         ILogger<DashboardNavService> logger)
     {
@@ -81,6 +83,7 @@ public class DashboardNavService : IDashboardNavService
         _salidaRepo = salidaRepo;
         _productoRepo = productoRepo;
         _almacenRepo = almacenRepo;
+        _consumoRepo = consumoRepo;
         _calc = calc;
         _logger = logger;
     }
@@ -231,9 +234,18 @@ public class DashboardNavService : IDashboardNavService
             .Select(g => new { ProductoId = g.Key, Unidades = g.Sum(s => s.Cantidad) })
             .ToListAsync();
 
+        // Mismo criterio que Pérdidas: consumos activos y no anulados de la temporada
+        var consumidos = await _consumoRepo.AsQueryable().AsNoTracking()
+            .Where(c => c.IsActive && !c.Anulado && c.TemporadaId == temporadaId)
+            .SelectMany(c => c.Detalles)
+            .GroupBy(d => d.ProductoId)
+            .Select(g => new { ProductoId = g.Key, Unidades = g.Sum(d => d.Unidades) })
+            .ToListAsync();
+
         var ids = vendidos.Select(x => x.ProductoId)
             .Concat(recepcionados.Select(x => x.ProductoId))
             .Concat(comprados.Select(x => x.ProductoId))
+            .Concat(consumidos.Select(x => x.ProductoId))
             .Distinct()
             .ToList();
         var productos = await ObtenerProductosAsync(ids);
@@ -261,6 +273,7 @@ public class DashboardNavService : IDashboardNavService
         var recepcionadoPor = recepcionados.ToDictionary(x => x.ProductoId, x => x.Unidades);
         var compradoPor = comprados.ToDictionary(x => x.ProductoId, x => x.Unidades);
         var stockPor = stock.ToDictionary(x => x.ProductoId, x => x.Unidades);
+        var consumoPor = consumidos.ToDictionary(x => x.ProductoId, x => x.Unidades);
 
         tablas.RecepcionadoVsVendido = ids
             .Select(id =>
@@ -276,7 +289,8 @@ public class DashboardNavService : IDashboardNavService
                     Recepcionado = recepcionadoPor.GetValueOrDefault(id),
                     Comprado = compradoPor.GetValueOrDefault(id),
                     Vendido = vendidoPor.GetValueOrDefault(id),
-                    EnStock = stockPor.GetValueOrDefault(id)
+                    EnStock = stockPor.GetValueOrDefault(id),
+                    Consumo = consumoPor.GetValueOrDefault(id)
                 };
             })
             .OrderBy(x => x.ProductoNombreMostrar, StringComparer.CurrentCultureIgnoreCase)

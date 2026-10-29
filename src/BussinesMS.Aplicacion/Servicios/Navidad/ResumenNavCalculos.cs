@@ -482,6 +482,7 @@ public class ResumenNavCalculos
                     ProductoNombreMostrar = f.ProductoNombreMostrar,
                     UnidadesPorEmpaque = f.UnidadesPorEmpaque,
                     NombreEmpaque = f.NombreEmpaque,
+                    Color = f.Color,
                     Pedido = f.Pedido,
                     Recibido = f.Recibido,
                     Faltante = f.Faltante
