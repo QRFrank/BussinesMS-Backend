@@ -37,6 +37,7 @@ public class DashboardNavService : IDashboardNavService
     private readonly IProductoNavRepository _productoRepo;
     private readonly IAlmacenRepository _almacenRepo;
     private readonly IConsumoNavRepository _consumoRepo;
+    private readonly IConteoInventarioNavRepository _conteoRepo;
     private readonly ResumenNavCalculos _calc;
     private readonly ILogger<DashboardNavService> _logger;
 
@@ -61,6 +62,7 @@ public class DashboardNavService : IDashboardNavService
         IProductoNavRepository productoRepo,
         IAlmacenRepository almacenRepo,
         IConsumoNavRepository consumoRepo,
+        IConteoInventarioNavRepository conteoRepo,
         ResumenNavCalculos calc,
         ILogger<DashboardNavService> logger)
     {
@@ -84,6 +86,7 @@ public class DashboardNavService : IDashboardNavService
         _productoRepo = productoRepo;
         _almacenRepo = almacenRepo;
         _consumoRepo = consumoRepo;
+        _conteoRepo = conteoRepo;
         _calc = calc;
         _logger = logger;
     }
@@ -242,10 +245,20 @@ public class DashboardNavService : IDashboardNavService
             .Select(g => new { ProductoId = g.Key, Unidades = g.Sum(d => d.Unidades) })
             .ToListAsync();
 
+        // Mismo criterio que Pérdidas (diferenciasConteo): conteos activos de la temporada, solo diferencias negativas, todos los motivos
+        var perdidasConteo = await _conteoRepo.AsQueryable().AsNoTracking()
+            .Where(c => c.IsActive && c.TemporadaId == temporadaId)
+            .SelectMany(c => c.Detalles)
+            .Where(d => d.Diferencia < 0)
+            .GroupBy(d => d.ProductoId)
+            .Select(g => new { ProductoId = g.Key, Unidades = -g.Sum(d => d.Diferencia) })
+            .ToListAsync();
+
         var ids = vendidos.Select(x => x.ProductoId)
             .Concat(recepcionados.Select(x => x.ProductoId))
             .Concat(comprados.Select(x => x.ProductoId))
             .Concat(consumidos.Select(x => x.ProductoId))
+            .Concat(perdidasConteo.Select(x => x.ProductoId))
             .Distinct()
             .ToList();
         var productos = await ObtenerProductosAsync(ids);
@@ -274,6 +287,7 @@ public class DashboardNavService : IDashboardNavService
         var compradoPor = comprados.ToDictionary(x => x.ProductoId, x => x.Unidades);
         var stockPor = stock.ToDictionary(x => x.ProductoId, x => x.Unidades);
         var consumoPor = consumidos.ToDictionary(x => x.ProductoId, x => x.Unidades);
+        var perdidaConteoPor = perdidasConteo.ToDictionary(x => x.ProductoId, x => x.Unidades);
 
         tablas.RecepcionadoVsVendido = ids
             .Select(id =>
@@ -290,7 +304,8 @@ public class DashboardNavService : IDashboardNavService
                     Comprado = compradoPor.GetValueOrDefault(id),
                     Vendido = vendidoPor.GetValueOrDefault(id),
                     EnStock = stockPor.GetValueOrDefault(id),
-                    Consumo = consumoPor.GetValueOrDefault(id)
+                    Consumo = consumoPor.GetValueOrDefault(id),
+                    PerdidaConteo = perdidaConteoPor.GetValueOrDefault(id)
                 };
             })
             .OrderBy(x => x.ProductoNombreMostrar, StringComparer.CurrentCultureIgnoreCase)

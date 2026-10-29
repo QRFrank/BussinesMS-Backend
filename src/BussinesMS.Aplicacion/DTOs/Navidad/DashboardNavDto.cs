@@ -294,6 +294,8 @@ public class DashboardRecepcionadoVendidoNavDto
     public int EnStock { get; set; }
     // Unidades consumidas (consumo propio, invitación, otro) en la temporada; mismo criterio que Pérdidas
     public int Consumo { get; set; }
+    // Unidades perdidas por diferencias negativas de conteo (positivo); mismo criterio que perdidas.diferenciasConteo
+    public int PerdidaConteo { get; set; }
 }
 
 public class DashboardGastosNavDto
