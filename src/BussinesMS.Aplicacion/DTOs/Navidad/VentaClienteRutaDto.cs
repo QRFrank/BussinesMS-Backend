@@ -102,6 +102,19 @@ public class VentaClienteRutaLineaDto
     public decimal PrecioUnitario { get; set; }
 }
 
+public class EditarVentaClienteRutaDto
+{
+    public int ClienteId { get; set; }
+    // Omitida = se conserva la fecha actual
+    public DateTime? Fecha { get; set; }
+    public string? Observacion { get; set; }
+    // null = no se tocan los cobros; con valor corrige el pago inicial (0 o 1 cobro vigente)
+    public decimal? PagadoAhora { get; set; }
+    // Obligatorio si PagadoAhora > 0
+    public MedioPagoNav? Medio { get; set; }
+    public List<VentaClienteRutaLineaDto> Detalles { get; set; } = new();
+}
+
 public class RegistrarCobroClienteRutaDto
 {
     public decimal Monto { get; set; }

@@ -51,6 +51,8 @@ public class DashboardPerfilNavDto
     public DashboardTemporadaNavDto? Temporada { get; set; }
     public int? VendedorId { get; set; }
     public string? VendedorNombre { get; set; }
+    // ruta | tienda | null (null si el usuario no es vendedor en la temporada)
+    public string? VendedorTipo { get; set; }
     // Solo encargado: almacenes a cargo en la temporada abierta
     public List<int>? AlmacenesACargo { get; set; }
 }
@@ -203,7 +205,8 @@ public class DashboardComisionPendienteNavDto
 public class DashboardFaltaLlegarNavDto
 {
     public int TotalUnidades { get; set; }
-    // Solo filas con faltante > 0, por código y producto
+    // Por código y producto. En el dashboard del admin: primero las filas con faltante > 0 y después las completas (faltante = 0) o de más (faltante < 0).
+    // En reportes y en el dashboard del encargado solo vienen las de faltante > 0. TotalUnidades suma solo los faltantes > 0.
     public List<DashboardFaltanteNavDto> Items { get; set; } = new();
 }
 
@@ -221,6 +224,8 @@ public class DashboardFaltanteNavDto
     public int Pedido { get; set; }
     public int Recibido { get; set; }
     public int Faltante { get; set; }
+    // true si llegó más de lo pedido (faltante < 0)
+    public bool LlegoDeMas { get; set; }
 }
 
 public class DashboardPagosProveedoresNavDto
@@ -391,6 +396,7 @@ public class DashboardEncargadoNavDto
     public DashboardTemporadaNavDto Temporada { get; set; } = new();
     public List<DashboardAlmacenStockNavDto> Almacenes { get; set; } = new();
     public DashboardEncargadoStockNavDto Stock { get; set; } = new();
+    public DashboardEncargadoBloqueadosNavDto Bloqueados { get; set; } = new();
     public DashboardPorLlegarNavDto PorLlegar { get; set; } = new();
     public DashboardMovimientosHoyNavDto MovimientosHoy { get; set; } = new();
     // Solo almacenes a cargo que llevan conteo diario
@@ -416,6 +422,26 @@ public class DashboardEncargadoStockNavDto
     public List<DashboardProductoUnidadesNavDto> Agotados { get; set; } = new();
     // Productos con 1..umbral unidades sumando los almacenes a cargo, de menor a mayor (hasta 30)
     public List<DashboardProductoUnidadesNavDto> PocoStock { get; set; } = new();
+    // Todos los productos del stock de sus almacenes (mismo universo que agotados/pocoStock), sin tope de filas.
+    // Orden: agotados, poco stock (menor a mayor), normal; cada grupo alfabético en agotados/normal
+    public List<DashboardEncargadoProductoStockNavDto> Productos { get; set; } = new();
+}
+
+public class DashboardEncargadoProductoStockNavDto : DashboardProductoUnidadesNavDto
+{
+    // Unidades bloqueadas por reservas vigentes en sus almacenes
+    public int Bloqueado { get; set; }
+    // Unidades − Bloqueado (mínimo 0)
+    public int Disponible { get; set; }
+    // "Agotado" | "PocoStock" | "Normal"
+    public string Estado { get; set; } = string.Empty;
+}
+
+public class DashboardEncargadoBloqueadosNavDto
+{
+    // Productos con unidades bloqueadas por reservas en sus almacenes
+    public int CantidadProductos { get; set; }
+    public int TotalUnidades { get; set; }
 }
 
 public class DashboardPorLlegarNavDto

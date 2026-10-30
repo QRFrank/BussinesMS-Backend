@@ -76,6 +76,12 @@ public class CierreCajaVentaNavDto
     public decimal MontoNeto { get; set; }
     public decimal MontoCobrado { get; set; }
     public decimal MontoSaldo { get; set; }
+    public int CondicionPago { get; set; }
+    public string CondicionPagoNombre { get; set; } = string.Empty;
+    public int VendedorId { get; set; }
+    // Cobros de esta venta que entran en el turno (origen "VentaTurno"), por medio
+    public decimal Efectivo { get; set; }
+    public decimal Transferencia { get; set; }
 }
 
 public class CierreCajaCobroNavDto

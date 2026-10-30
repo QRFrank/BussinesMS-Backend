@@ -39,6 +39,7 @@ public class DashboardNavService : IDashboardNavService
     private readonly IConsumoNavRepository _consumoRepo;
     private readonly IConteoInventarioNavRepository _conteoRepo;
     private readonly ResumenNavCalculos _calc;
+    private readonly IStockNavService _stockService;
     private readonly ILogger<DashboardNavService> _logger;
 
     public DashboardNavService(
@@ -64,6 +65,7 @@ public class DashboardNavService : IDashboardNavService
         IConsumoNavRepository consumoRepo,
         IConteoInventarioNavRepository conteoRepo,
         ResumenNavCalculos calc,
+        IStockNavService stockService,
         ILogger<DashboardNavService> logger)
     {
         _ventas = ventas;
@@ -88,6 +90,7 @@ public class DashboardNavService : IDashboardNavService
         _consumoRepo = consumoRepo;
         _conteoRepo = conteoRepo;
         _calc = calc;
+        _stockService = stockService;
         _logger = logger;
     }
 
@@ -120,7 +123,18 @@ public class DashboardNavService : IDashboardNavService
             {
                 resultado.Perfil = "encargado";
                 if (temporada != null)
+                {
                     resultado.AlmacenesACargo = await _acceso.ObtenerAlmacenesACargoAsync(temporada.Id);
+                    // Encargado que además es vendedor: se informa para mostrar también su dashboard de vendedor
+                    var (_, vendedorEnc) = await _ventas.ObtenerPermisosAsync(temporada.Id);
+                    if (vendedorEnc != null)
+                    {
+                        var nombresEnc = await _ventas.ObtenerNombresUsuarioAsync(new[] { vendedorEnc.UsuarioId });
+                        resultado.VendedorId = vendedorEnc.Id;
+                        resultado.VendedorNombre = nombresEnc.GetValueOrDefault(vendedorEnc.UsuarioId, string.Empty);
+                        resultado.VendedorTipo = vendedorEnc.Tipo == TipoVendedor.Ruta ? "ruta" : "tienda";
+                    }
+                }
                 return resultado;
             }
 
@@ -133,6 +147,7 @@ public class DashboardNavService : IDashboardNavService
                     resultado.Perfil = vendedor.Tipo == TipoVendedor.Ruta ? "vendedorRuta" : "vendedorTienda";
                     resultado.VendedorId = vendedor.Id;
                     resultado.VendedorNombre = nombres.GetValueOrDefault(vendedor.UsuarioId, string.Empty);
+                    resultado.VendedorTipo = vendedor.Tipo == TipoVendedor.Ruta ? "ruta" : "tienda";
                 }
             }
 
@@ -181,7 +196,7 @@ public class DashboardNavService : IDashboardNavService
                     Sueldos = _calc.ConstruirSueldos(sueldos),
                     Comisiones = await _calc.ConstruirComisionesAsync(t, reporte)
                 },
-                FaltaLlegar = _calc.ConstruirFaltaLlegar(faltantes),
+                FaltaLlegar = _calc.ConstruirFaltaLlegar(faltantes, incluirCompletos: true),
                 PagosProveedores = await _calc.ConstruirPagosProveedoresAsync(t, deudasProveedor),
                 Tablas = new DashboardTablasNavDto
                 {
@@ -637,6 +652,46 @@ public class DashboardNavService : IDashboardNavService
         resultado.Stock.PocoStock = pocosIds.Take(MaxFilasLista)
             .Select(id => MapearProductoUnidades(id, porProducto[id], productos))
             .ToList();
+
+        // Lista completa (mismo universo: productos activos con registro de stock en sus almacenes) con bloqueo por reservas
+        var bloqueosPorAlmacenProducto = await _stockService.ObtenerBloqueadosAsync(temporadaId);
+        var bloqueadoPor = bloqueosPorAlmacenProducto
+            .Where(kv => mine.Contains(kv.Key.AlmacenId))
+            .GroupBy(kv => kv.Key.ProductoId)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Value));
+
+        var todosIds = porProducto.Keys.Where(activosSet.Contains).ToList();
+        var todos = await ObtenerProductosAsync(todosIds);
+        var lista = todosIds.Select(id =>
+        {
+            var unidades = porProducto[id];
+            var bloqueado = bloqueadoPor.GetValueOrDefault(id);
+            var info = MapearProductoUnidades(id, unidades, todos);
+            return new DashboardEncargadoProductoStockNavDto
+            {
+                ProductoId = info.ProductoId,
+                ProductoNombreMostrar = info.ProductoNombreMostrar,
+                UnidadesPorEmpaque = info.UnidadesPorEmpaque,
+                NombreEmpaque = info.NombreEmpaque,
+                Color = info.Color,
+                Unidades = unidades,
+                Bloqueado = bloqueado,
+                Disponible = Math.Max(0, unidades - bloqueado),
+                Estado = unidades <= 0 ? "Agotado" : unidades <= umbral ? "PocoStock" : "Normal"
+            };
+        }).ToList();
+
+        resultado.Stock.Productos = lista
+            .OrderBy(x => x.Estado == "Agotado" ? 0 : x.Estado == "PocoStock" ? 1 : 2)
+            .ThenBy(x => x.Estado == "PocoStock" ? x.Unidades : 0)
+            .ThenBy(x => x.ProductoNombreMostrar, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        resultado.Bloqueados = new DashboardEncargadoBloqueadosNavDto
+        {
+            CantidadProductos = lista.Count(x => x.Bloqueado > 0),
+            TotalUnidades = lista.Sum(x => x.Bloqueado)
+        };
     }
 
     // El pedido no distribuye por almacén: se informa lo que falta llegar de toda la temporada, por producto

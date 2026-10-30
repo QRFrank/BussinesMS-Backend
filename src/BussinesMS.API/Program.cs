@@ -319,6 +319,25 @@ Console.WriteLine("Activando Swagger...");
 app.UseSwagger();
 app.UseSwaggerUI();
 
+// Evita que el navegador cachee respuestas de la API (F5 mostraba datos viejos)
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api"))
+    {
+        context.Response.OnStarting(() =>
+        {
+            var headers = context.Response.Headers;
+            if (!headers.ContainsKey("Cache-Control"))
+            {
+                headers["Cache-Control"] = "no-store";
+                headers["Pragma"] = "no-cache";
+            }
+            return Task.CompletedTask;
+        });
+    }
+    await next();
+});
+
 app.UseCors("AllowFrontend");
 
 app.UseErrorHandling();

@@ -14,6 +14,10 @@ public interface IReportesNavService
 
     Task<ReporteFaltantesNavDto> ObtenerFaltantesAsync(int? proveedorId, int? codigoClienteId);
 
+    Task<ReporteRecepcionesCodigoNavDto> ObtenerRecepcionesCodigoAsync(int proveedorId, int? codigoClienteId, DateTime? desde, DateTime? hasta);
+
+    Task<ReporteEntradasProductoNavDto> ObtenerEntradasProductoAsync(int productoId, int? almacenId, DateTime? desde, DateTime? hasta);
+
     Task<ReporteDeudasNavDto> ObtenerDeudasAsync();
 
     Task<ReporteGastosNavDto> ObtenerGastosAsync(DateTime? desde, DateTime? hasta, int? categoriaId);

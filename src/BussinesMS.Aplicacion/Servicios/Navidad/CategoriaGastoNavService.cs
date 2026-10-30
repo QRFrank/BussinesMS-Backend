@@ -16,26 +16,30 @@ public class CategoriaGastoNavService : ICategoriaGastoNavService
 {
     private readonly ICategoriaGastoNavRepository _repo;
     private readonly IGastoNavRepository _gastoRepo;
+    private readonly ITemporadaActualService _temporadaActual;
     private readonly IMapper _mapper;
     private readonly ILogger<CategoriaGastoNavService> _logger;
 
     public CategoriaGastoNavService(
         ICategoriaGastoNavRepository repo,
         IGastoNavRepository gastoRepo,
+        ITemporadaActualService temporadaActual,
         IMapper mapper,
         ILogger<CategoriaGastoNavService> logger)
     {
         _repo = repo;
         _gastoRepo = gastoRepo;
+        _temporadaActual = temporadaActual;
         _mapper = mapper;
         _logger = logger;
     }
 
-    public async Task<PagedResultDto<CategoriaGastoNavDto>> ObtenerTodosAsync(GenericPaginationQueryDto query)
+    public async Task<PagedResultDto<CategoriaGastoNavDto>> ObtenerTodosAsync(GenericPaginationQueryDto query, int? temporadaId = null)
     {
         try
         {
-            var baseQuery = _repo.AsQueryable().Where(x => x.IsActive);
+            var tempId = await _temporadaActual.ResolverTemporadaIdAsync(temporadaId);
+            var baseQuery = _repo.AsQueryablePorTemporada(tempId).Where(x => x.IsActive);
 
             if (!string.IsNullOrWhiteSpace(query.Filter))
             {
@@ -85,12 +89,27 @@ public class CategoriaGastoNavService : ICategoriaGastoNavService
             if (string.IsNullOrWhiteSpace(dto.Nombre))
                 throw new ValidacionException("El nombre es obligatorio");
 
+            var temporada = await _temporadaActual.ObtenerAbiertaAsync();
+
+            // Si ya existe una categoría activa con ese nombre se reutiliza: solo se liga a la temporada abierta
+            var existente = await _repo.ObtenerPorNombreAsync(dto.Nombre);
+            if (existente != null && existente.IsActive)
+            {
+                if (await _repo.EstaVinculadaAsync(existente.Id, temporada.Id))
+                    ValidacionEntidad.VerificarNoDuplicado(true, "categoría de gasto", dto.Nombre);
+
+                await _repo.VincularAsync(existente.Id, temporada.Id);
+                _logger.LogInformation("Categoría de gasto (Navidad) {Nombre} ligada a la temporada {TemporadaId}", existente.Nombre, temporada.Id);
+                return _mapper.Map<CategoriaGastoNavDto>(existente);
+            }
+
             ValidacionEntidad.VerificarNoDuplicado(
-                await _repo.ExisteNombreAsync(dto.Nombre),
+                existente != null,
                 "categoría de gasto", dto.Nombre);
 
             var entidad = _mapper.Map<CategoriaGastoNav>(dto);
             var creada = await _repo.CrearAsync(entidad);
+            await _repo.VincularAsync(creada.Id, temporada.Id);
 
             _logger.LogInformation("Categoría de gasto (Navidad) creada: {Nombre}", creada.Nombre);
 

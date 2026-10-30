@@ -114,7 +114,7 @@ public class GastoNavService : IGastoNavService
             var temporada = await _temporadaActual.ObtenerAbiertaAsync();
 
             ValidarReglas(dto.Descripcion, dto.Monto);
-            await ValidarCategoriaAsync(dto.CategoriaId);
+            await ValidarCategoriaAsync(dto.CategoriaId, temporada.Id);
 
             var entidad = new GastoNav
             {
@@ -150,7 +150,7 @@ public class GastoNavService : IGastoNavService
             await _temporadaActual.VerificarEditableAsync(existente.TemporadaId);
 
             ValidarReglas(dto.Descripcion, dto.Monto);
-            await ValidarCategoriaAsync(dto.CategoriaId);
+            await ValidarCategoriaAsync(dto.CategoriaId, dto.CategoriaId != existente.CategoriaId ? existente.TemporadaId : null);
 
             existente.CategoriaId = dto.CategoriaId;
             existente.Fecha = dto.Fecha.Date;
@@ -202,10 +202,13 @@ public class GastoNavService : IGastoNavService
             throw new ValidacionException("El monto debe ser mayor a 0");
     }
 
-    private async Task ValidarCategoriaAsync(int categoriaId)
+    private async Task ValidarCategoriaAsync(int categoriaId, int? temporadaId = null)
     {
         var categoria = await _categoriaRepo.ObtenerPorIdAsync(categoriaId);
         if (categoria == null || !categoria.IsActive)
             throw new ValidacionException("La categoría no existe o no está activa");
+
+        if (temporadaId.HasValue && !await _categoriaRepo.EstaVinculadaAsync(categoriaId, temporadaId.Value))
+            throw new ValidacionException("La categoría no está habilitada en la temporada del gasto");
     }
 }

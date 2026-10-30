@@ -77,6 +77,37 @@ public class CierreCajaNavService : ICierreCajaNavService
         }
     }
 
+    // Resumen (ventas y cobros) de un cierre ya registrado, recalculado con el rango guardado
+    public async Task<CierreCajaResumenNavDto> ObtenerResumenPorIdAsync(int id)
+    {
+        try
+        {
+            var cierre = await _repo.AsQueryable().AsNoTracking().FirstOrDefaultAsync(c => c.Id == id && c.IsActive);
+            if (cierre == null)
+                throw new EntidadNoEncontradaException("Cierre de caja", id);
+
+            await _acceso.VerificarAlmacenAsync(cierre.TemporadaId, cierre.AlmacenId);
+            var nombre = await _almacenRepo.AsQueryable().AsNoTracking()
+                .Where(a => a.Id == cierre.AlmacenId).Select(a => a.Nombre).FirstOrDefaultAsync() ?? string.Empty;
+
+            var turno = new Turno
+            {
+                AperturaId = cierre.ConteoAperturaId,
+                CierreId = cierre.ConteoCierreId,
+                DesdeUtc = cierre.Desde,
+                HastaUtc = cierre.Hasta
+            };
+            var resumen = await ArmarResumenAsync(cierre.TemporadaId, cierre.AlmacenId, nombre, turno);
+            resumen.Pendiente = false; // ya registrado: no admite POST
+            return resumen;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener resumen del cierre de caja {Id}", id);
+            throw;
+        }
+    }
+
     // ---------- Registrar ----------
 
     public async Task<CierreCajaNavDto> RegistrarAsync(RegistrarCierreCajaNavDto dto)
@@ -277,6 +308,9 @@ public class CierreCajaNavService : ICierreCajaNavService
         decimal Suma(MedioPagoNav medio, string origen)
             => cobros.Where(c => c.Medio == medio && OrigenDe(c) == origen).Sum(c => c.Monto);
 
+        // Mismos cobros que suman en EfectivoVentasTurno/TransferenciasVentasTurno (origen "VentaTurno")
+        var cobrosVentaTurno = cobros.Where(c => OrigenDe(c) == "VentaTurno").ToList();
+
         return new CierreCajaResumenNavDto
         {
             AlmacenId = almacenId,
@@ -304,7 +338,12 @@ public class CierreCajaNavService : ICierreCajaNavService
                 VendedorNombre = v.Vendedor != null && usuarios.TryGetValue(v.Vendedor.UsuarioId, out var n) ? n : string.Empty,
                 MontoNeto = v.MontoNeto,
                 MontoCobrado = v.MontoCobrado,
-                MontoSaldo = v.MontoSaldo
+                MontoSaldo = v.MontoSaldo,
+                CondicionPago = (int)v.CondicionPago,
+                CondicionPagoNombre = v.CondicionPago == CondicionPagoVentaNav.Credito ? "Crédito" : "Contado",
+                VendedorId = v.VendedorId,
+                Efectivo = cobrosVentaTurno.Where(c => c.VentaId == v.Id && c.Medio == MedioPagoNav.Efectivo).Sum(c => c.Monto),
+                Transferencia = cobrosVentaTurno.Where(c => c.VentaId == v.Id && c.Medio == MedioPagoNav.Transferencia).Sum(c => c.Monto)
             }).ToList(),
             Cobros = cobros.Select(c => new CierreCajaCobroNavDto
             {

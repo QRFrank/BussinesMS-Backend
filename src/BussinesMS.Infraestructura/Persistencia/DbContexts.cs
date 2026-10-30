@@ -574,6 +574,7 @@ public class NavidadDbContext : DbContext
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.AporteCapital> AportesCapital => Set<BussinesMS.Dominio.Entidades.Navidad.AporteCapital>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.PagoInversor> PagosInversor => Set<BussinesMS.Dominio.Entidades.Navidad.PagoInversor>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.CategoriaGastoNav> CategoriasGasto => Set<BussinesMS.Dominio.Entidades.Navidad.CategoriaGastoNav>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.CategoriaGastoTemporadaNav> CategoriasGastoTemporada => Set<BussinesMS.Dominio.Entidades.Navidad.CategoriaGastoTemporadaNav>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.CategoriaProductoNav> CategoriasProducto => Set<BussinesMS.Dominio.Entidades.Navidad.CategoriaProductoNav>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.GastoNav> Gastos => Set<BussinesMS.Dominio.Entidades.Navidad.GastoNav>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.TemporadaAlmacenConteo> TemporadaAlmacenesConteo => Set<BussinesMS.Dominio.Entidades.Navidad.TemporadaAlmacenConteo>();
@@ -726,6 +727,22 @@ public class NavidadDbContext : DbContext
             entity.Property(e => e.Nombre).IsRequired().HasMaxLength(100);
             // Único también entre inactivos (igual que CategoriaGasto del regular)
             entity.HasIndex(e => e.Nombre).IsUnique();
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.CategoriaGastoTemporadaNav>(entity =>
+        {
+            entity.ToTable("CategoriaGastoTemporadaNav");
+            entity.HasKey(e => e.Id);
+            entity.HasOne(e => e.CategoriaGasto)
+                .WithMany()
+                .HasForeignKey(e => e.CategoriaGastoId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Temporada)
+                .WithMany()
+                .HasForeignKey(e => e.TemporadaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => new { e.CategoriaGastoId, e.TemporadaId }).IsUnique();
+            entity.HasIndex(e => e.TemporadaId);
         });
 
         modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.GastoNav>(entity =>

@@ -5,7 +5,7 @@ namespace BussinesMS.Aplicacion.Interfaces.Navidad;
 
 public interface ICategoriaGastoNavService
 {
-    Task<PagedResultDto<CategoriaGastoNavDto>> ObtenerTodosAsync(GenericPaginationQueryDto query);
+    Task<PagedResultDto<CategoriaGastoNavDto>> ObtenerTodosAsync(GenericPaginationQueryDto query, int? temporadaId = null);
     Task<CategoriaGastoNavDto?> ObtenerPorIdAsync(int id);
     Task<CategoriaGastoNavDto> CrearAsync(CrearCategoriaGastoNavDto dto);
     Task<CategoriaGastoNavDto> ActualizarAsync(ActualizarCategoriaGastoNavDto dto);

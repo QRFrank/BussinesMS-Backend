@@ -25,6 +25,10 @@ public class ReportesNavService : IReportesNavService
     private readonly IStockAlmacenNavRepository _stockRepo;
     private readonly IProductoNavRepository _productoRepo;
     private readonly IAlmacenRepository _almacenRepo;
+    private readonly IRecepcionNavRepository _recepcionRepo;
+    private readonly IProveedorNavRepository _proveedorRepo;
+    private readonly ICodigoClienteRepository _codigoRepo;
+    private readonly ICompraNavRepository _compraRepo;
     private readonly VentaNavService _ventas;
     private readonly ILogger<ReportesNavService> _logger;
 
@@ -41,6 +45,10 @@ public class ReportesNavService : IReportesNavService
         IStockAlmacenNavRepository stockRepo,
         IProductoNavRepository productoRepo,
         IAlmacenRepository almacenRepo,
+        IRecepcionNavRepository recepcionRepo,
+        IProveedorNavRepository proveedorRepo,
+        ICodigoClienteRepository codigoRepo,
+        ICompraNavRepository compraRepo,
         VentaNavService ventas,
         ILogger<ReportesNavService> logger)
     {
@@ -56,6 +64,10 @@ public class ReportesNavService : IReportesNavService
         _stockRepo = stockRepo;
         _productoRepo = productoRepo;
         _almacenRepo = almacenRepo;
+        _recepcionRepo = recepcionRepo;
+        _proveedorRepo = proveedorRepo;
+        _codigoRepo = codigoRepo;
+        _compraRepo = compraRepo;
         _ventas = ventas;
         _logger = logger;
     }
@@ -435,6 +447,246 @@ public class ReportesNavService : IReportesNavService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al obtener el reporte de faltantes");
+            throw;
+        }
+    }
+
+    // ================= Recepciones por código =================
+
+    public async Task<ReporteRecepcionesCodigoNavDto> ObtenerRecepcionesCodigoAsync(int proveedorId, int? codigoClienteId, DateTime? desde, DateTime? hasta)
+    {
+        try
+        {
+            var temporada = await ExigirAdminYTemporadaAsync();
+            ValidarFechas(desde, hasta);
+            var t = temporada.Id;
+
+            var proveedor = await _proveedorRepo.AsQueryable().AsNoTracking()
+                .Where(p => p.Id == proveedorId).Select(p => new { p.Nombre }).FirstOrDefaultAsync()
+                ?? throw new EntidadNoEncontradaException("Proveedor", proveedorId);
+
+            string? codigo = null, titular = null;
+            if (codigoClienteId.HasValue)
+            {
+                var c = await _codigoRepo.AsQueryable().AsNoTracking()
+                    .Where(x => x.Id == codigoClienteId.Value && x.ProveedorId == proveedorId && x.TemporadaId == t)
+                    .Select(x => new { x.Codigo, x.Titular }).FirstOrDefaultAsync()
+                    ?? throw new EntidadNoEncontradaException("Código de cliente", codigoClienteId.Value);
+                codigo = c.Codigo;
+                titular = c.Titular;
+            }
+
+            var query = FiltrarFecha(
+                _recepcionRepo.AsQueryable().AsNoTracking()
+                    .Where(r => r.IsActive && !r.Anulada && r.TemporadaId == t && r.ProveedorId == proveedorId
+                        && r.CodigoClienteId == codigoClienteId),
+                desde, hasta, r => r.Fecha);
+
+            var recepciones = await query
+                .OrderBy(r => r.Fecha).ThenBy(r => r.Id)
+                .Select(r => new
+                {
+                    r.Id,
+                    r.Fecha,
+                    r.NroFactura,
+                    r.Observacion,
+                    Detalles = r.Detalles.Where(d => d.IsActive).OrderBy(d => d.Id).Select(d => new
+                    {
+                        d.ProductoId,
+                        Nombre = d.Producto!.Nombre ?? d.Producto.Descripcion,
+                        d.Producto.Color,
+                        d.Producto.UnidadesPorEmpaque,
+                        d.Producto.NombreEmpaque,
+                        d.CantidadUnidades,
+                        Distribuciones = d.Distribuciones.Where(x => x.IsActive).Select(x => new { x.AlmacenId, x.CantidadUnidades }).ToList()
+                    }).ToList()
+                })
+                .ToListAsync();
+
+            var nombres = await _ventas.ObtenerNombresAlmacenAsync(
+                recepciones.SelectMany(r => r.Detalles).SelectMany(d => d.Distribuciones).Select(x => x.AlmacenId));
+            string NombreAlmacen(int id) => nombres.GetValueOrDefault(id, $"#{id}");
+
+            var items = recepciones.Select(r => new ReporteRecepcionCodigoNavDto
+            {
+                Id = r.Id,
+                Fecha = r.Fecha,
+                NroFactura = r.NroFactura,
+                Observacion = r.Observacion,
+                Unidades = r.Detalles.Sum(d => d.CantidadUnidades),
+                Detalles = r.Detalles.Select(d => new ReporteRecepcionDetalleNavDto
+                {
+                    ProductoId = d.ProductoId,
+                    ProductoNombreMostrar = d.Nombre,
+                    Color = d.Color,
+                    UnidadesPorEmpaque = d.UnidadesPorEmpaque,
+                    NombreEmpaque = d.NombreEmpaque,
+                    Unidades = d.CantidadUnidades,
+                    Distribuciones = d.Distribuciones
+                        .GroupBy(x => x.AlmacenId)
+                        .Select(g => new ReporteRecepcionAlmacenNavDto { AlmacenId = g.Key, AlmacenNombre = NombreAlmacen(g.Key), Unidades = g.Sum(x => x.CantidadUnidades) })
+                        .OrderBy(x => x.AlmacenNombre, StringComparer.CurrentCultureIgnoreCase)
+                        .ToList()
+                }).ToList()
+            }).ToList();
+
+            var porAlmacen = items.SelectMany(i => i.Detalles).SelectMany(d => d.Distribuciones)
+                .GroupBy(x => x.AlmacenId)
+                .Select(g => new ReporteRecepcionAlmacenNavDto { AlmacenId = g.Key, AlmacenNombre = NombreAlmacen(g.Key), Unidades = g.Sum(x => x.Unidades) })
+                .OrderByDescending(x => x.Unidades)
+                .ToList();
+
+            return new ReporteRecepcionesCodigoNavDto
+            {
+                ProveedorId = proveedorId,
+                ProveedorNombre = proveedor.Nombre,
+                CodigoClienteId = codigoClienteId,
+                Codigo = codigo,
+                CodigoTitular = titular,
+                Totales = new ReporteRecepcionesCodigoTotalesNavDto { Recepciones = items.Count, Unidades = items.Sum(i => i.Unidades) },
+                PorAlmacen = porAlmacen,
+                Recepciones = items
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener el reporte de recepciones por código");
+            throw;
+        }
+    }
+
+    // ================= Entradas de un producto =================
+
+    public async Task<ReporteEntradasProductoNavDto> ObtenerEntradasProductoAsync(int productoId, int? almacenId, DateTime? desde, DateTime? hasta)
+    {
+        try
+        {
+            var temporada = await ExigirAdminYTemporadaAsync();
+            ValidarFechas(desde, hasta);
+            var t = temporada.Id;
+
+            var producto = (await ObtenerProductosAsync(new[] { productoId })).GetValueOrDefault(productoId)
+                ?? throw new EntidadNoEncontradaException("Producto", productoId);
+
+            var recQuery = FiltrarFecha(
+                _recepcionRepo.AsQueryable().AsNoTracking().Where(r => r.IsActive && !r.Anulada && r.TemporadaId == t),
+                desde, hasta, r => r.Fecha);
+            var recepciones = await recQuery
+                .Where(r => r.Detalles.Any(d => d.IsActive && d.ProductoId == productoId
+                    && (!almacenId.HasValue || d.Distribuciones.Any(x => x.IsActive && x.AlmacenId == almacenId.Value))))
+                .OrderBy(r => r.Fecha).ThenBy(r => r.Id)
+                .Select(r => new
+                {
+                    r.Id,
+                    r.Fecha,
+                    ProveedorNombre = r.Proveedor != null ? r.Proveedor.Nombre : string.Empty,
+                    Codigo = r.CodigoCliente != null ? r.CodigoCliente.Codigo : null,
+                    r.NroFactura,
+                    Detalles = r.Detalles.Where(d => d.IsActive && d.ProductoId == productoId).Select(d => new
+                    {
+                        d.CantidadUnidades,
+                        d.PrecioCompraUnidad,
+                        Distribuciones = d.Distribuciones.Where(x => x.IsActive).Select(x => new { x.AlmacenId, x.CantidadUnidades }).ToList()
+                    }).ToList()
+                })
+                .ToListAsync();
+
+            var comQuery = FiltrarFecha(
+                _compraRepo.AsQueryable().AsNoTracking().Where(c => c.IsActive && !c.Anulada && c.TemporadaId == t),
+                desde, hasta, c => c.Fecha);
+            var compras = await comQuery
+                .Where(c => c.Detalles.Any(d => d.IsActive && d.ProductoId == productoId
+                    && (!almacenId.HasValue || d.Distribuciones.Any(x => x.IsActive && x.AlmacenId == almacenId.Value))))
+                .OrderBy(c => c.Fecha).ThenBy(c => c.Id)
+                .Select(c => new
+                {
+                    c.Id,
+                    c.Fecha,
+                    ProveedorNombre = c.Proveedor != null ? c.Proveedor.Nombre : string.Empty,
+                    c.NroNota,
+                    Detalles = c.Detalles.Where(d => d.IsActive && d.ProductoId == productoId).Select(d => new
+                    {
+                        d.CantidadUnidades,
+                        d.PrecioCompraUnidad,
+                        Distribuciones = d.Distribuciones.Where(x => x.IsActive).Select(x => new { x.AlmacenId, x.CantidadUnidades }).ToList()
+                    }).ToList()
+                })
+                .ToListAsync();
+
+            var nombres = await _ventas.ObtenerNombresAlmacenAsync(
+                recepciones.SelectMany(r => r.Detalles).SelectMany(d => d.Distribuciones).Select(x => x.AlmacenId)
+                    .Concat(compras.SelectMany(c => c.Detalles).SelectMany(d => d.Distribuciones).Select(x => x.AlmacenId)));
+            string NombreAlmacen(int id) => nombres.GetValueOrDefault(id, $"#{id}");
+
+            // Con almacenId, solo se cuentan las distribuciones de ese almacén
+            List<ReporteRecepcionAlmacenNavDto> Distribuir(IEnumerable<(int AlmacenId, int Cantidad)> dist) => dist
+                .Where(x => !almacenId.HasValue || x.AlmacenId == almacenId.Value)
+                .GroupBy(x => x.AlmacenId)
+                .Select(g => new ReporteRecepcionAlmacenNavDto { AlmacenId = g.Key, AlmacenNombre = NombreAlmacen(g.Key), Unidades = g.Sum(x => x.Cantidad) })
+                .OrderBy(x => x.AlmacenNombre, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+
+            var itemsRec = recepciones.Select(r =>
+            {
+                var dist = Distribuir(r.Detalles.SelectMany(d => d.Distribuciones).Select(x => (x.AlmacenId, x.CantidadUnidades)));
+                var total = r.Detalles.Sum(d => d.CantidadUnidades);
+                return new ReporteEntradaRecepcionNavDto
+                {
+                    Id = r.Id,
+                    Fecha = r.Fecha,
+                    ProveedorNombre = r.ProveedorNombre,
+                    Codigo = r.Codigo,
+                    NroFactura = r.NroFactura,
+                    Unidades = almacenId.HasValue ? dist.Sum(x => x.Unidades) : total,
+                    PrecioUnidad = total > 0 ? Redondear(r.Detalles.Sum(d => d.CantidadUnidades * d.PrecioCompraUnidad) / total) : 0,
+                    Distribuciones = dist
+                };
+            }).ToList();
+
+            var itemsCom = compras.Select(c =>
+            {
+                var dist = Distribuir(c.Detalles.SelectMany(d => d.Distribuciones).Select(x => (x.AlmacenId, x.CantidadUnidades)));
+                var total = c.Detalles.Sum(d => d.CantidadUnidades);
+                return new ReporteEntradaCompraNavDto
+                {
+                    Id = c.Id,
+                    Fecha = c.Fecha,
+                    ProveedorNombre = c.ProveedorNombre,
+                    NroFactura = c.NroNota,
+                    Unidades = almacenId.HasValue ? dist.Sum(x => x.Unidades) : total,
+                    PrecioUnidad = total > 0 ? Redondear(c.Detalles.Sum(d => d.CantidadUnidades * d.PrecioCompraUnidad) / total) : 0,
+                    Distribuciones = dist
+                };
+            }).ToList();
+
+            var porAlmacen = itemsRec.SelectMany(i => i.Distribuciones).Concat(itemsCom.SelectMany(i => i.Distribuciones))
+                .GroupBy(x => x.AlmacenId)
+                .Select(g => new ReporteRecepcionAlmacenNavDto { AlmacenId = g.Key, AlmacenNombre = NombreAlmacen(g.Key), Unidades = g.Sum(x => x.Unidades) })
+                .OrderByDescending(x => x.Unidades)
+                .ToList();
+
+            return new ReporteEntradasProductoNavDto
+            {
+                ProductoId = productoId,
+                ProductoNombreMostrar = producto.NombreMostrar,
+                Color = producto.Color,
+                UnidadesPorEmpaque = producto.UnidadesPorEmpaque,
+                NombreEmpaque = producto.NombreEmpaque,
+                Totales = new ReporteEntradasProductoTotalesNavDto
+                {
+                    Recepciones = itemsRec.Count,
+                    UnidadesRecepcion = itemsRec.Sum(i => i.Unidades),
+                    Compras = itemsCom.Count,
+                    UnidadesCompra = itemsCom.Sum(i => i.Unidades)
+                },
+                PorAlmacen = porAlmacen,
+                Recepciones = itemsRec,
+                Compras = itemsCom
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener el reporte de entradas de un producto");
             throw;
         }
     }

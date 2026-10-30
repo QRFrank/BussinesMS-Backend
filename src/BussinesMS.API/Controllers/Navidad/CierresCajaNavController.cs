@@ -32,6 +32,14 @@ public class CierresCajaNavController : BaseController
         return RespuestaOk(resultado);
     }
 
+    // Resumen (ventas y cobros) de un cierre ya registrado
+    [HttpGet("{id:int}/resumen")]
+    public async Task<IActionResult> ObtenerResumenCierre(int id)
+    {
+        var resultado = await _servicio.ObtenerResumenPorIdAsync(id);
+        return RespuestaOk(resultado);
+    }
+
     [HttpPost]
     public async Task<IActionResult> Registrar([FromBody] RegistrarCierreCajaNavDto dto)
     {

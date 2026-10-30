@@ -195,12 +195,12 @@ public class RutaNavService : IRutaNavService
             var unidades = await ObtenerUnidadesAsync(entidades.Select(e => e.Id).ToList());
             var ventaIds = entidades.Where(e => e.VentaId.HasValue).Select(e => e.VentaId!.Value).ToList();
             var ventas = ventaIds.Count == 0
-                ? new Dictionary<int, (int NroVenta, decimal MontoNeto, bool Anulada)>()
+                ? new Dictionary<int, (int NroVenta, decimal MontoNeto, bool Anulada, decimal MontoCobrado, decimal MontoSaldo, EstadoPagoVentaNav EstadoPago)>()
                 : (await _ventaRepo.AsQueryable().AsNoTracking()
                         .Where(v => ventaIds.Contains(v.Id))
-                        .Select(v => new { v.Id, v.NroVenta, v.MontoNeto, v.Anulada })
+                        .Select(v => new { v.Id, v.NroVenta, v.MontoNeto, v.Anulada, v.MontoCobrado, v.MontoSaldo, v.EstadoPago })
                         .ToListAsync())
-                    .ToDictionary(v => v.Id, v => (v.NroVenta, v.MontoNeto, v.Anulada));
+                    .ToDictionary(v => v.Id, v => (v.NroVenta, v.MontoNeto, v.Anulada, v.MontoCobrado, v.MontoSaldo, v.EstadoPago));
             var nombres = await _ventas.ObtenerNombresUsuarioAsync(entidades.Where(e => e.Vendedor != null).Select(e => e.Vendedor!.UsuarioId));
 
             var items = entidades.Select(e =>
@@ -222,7 +222,17 @@ public class RutaNavService : IRutaNavService
                     UnidadesVendidas = neto,
                     MontoVenta = tieneVenta ? ventas[e.VentaId!.Value].MontoNeto : null,
                     VentaId = e.VentaId,
-                    NroVenta = tieneVenta ? ventas[e.VentaId!.Value].NroVenta : null
+                    NroVenta = tieneVenta ? ventas[e.VentaId!.Value].NroVenta : null,
+                    MontoCobrado = tieneVenta ? ventas[e.VentaId!.Value].MontoCobrado : null,
+                    MontoSaldo = tieneVenta ? ventas[e.VentaId!.Value].MontoSaldo : null,
+                    EstadoRendicion = tieneVenta && e.Estado != EstadoSalidaRuta.Abierta
+                        ? ventas[e.VentaId!.Value].EstadoPago switch
+                        {
+                            EstadoPagoVentaNav.Pagado => "Rendida",
+                            EstadoPagoVentaNav.Parcial => "Parcial",
+                            _ => "Pendiente"
+                        }
+                        : null
                 };
             }).ToList();
 
@@ -1091,17 +1101,44 @@ public class RutaNavService : IRutaNavService
             await ExigirAdminAsync();
             await ValidarVendedorRutaAsync(temporada.Id, dto.VendedorId);
 
+            // Si se indica una salida, el abono se aplica solo a la venta de esa salida
+            int? ventaSalidaId = null;
+            if (dto.SalidaRutaId.HasValue)
+            {
+                var salida = await _repo.AsQueryable().AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.Id == dto.SalidaRutaId.Value);
+                if (salida == null || !salida.IsActive)
+                    throw new EntidadNoEncontradaException("Salida de ruta", dto.SalidaRutaId.Value);
+                if (salida.TemporadaId != temporada.Id)
+                    throw new ValidacionException("La salida no pertenece a la temporada actual");
+                if (salida.VendedorId != dto.VendedorId)
+                    throw new ValidacionException("La salida no pertenece al vendedor indicado");
+                if (!salida.VentaId.HasValue)
+                    throw new ValidacionException("La salida no tiene saldo pendiente");
+                ventaSalidaId = salida.VentaId.Value;
+            }
+
             // Ventas de ruta con saldo, de la más antigua a la más nueva (con tracking: se modifican)
-            var ventas = await _ventaRepo.AsQueryable()
+            var ventasQuery = _ventaRepo.AsQueryable()
                 .Include(v => v.Cobros)
                 .Include(v => v.Detalles)
                 .Where(v => v.IsActive && !v.Anulada && v.Canal == CanalVentaNav.Ruta && v.TemporadaId == temporada.Id
-                    && v.VendedorId == dto.VendedorId && v.MontoSaldo > 0)
+                    && v.VendedorId == dto.VendedorId && v.MontoSaldo > 0);
+            if (ventaSalidaId.HasValue)
+                ventasQuery = ventasQuery.Where(v => v.Id == ventaSalidaId.Value);
+            var ventas = await ventasQuery
                 .OrderBy(v => v.Fecha).ThenBy(v => v.NroVenta).ThenBy(v => v.Id)
                 .ToListAsync();
 
             var deuda = ventas.Sum(v => v.MontoSaldo);
-            if (monto + descuento > deuda)
+            if (ventaSalidaId.HasValue)
+            {
+                if (ventas.Count == 0)
+                    throw new ValidacionException("La salida no tiene saldo pendiente");
+                if (monto + descuento > deuda)
+                    throw new ValidacionException($"El abono supera el saldo de la salida (Bs {deuda})");
+            }
+            else if (monto + descuento > deuda)
                 throw new ValidacionException($"El monto más el descuento ({monto + descuento}) supera la deuda del vendedor ({deuda})");
 
             var esAdmin = await _acceso.EsAdminAsync();

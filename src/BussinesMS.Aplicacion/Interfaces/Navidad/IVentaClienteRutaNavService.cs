@@ -9,6 +9,7 @@ public interface IVentaClienteRutaNavService
     Task<PagedResultDto<VentaClienteRutaListaDto>> ObtenerAsync(MisVentasRutaFiltroDto query);
     Task<VentaClienteRutaDto> ObtenerPorIdAsync(int id);
     Task<VentaClienteRutaDto> RegistrarAsync(RegistrarVentaClienteRutaDto dto);
+    Task<VentaClienteRutaDto> EditarAsync(int id, EditarVentaClienteRutaDto dto);
     Task<VentaClienteRutaDto> RegistrarCobroAsync(int id, RegistrarCobroClienteRutaDto dto);
     Task<VentaClienteRutaDto> AnularCobroAsync(int id, int cobroId);
     Task<VentaClienteRutaDto> AnularAsync(int id);

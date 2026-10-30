@@ -20,4 +20,65 @@ public class CategoriaGastoNavRepository : NavidadRepositorioBase<CategoriaGasto
             query = query.Where(x => x.Id != excludeId.Value);
         return await query.AnyAsync();
     }
+
+    public async Task<CategoriaGastoNav?> ObtenerPorNombreAsync(string nombre)
+        => await _dbSet.FirstOrDefaultAsync(x => x.Nombre.ToLower() == nombre.ToLower());
+
+    public IQueryable<CategoriaGastoNav> AsQueryablePorTemporada(int temporadaId)
+        => _contexto.Set<CategoriaGastoTemporadaNav>()
+            .Where(v => v.TemporadaId == temporadaId && v.IsActive)
+            .Select(v => v.CategoriaGasto!);
+
+    public async Task<bool> EstaVinculadaAsync(int categoriaId, int temporadaId)
+        => await _contexto.Set<CategoriaGastoTemporadaNav>()
+            .AnyAsync(v => v.CategoriaGastoId == categoriaId && v.TemporadaId == temporadaId && v.IsActive);
+
+    public async Task VincularAsync(int categoriaId, int temporadaId)
+    {
+        var set = _contexto.Set<CategoriaGastoTemporadaNav>();
+        var existente = await set.FirstOrDefaultAsync(v => v.CategoriaGastoId == categoriaId && v.TemporadaId == temporadaId);
+        if (existente != null)
+        {
+            if (!existente.IsActive)
+            {
+                existente.IsActive = true;
+                await _contexto.SaveChangesAsync();
+            }
+            return;
+        }
+
+        set.Add(new CategoriaGastoTemporadaNav
+        {
+            CategoriaGastoId = categoriaId,
+            TemporadaId = temporadaId,
+            CreatedAt = DateTime.UtcNow,
+            CreatedByUsuarioId = _currentUser.GetUsuarioId() ?? 1
+        });
+        await _contexto.SaveChangesAsync();
+    }
+
+    public async Task CopiarVinculosAsync(int temporadaOrigenId, int temporadaDestinoId)
+    {
+        var set = _contexto.Set<CategoriaGastoTemporadaNav>();
+        var yaLigadas = await set.Where(v => v.TemporadaId == temporadaDestinoId)
+            .Select(v => v.CategoriaGastoId).ToListAsync();
+        var categoriaIds = await set
+            .Where(v => v.TemporadaId == temporadaOrigenId && v.IsActive && v.CategoriaGasto!.IsActive)
+            .Select(v => v.CategoriaGastoId)
+            .ToListAsync();
+
+        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var ahora = DateTime.UtcNow;
+        foreach (var id in categoriaIds.Except(yaLigadas))
+        {
+            set.Add(new CategoriaGastoTemporadaNav
+            {
+                CategoriaGastoId = id,
+                TemporadaId = temporadaDestinoId,
+                CreatedAt = ahora,
+                CreatedByUsuarioId = usuarioId
+            });
+        }
+        await _contexto.SaveChangesAsync();
+    }
 }

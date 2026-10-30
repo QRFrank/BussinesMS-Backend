@@ -38,7 +38,7 @@
   { "id": 27, "nombre": "Sistemas",            "url": "/configuracion/sistemas",       "icono": "solar:settings-minimalistic-bold-duotone",     "orden": 2, "isGroup": false, "parentId": 25,   "sistemaId": 1 },
 
   { "id": 100, "nombre": "Sistema",            "url": null,                            "icono": "solar:gift-bold-duotone",                      "orden": 2, "isGroup": true,  "parentId": null, "sistemaId": 2 },
-  { "id": 101, "nombre": "Dashboard",          "url": "/navidad",                      "icono": "solar:home-smile-bold-duotone",                "orden": 1, "isGroup": false, "parentId": null, "sistemaId": 2 },
+  { "id": 101, "nombre": "Dashboard",          "url": "/dashboard",                    "icono": "solar:home-smile-bold-duotone",                "orden": 1, "isGroup": false, "parentId": null, "sistemaId": 2 },
   { "id": 102, "nombre": "Temporadas",         "url": "/navidad/temporadas",           "icono": "solar:calendar-bold-duotone",                  "orden": 2, "isGroup": false, "parentId": 100,  "sistemaId": 2 },
   { "id": 103, "nombre": "Almacenes",          "url": "/navidad/almacenes",            "icono": "solar:archive-bold-duotone",                   "orden": 3, "isGroup": false, "parentId": 100,  "sistemaId": 2 },
   { "id": 104, "nombre": "Capital e inversores","url": "/navidad/capital",             "icono": "solar:wallet-money-bold-duotone",              "orden": 4, "isGroup": false, "parentId": 100,  "sistemaId": 2 },

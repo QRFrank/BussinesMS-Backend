@@ -30,6 +30,8 @@ public class VentaNavFiltroDto : GenericPaginationQueryDto
     public DateTime? FechaHasta { get; set; }
     // null → todas; true → solo anuladas; false → solo vigentes
     public bool? Anuladas { get; set; }
+    // Solo ventas con al menos un detalle vigente (Unidades > 0) de este producto
+    public int? ProductoId { get; set; }
 }
 
 public class VentaNavDto
@@ -71,6 +73,10 @@ public class VentaNavDto
     public int CantidadProductos { get; set; }
     public int TotalUnidades { get; set; }
     public int UnidadesPendientes { get; set; }
+    // Solo en la lista filtrada por productoId: unidades de ese producto en la venta; null si no se filtró
+    public int? UnidadesProducto { get; set; }
+    // Solo en la lista filtrada por productoId: unidades entregadas de ese producto en la venta; null si no se filtró
+    public int? UnidadesEntregadasProducto { get; set; }
     // Según el usuario logueado: venta de tienda vigente y (admin o vendedor dueño)
     public bool PuedeEditar { get; set; }
     public bool PuedeAnular { get; set; }

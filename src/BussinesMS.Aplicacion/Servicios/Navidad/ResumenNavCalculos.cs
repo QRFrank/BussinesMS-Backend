@@ -465,13 +465,17 @@ public class ResumenNavCalculos
 
     // ================= Abastecimiento =================
 
-    public DashboardFaltaLlegarNavDto ConstruirFaltaLlegar(List<FaltanteNavDto> faltantes)
+    // incluirCompletos: también trae las filas con faltante <= 0 (completas o de más), al final; TotalUnidades solo suma los faltantes > 0
+    public DashboardFaltaLlegarNavDto ConstruirFaltaLlegar(List<FaltanteNavDto> faltantes, bool incluirCompletos = false)
     {
         var pendientes = faltantes.Where(f => f.Faltante > 0).ToList();
+        var items = incluirCompletos
+            ? pendientes.Concat(faltantes.Where(f => f.Faltante <= 0)).ToList()
+            : pendientes;
         return new DashboardFaltaLlegarNavDto
         {
             TotalUnidades = pendientes.Sum(f => f.Faltante),
-            Items = pendientes
+            Items = items
                 .Select(f => new DashboardFaltanteNavDto
                 {
                     ProveedorId = f.ProveedorId,
@@ -485,7 +489,8 @@ public class ResumenNavCalculos
                     Color = f.Color,
                     Pedido = f.Pedido,
                     Recibido = f.Recibido,
-                    Faltante = f.Faltante
+                    Faltante = f.Faltante,
+                    LlegoDeMas = f.LlegoDeMas
                 })
                 .ToList()
         };
@@ -987,7 +992,7 @@ public class ResumenNavCalculos
 
         var notas = new List<string>
         {
-            "Retiros del dueño: el sistema no tiene dónde registrarlos, se toman como 0.",
+            "Retiros del dueño: registralos como gasto creando la categoría «Gastos personales»; restan del efectivo y de la ganancia.",
             "Comisiones de ruta pendientes: la comisión se decide al pagar, no se puede calcular antes; se toman como 0.",
             "El aporte de un inversor es deuda (se devuelve con comisión): entra al efectivo y se resta como deuda con inversores, no suma al capital propio.",
             "Deuda con proveedores incluye lo pedido que aún no llegó; esa mercadería se suma aparte (mercaderiaPorRecibir) para no restar una deuda sin su producto.",

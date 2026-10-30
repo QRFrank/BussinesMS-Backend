@@ -38,6 +38,10 @@ public class MisVentasRutaNavController : BaseController
     public async Task<IActionResult> Registrar([FromBody] RegistrarVentaClienteRutaDto dto)
         => RespuestaCreado(await _servicio.RegistrarAsync(dto), "Venta registrada");
 
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> Editar(int id, [FromBody] EditarVentaClienteRutaDto dto)
+        => RespuestaOk(await _servicio.EditarAsync(id, dto), "Venta actualizada");
+
     [HttpPost("{id:int}/cobros")]
     public async Task<IActionResult> RegistrarCobro(int id, [FromBody] RegistrarCobroClienteRutaDto dto)
         => RespuestaOk(await _servicio.RegistrarCobroAsync(id, dto), "Cobro registrado");

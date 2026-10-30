@@ -148,6 +148,100 @@ public class ReporteStockProductoNavDto
     public decimal Valorizado { get; set; }
 }
 
+// ---------- Entradas de un producto ----------
+
+public class ReporteEntradasProductoNavDto
+{
+    public int ProductoId { get; set; }
+    public string ProductoNombreMostrar { get; set; } = string.Empty;
+    public string? Color { get; set; }
+    public int? UnidadesPorEmpaque { get; set; }
+    public string? NombreEmpaque { get; set; }
+    public ReporteEntradasProductoTotalesNavDto Totales { get; set; } = new();
+    public List<ReporteRecepcionAlmacenNavDto> PorAlmacen { get; set; } = new();
+    public List<ReporteEntradaRecepcionNavDto> Recepciones { get; set; } = new();
+    public List<ReporteEntradaCompraNavDto> Compras { get; set; } = new();
+}
+
+public class ReporteEntradasProductoTotalesNavDto
+{
+    public int Recepciones { get; set; }
+    public int UnidadesRecepcion { get; set; }
+    public int Compras { get; set; }
+    public int UnidadesCompra { get; set; }
+}
+
+public class ReporteEntradaRecepcionNavDto
+{
+    public int Id { get; set; }
+    public DateTime Fecha { get; set; }
+    public string ProveedorNombre { get; set; } = string.Empty;
+    public string? Codigo { get; set; }
+    public string? NroFactura { get; set; }
+    public int Unidades { get; set; }
+    public decimal PrecioUnidad { get; set; }
+    public List<ReporteRecepcionAlmacenNavDto> Distribuciones { get; set; } = new();
+}
+
+public class ReporteEntradaCompraNavDto
+{
+    public int Id { get; set; }
+    public DateTime Fecha { get; set; }
+    public string ProveedorNombre { get; set; } = string.Empty;
+    public string? NroFactura { get; set; }
+    public int Unidades { get; set; }
+    public decimal PrecioUnidad { get; set; }
+    public List<ReporteRecepcionAlmacenNavDto> Distribuciones { get; set; } = new();
+}
+
+// ---------- Recepciones por código ----------
+
+public class ReporteRecepcionesCodigoNavDto
+{
+    public int ProveedorId { get; set; }
+    public string ProveedorNombre { get; set; } = string.Empty;
+    public int? CodigoClienteId { get; set; }
+    public string? Codigo { get; set; }
+    public string? CodigoTitular { get; set; }
+    public ReporteRecepcionesCodigoTotalesNavDto Totales { get; set; } = new();
+    public List<ReporteRecepcionAlmacenNavDto> PorAlmacen { get; set; } = new();
+    public List<ReporteRecepcionCodigoNavDto> Recepciones { get; set; } = new();
+}
+
+public class ReporteRecepcionesCodigoTotalesNavDto
+{
+    public int Recepciones { get; set; }
+    public int Unidades { get; set; }
+}
+
+public class ReporteRecepcionAlmacenNavDto
+{
+    public int AlmacenId { get; set; }
+    public string AlmacenNombre { get; set; } = string.Empty;
+    public int Unidades { get; set; }
+}
+
+public class ReporteRecepcionCodigoNavDto
+{
+    public int Id { get; set; }
+    public DateTime Fecha { get; set; }
+    public string? NroFactura { get; set; }
+    public string? Observacion { get; set; }
+    public int Unidades { get; set; }
+    public List<ReporteRecepcionDetalleNavDto> Detalles { get; set; } = new();
+}
+
+public class ReporteRecepcionDetalleNavDto
+{
+    public int ProductoId { get; set; }
+    public string ProductoNombreMostrar { get; set; } = string.Empty;
+    public string? Color { get; set; }
+    public int? UnidadesPorEmpaque { get; set; }
+    public string? NombreEmpaque { get; set; }
+    public int Unidades { get; set; }
+    public List<ReporteRecepcionAlmacenNavDto> Distribuciones { get; set; } = new();
+}
+
 // ---------- Faltantes ----------
 
 public class ReporteFaltantesNavDto

@@ -493,6 +493,22 @@ public class UsuarioService : IUsuarioService
         var todosMenus = await _menuRepositorio.ObtenerActivosAsync(sistemaId);
 
         var menusAsignados = usuarioMenus.ToDictionary(um => um.MenuId);
+
+        // Dashboard único (/dashboard): siempre visible, solo lectura, aunque no esté asignado
+        var dashboard = todosMenus.FirstOrDefault(m => !m.IsGroup && m.ParentId == null && m.Url == "/dashboard");
+        if (dashboard != null && !menusAsignados.ContainsKey(dashboard.Id))
+        {
+            menusAsignados[dashboard.Id] = new UsuarioMenu
+            {
+                UsuarioId = usuarioId,
+                MenuId = dashboard.Id,
+                Leer = true,
+                Crear = false,
+                Editar = false,
+                Eliminar = false
+            };
+        }
+
         var todosMenusDict = todosMenus.ToDictionary(m => m.Id);
 
         var resultado = new List<MenuArbolDto>();

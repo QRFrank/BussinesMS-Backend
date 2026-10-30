@@ -19,6 +19,7 @@ public class TemporadaService : ITemporadaService
     private const int SistemaNavidadId = 2;
 
     private readonly ITemporadaRepository _repo;
+    private readonly ICategoriaGastoNavRepository _categoriaGastoRepo;
     private readonly ITemporadaActualService _temporadaActual;
     private readonly IAlmacenRepository _almacenRepo;
     private readonly INavidadUnitOfWork _uow;
@@ -27,6 +28,7 @@ public class TemporadaService : ITemporadaService
 
     public TemporadaService(
         ITemporadaRepository repo,
+        ICategoriaGastoNavRepository categoriaGastoRepo,
         ITemporadaActualService temporadaActual,
         IAlmacenRepository almacenRepo,
         INavidadUnitOfWork uow,
@@ -34,6 +36,7 @@ public class TemporadaService : ITemporadaService
         ILogger<TemporadaService> logger)
     {
         _repo = repo;
+        _categoriaGastoRepo = categoriaGastoRepo;
         _temporadaActual = temporadaActual;
         _almacenRepo = almacenRepo;
         _uow = uow;
@@ -135,6 +138,14 @@ public class TemporadaService : ITemporadaService
 
                 if (dto.AlmacenesConConteoIds != null && dto.AlmacenesConConteoIds.Count > 0)
                     await _repo.ReemplazarAlmacenesConteoAsync(creada.Id, dto.AlmacenesConConteoIds);
+
+                // Las categorías de gasto de la temporada anterior pasan a la nueva
+                var anterior = await _repo.AsQueryable()
+                    .Where(x => x.IsActive && x.Id != creada.Id)
+                    .OrderByDescending(x => x.Anio).ThenByDescending(x => x.Id)
+                    .FirstOrDefaultAsync();
+                if (anterior != null)
+                    await _categoriaGastoRepo.CopiarVinculosAsync(anterior.Id, creada.Id);
 
                 await _uow.CommitAsync();
             }

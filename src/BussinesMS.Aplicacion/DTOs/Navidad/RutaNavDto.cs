@@ -60,6 +60,11 @@ public class SalidaRutaListaDto
     public decimal? MontoVenta { get; set; }
     public int? VentaId { get; set; }
     public int? NroVenta { get; set; }
+    // Dinero rendido y saldo de la venta de la salida (null si no hay venta o está anulada)
+    public decimal? MontoCobrado { get; set; }
+    public decimal? MontoSaldo { get; set; }
+    // "Rendida" | "Parcial" | "Pendiente" (de VentaNav.EstadoPago); null si la salida está abierta o sin venta
+    public string? EstadoRendicion { get; set; }
 }
 
 public class SalidaRutaDto
@@ -268,6 +273,8 @@ public class CrearAbonoVendedorDto
     public MedioPagoNav? Medio { get; set; }
     public string? Comprobante { get; set; }
     public string? Observacion { get; set; }
+    // Opcional: si viene, el abono se aplica solo a la venta de esa salida
+    public int? SalidaRutaId { get; set; }
 }
 
 public class DeudaVendedorRutaDto

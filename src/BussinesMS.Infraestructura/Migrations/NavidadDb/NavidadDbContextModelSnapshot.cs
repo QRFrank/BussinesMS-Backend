@@ -247,6 +247,51 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                     b.ToTable("CategoriaGastoNav", (string)null);
                 });
 
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.CategoriaGastoTemporadaNav", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CategoriaGastoId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("TemporadaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TemporadaId");
+
+                    b.HasIndex("CategoriaGastoId", "TemporadaId")
+                        .IsUnique();
+
+                    b.ToTable("CategoriaGastoTemporadaNav", (string)null);
+                });
+
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.CategoriaProductoNav", b =>
                 {
                     b.Property<int>("Id")
@@ -3047,6 +3092,25 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                         .IsRequired();
 
                     b.Navigation("Inversor");
+
+                    b.Navigation("Temporada");
+                });
+
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Navidad.CategoriaGastoTemporadaNav", b =>
+                {
+                    b.HasOne("BussinesMS.Dominio.Entidades.Navidad.CategoriaGastoNav", "CategoriaGasto")
+                        .WithMany()
+                        .HasForeignKey("CategoriaGastoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BussinesMS.Dominio.Entidades.Navidad.Temporada", "Temporada")
+                        .WithMany()
+                        .HasForeignKey("TemporadaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CategoriaGasto");
 
                     b.Navigation("Temporada");
                 });

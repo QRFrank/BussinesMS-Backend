@@ -564,6 +564,7 @@ Ref: GastoOperativo.PagoCompraId > PagoCompra.Id
 | AporteCapital | ✅ | Capital aportado en la temporada (propio o de inversor) con % de comisión |
 | PagoInversor | ✅ | Pagos a inversores: comisión o devolución de capital |
 | CategoriaGastoNav | ✅ | Categorías de gasto navideñas (global) |
+| CategoriaGastoTemporadaNav | ✅ | Vínculo categoría de gasto - temporada (muchos a muchos) |
 | GastoNav | ✅ | Gastos de la temporada |
 | TemporadaAlmacenConteo | ✅ | Tiendas navideñas con apertura y cierre diario obligatorios en la temporada (0..N, opción B 2026-10-01) |
 | SalidaRuta, SalidaRutaCarga, SalidaRutaCargaDetalle, DevolucionRuta, DevolucionRutaDetalle, AbonoVendedor, AbonoVendedorAplicacion | ✅ | Módulo 7 (ruta). Migración `20261027174234_RutaNav` (7 tablas + `CobroVenta.AbonoVendedorId`). Lógica `docs/navidad/logica-ruta.md`, contratos `docs/navidad/contratos-ruta.md` |
@@ -641,6 +642,15 @@ Ref: PagoInversor.TemporadaId > Temporada.Id
 Ref: PagoInversor.AporteCapitalId > AporteCapital.Id
 Ref: GastoNav.TemporadaId > Temporada.Id
 Ref: GastoNav.CategoriaId > CategoriaGastoNav.Id
+
+Table CategoriaGastoTemporadaNav {
+  Id int [pk, increment]
+  CategoriaGastoId int [not null]
+  TemporadaId int [not null]
+  indexes { (CategoriaGastoId, TemporadaId) [unique] }
+}
+Ref: CategoriaGastoTemporadaNav.CategoriaGastoId > CategoriaGastoNav.Id
+Ref: CategoriaGastoTemporadaNav.TemporadaId > Temporada.Id
 Ref: TemporadaAlmacenConteo.TemporadaId > Temporada.Id
 ```
 

@@ -37,6 +37,18 @@ public class ReportesNavController : BaseController
     public async Task<IActionResult> Faltantes([FromQuery] int? proveedorId, [FromQuery] int? codigoClienteId)
         => RespuestaOk(await _servicio.ObtenerFaltantesAsync(proveedorId, codigoClienteId));
 
+    // Recepciones de un proveedor y código (o sin código) con a qué almacenes fue cada producto, tenga o no faltantes
+    [HttpGet("recepciones-codigo")]
+    public async Task<IActionResult> RecepcionesCodigo(
+        [FromQuery] int proveedorId, [FromQuery] int? codigoClienteId, [FromQuery] DateTime? desde, [FromQuery] DateTime? hasta)
+        => RespuestaOk(await _servicio.ObtenerRecepcionesCodigoAsync(proveedorId, codigoClienteId, desde, hasta));
+
+    // Todas las entradas (recepciones y compras) de un producto, con a qué almacenes fue cada una
+    [HttpGet("entradas-producto")]
+    public async Task<IActionResult> EntradasProducto(
+        [FromQuery] int productoId, [FromQuery] int? almacenId, [FromQuery] DateTime? desde, [FromQuery] DateTime? hasta)
+        => RespuestaOk(await _servicio.ObtenerEntradasProductoAsync(productoId, almacenId, desde, hasta));
+
     // Con proveedores, de clientes, de vendedores de ruta, con inversores, sueldos y comisiones
     [HttpGet("deudas")]
     public async Task<IActionResult> Deudas()

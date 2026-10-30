@@ -164,6 +164,11 @@ public class VentaNavService : IVentaNavService
             }
             if (query.Anuladas.HasValue)
                 baseQuery = baseQuery.Where(x => x.Anulada == query.Anuladas.Value);
+            if (query.ProductoId.HasValue)
+            {
+                var productoId = query.ProductoId.Value;
+                baseQuery = baseQuery.Where(x => x.Detalles.Any(d => d.ProductoId == productoId && d.Unidades > 0));
+            }
 
             if (!string.IsNullOrWhiteSpace(query.Filter))
             {
@@ -189,7 +194,17 @@ public class VentaNavService : IVentaNavService
 
             return new PagedResultDto<VentaNavDto>
             {
-                Items = entidades.Select(e => MapearCabecera(e, almacenes, usuarios, esAdmin, vendedorActual?.Id)).ToList(),
+                Items = entidades.Select(e =>
+                {
+                    var dto = MapearCabecera(e, almacenes, usuarios, esAdmin, vendedorActual?.Id);
+                    if (query.ProductoId.HasValue)
+                    {
+                        var delProducto = e.Detalles.Where(d => d.ProductoId == query.ProductoId.Value && d.Unidades > 0).ToList();
+                        dto.UnidadesProducto = delProducto.Sum(d => d.Unidades);
+                        dto.UnidadesEntregadasProducto = delProducto.Sum(d => d.UnidadesEntregadas);
+                    }
+                    return dto;
+                }).ToList(),
                 TotalCount = totalCount,
                 Page = query.GetPageValue(),
                 PageSize = query.GetPageSizeValue()

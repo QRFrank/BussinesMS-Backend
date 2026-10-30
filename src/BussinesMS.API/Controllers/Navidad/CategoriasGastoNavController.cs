@@ -18,9 +18,9 @@ public class CategoriasGastoNavController : BaseController
     }
 
     [HttpGet]
-    public async Task<IActionResult> ObtenerTodos([FromQuery] GenericPaginationQueryDto query)
+    public async Task<IActionResult> ObtenerTodos([FromQuery] GenericPaginationQueryDto query, [FromQuery] int? temporadaId = null)
     {
-        var resultado = await _servicio.ObtenerTodosAsync(query);
+        var resultado = await _servicio.ObtenerTodosAsync(query, temporadaId);
         return RespuestaOk(resultado);
     }
 

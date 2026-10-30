@@ -334,22 +334,27 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
         }
     }
 
+    private static void ValidarEstructuraComun(int clienteId, string? observacion, List<VentaClienteRutaLineaDto> detalles)
+    {
+        if (clienteId <= 0)
+            throw new ValidacionException("El cliente es obligatorio");
+        if (observacion != null && observacion.Trim().Length > 500)
+            throw new ValidacionException("La observación no puede superar 500 caracteres");
+        if (detalles == null || detalles.Count == 0)
+            throw new ValidacionException("Debe registrar al menos un producto");
+        if (detalles.Any(d => d.ProductoId <= 0))
+            throw new ValidacionException("El producto es obligatorio");
+        if (detalles.Any(d => d.Unidades <= 0))
+            throw new ValidacionException("Las unidades deben ser mayores a 0");
+        if (detalles.Any(d => d.PrecioUnitario < 0))
+            throw new ValidacionException("El precio no puede ser negativo");
+        if (detalles.Select(d => d.ProductoId).Distinct().Count() != detalles.Count)
+            throw new ValidacionException("Hay productos repetidos");
+    }
+
     private static void ValidarEstructura(RegistrarVentaClienteRutaDto dto)
     {
-        if (dto.ClienteId <= 0)
-            throw new ValidacionException("El cliente es obligatorio");
-        if (dto.Observacion != null && dto.Observacion.Trim().Length > 500)
-            throw new ValidacionException("La observación no puede superar 500 caracteres");
-        if (dto.Detalles == null || dto.Detalles.Count == 0)
-            throw new ValidacionException("Debe registrar al menos un producto");
-        if (dto.Detalles.Any(d => d.ProductoId <= 0))
-            throw new ValidacionException("El producto es obligatorio");
-        if (dto.Detalles.Any(d => d.Unidades <= 0))
-            throw new ValidacionException("Las unidades deben ser mayores a 0");
-        if (dto.Detalles.Any(d => d.PrecioUnitario < 0))
-            throw new ValidacionException("El precio no puede ser negativo");
-        if (dto.Detalles.Select(d => d.ProductoId).Distinct().Count() != dto.Detalles.Count)
-            throw new ValidacionException("Hay productos repetidos");
+        ValidarEstructuraComun(dto.ClienteId, dto.Observacion, dto.Detalles);
         if (dto.PagadoAhora < 0)
             throw new ValidacionException("Lo pagado no puede ser negativo");
         if (dto.PagadoAhora > 0 && !dto.Medio.HasValue)
@@ -415,6 +420,141 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
                 avisos.Add($"{NombreMostrar(productos[productoId])}: registraste {vendidas} unidades en esta salida y solo tenés {Math.Max(enPoder, 0)} en poder");
         }
         return avisos;
+    }
+
+    // ================= Editar =================
+
+    public async Task<VentaClienteRutaDto> EditarAsync(int id, EditarVentaClienteRutaDto dto)
+    {
+        try
+        {
+            ValidarEstructuraComun(dto.ClienteId, dto.Observacion, dto.Detalles);
+
+            var venta = await ObtenerParaEdicionAsync(id);
+            if (venta.Anulada)
+                throw new ExcepcionDominio("La venta está anulada", 409, "VENTA_ANULADA");
+
+            await _ventas.ValidarClienteAsync(dto.ClienteId);
+
+            var productos = await _ventas.CargarProductosAsync(venta.TemporadaId, dto.Detalles.Select(d => d.ProductoId));
+            var existentes = venta.Detalles.ToDictionary(d => d.ProductoId);
+
+            // Un producto inactivo solo se tolera si la línea ya existía (activa) y no sube de cantidad
+            foreach (var l in dto.Detalles)
+            {
+                var p = productos[l.ProductoId];
+                if (p.IsActive) continue;
+                if (!existentes.TryGetValue(l.ProductoId, out var previa) || !previa.IsActive || l.Unidades > previa.Unidades)
+                    throw new ValidacionException($"El producto {NombreMostrar(p)} está inactivo");
+            }
+
+            var total = Redondear(dto.Detalles.Sum(l => Redondear(l.Unidades * l.PrecioUnitario)));
+            var cobrosVigentes = venta.Cobros.Where(c => c.IsActive && !c.Anulado).ToList();
+            var cobrado = Redondear(cobrosVigentes.Sum(c => c.Monto));
+            decimal? pagadoNuevo = null;
+            if (dto.PagadoAhora.HasValue)
+            {
+                pagadoNuevo = Redondear(dto.PagadoAhora.Value);
+                if (pagadoNuevo < 0)
+                    throw new ValidacionException("Lo pagado no puede ser negativo");
+                if (pagadoNuevo > total)
+                    throw new ValidacionException("Lo pagado no puede superar el total de la venta");
+                if (pagadoNuevo > 0 && !dto.Medio.HasValue)
+                    throw new ValidacionException("El medio de pago es obligatorio si hay un pago");
+                if (dto.Medio.HasValue && !Enum.IsDefined(dto.Medio.Value))
+                    throw new ValidacionException("El medio de pago es inválido");
+                if (cobrosVigentes.Count > 1)
+                    throw new ValidacionException("La venta tiene varios cobros: corregilos desde el detalle (anular o registrar cobro)");
+                cobrado = pagadoNuevo.Value;
+            }
+            if (total < cobrado)
+                throw new ValidacionException($"El total no puede ser menor a lo ya cobrado (Bs {cobrado:0.00})");
+
+            var nuevas = dto.Detalles.ToDictionary(l => l.ProductoId);
+            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var ahora = DateTime.UtcNow;
+
+            await _uow.BeginTransactionAsync();
+            try
+            {
+                venta.ClienteId = dto.ClienteId;
+                venta.Cliente = null;
+                if (dto.Fecha.HasValue) venta.Fecha = dto.Fecha.Value.Date;
+                venta.Observacion = NormalizarTexto(dto.Observacion);
+
+                // Las líneas que ya no vienen se desactivan (quedan en 0); si reaparece el producto se reactiva
+                foreach (var d in venta.Detalles)
+                {
+                    if (nuevas.TryGetValue(d.ProductoId, out var l))
+                    {
+                        d.IsActive = true;
+                        d.Unidades = l.Unidades;
+                        d.PrecioUnitario = l.PrecioUnitario;
+                        d.Subtotal = Redondear(l.Unidades * l.PrecioUnitario);
+                    }
+                    else
+                    {
+                        d.IsActive = false;
+                        d.Unidades = 0;
+                        d.Subtotal = 0;
+                    }
+                    Tocar(d, usuarioId, ahora);
+                }
+                foreach (var l in nuevas.Values.Where(l => !existentes.ContainsKey(l.ProductoId)))
+                    venta.Detalles.Add(new VentaClienteRutaDetalle
+                    {
+                        ProductoId = l.ProductoId,
+                        Unidades = l.Unidades,
+                        PrecioUnitario = l.PrecioUnitario,
+                        Subtotal = Redondear(l.Unidades * l.PrecioUnitario),
+                        CreatedByUsuarioId = usuarioId,
+                        CreatedAt = ahora
+                    });
+
+                // Corrección del pago inicial: los cobros no se editan in situ; se anula el vigente y se crea uno nuevo con la misma fecha
+                if (pagadoNuevo.HasValue)
+                {
+                    var actual = cobrosVigentes.FirstOrDefault();
+                    if (actual == null || actual.Monto != pagadoNuevo.Value || actual.Medio != dto.Medio)
+                    {
+                        if (actual != null)
+                        {
+                            actual.Anulado = true;
+                            Tocar(actual, usuarioId, ahora);
+                        }
+                        if (pagadoNuevo.Value > 0)
+                            venta.Cobros.Add(new CobroClienteRuta
+                            {
+                                Fecha = actual?.Fecha ?? (dto.Fecha ?? venta.Fecha).Date,
+                                Monto = pagadoNuevo.Value,
+                                Medio = dto.Medio,
+                                Anulado = false,
+                                CreatedByUsuarioId = usuarioId,
+                                CreatedAt = ahora
+                            });
+                    }
+                }
+
+                venta.Total = total;
+                Recalcular(venta);
+                Tocar(venta, usuarioId, ahora);
+                await _uow.SaveChangesAsync();
+                await _uow.CommitAsync();
+            }
+            catch
+            {
+                await _uow.RollbackAsync();
+                throw;
+            }
+
+            _logger.LogInformation("Venta a cliente de ruta editada: {Id}", id);
+            return await ObtenerPorIdAsync(id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al editar la venta a cliente {Id}", id);
+            throw;
+        }
     }
 
     // ================= Cobros y anulaciones =================
