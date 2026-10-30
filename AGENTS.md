@@ -801,6 +801,7 @@ For crear-modulo-crud:
 
 - **Toda la API exige sesión** (`FallbackPolicy = RequireAuthenticatedUser`). Anónimos solo `POST /api/Usuarios/login` y `GET /api/Sistemas`. Sin token o token vencido: 401 JSON `{ success:false, message, errorCode:"NO_AUTENTICADO" }`; 403: `errorCode:"SIN_PERMISO"`.
 - **Swagger** (solo en Development; apagado en producción): `POST /api/Usuarios/login` > copiar `data.token` > botón **Authorize** > pegar solo el token (sin `Bearer`). `persistAuthorization` lo conserva entre recargas. El token vence todos los días a las 05:00 UTC; no hay refresh, se vuelve a loguear.
+- **E2E / pruebas de agentes:** usar el usuario `pruebas` (Admin, ambos sistemas, todos los menús con todos los flags, `VerPreciosCompra`). La contraseña NO está en este repo: está en `ProyectoMS/MEMORIA.md` (sección Permisos), fuera de los repos. Solo existe en la BD local de desarrollo.
 - En código: `_currentUser.ObtenerUsuarioIdRequerido()` (devuelve el id o lanza 401). **Nunca** usar `GetUsuarioId() ?? 1`. Procesos sin request (`VencimientoLotesJob`) hacen `SetUser(UsuarioDeSistema.Id, ...)` explícito (`UsuarioDeSistema.Id = 1`, el admin del seed).
 - Enable in Development environment only
 
