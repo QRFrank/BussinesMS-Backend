@@ -1,12 +1,14 @@
 using BussinesMS.Aplicacion.DTOs.Sistema;
 using BussinesMS.Aplicacion.Interfaces.Sistema;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers;
 
 [ApiController]
 [Route("api/Sistema/[controller]")]
 [Produces("application/json")]
+[Menu(4, 3)]
 public class VentasController : BaseController
 {
     private readonly IVentaService _servicio;
@@ -32,6 +34,7 @@ public class VentasController : BaseController
             : RespuestaOk(resultado);
     }
 
+    [Menu(3)]
     [HttpGet("ProductoVariantes/{id}")]
     public async Task<IActionResult> ObtenerVarianteVenta(int id)
     {
@@ -44,6 +47,7 @@ public class VentasController : BaseController
             : RespuestaOk(resultado);
     }
 
+    [Menu(3)]
     [HttpPost]
     public async Task<IActionResult> Crear([FromBody] CrearVentaDto dto)
     {
@@ -51,6 +55,7 @@ public class VentasController : BaseController
         return RespuestaCreado(resultado, "Venta registrada");
     }
 
+    [Menu(4)]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Eliminar(int id)
     {

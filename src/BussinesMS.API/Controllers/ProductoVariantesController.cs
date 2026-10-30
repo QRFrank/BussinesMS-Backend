@@ -2,12 +2,14 @@ using BussinesMS.Aplicacion.DTOs.Sistema;
 using BussinesMS.Aplicacion.DTOs.Plantillas;
 using BussinesMS.Aplicacion.Interfaces.Sistema;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers;
 
 [ApiController]
 [Route("api/Sistema/[controller]")]
 [Produces("application/json")]
+[SoloAdmin]
 public class ProductoVariantesController : BaseController
 {
     private readonly IProductoVarianteService _servicio;
@@ -19,6 +21,7 @@ public class ProductoVariantesController : BaseController
         _stockServicio = stockServicio;
     }
 
+    [Menu(7, 8, 3, 4, 6, 12, 13)]
     [HttpGet]
     public async Task<IActionResult> ObtenerTodos([FromQuery] GenericPaginationQueryDto query)
     {
@@ -26,6 +29,7 @@ public class ProductoVariantesController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [Menu(7, 8, 3, 4, 6, 12, 13)]
     [HttpGet("{id}")]
     public async Task<IActionResult> ObtenerPorId(int id)
     {
@@ -35,6 +39,7 @@ public class ProductoVariantesController : BaseController
             : RespuestaOk(resultado);
     }
 
+    [Menu(7, 8, 3, 4, 6, 12, 13)]
     [HttpGet("codigo-barras/{codigoBarras}")]
     public async Task<IActionResult> ObtenerPorCodigoBarras(string codigoBarras)
     {
@@ -44,6 +49,7 @@ public class ProductoVariantesController : BaseController
             : RespuestaOk(resultado);
     }
 
+    [Menu(7, 8, 3, 4, 6, 12, 13)]
     [HttpGet("stock")]
     public async Task<IActionResult> ObtenerStock([FromQuery] GenericPaginationQueryDto query)
     {
@@ -51,6 +57,7 @@ public class ProductoVariantesController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [Menu(7, 8, 3, 4, 6, 12, 13)]
     [HttpGet("stock/{id}")]
     public async Task<IActionResult> ObtenerStockDetalle(int id)
     {
@@ -60,6 +67,7 @@ public class ProductoVariantesController : BaseController
             : RespuestaOk(resultado);
     }
 
+    [Menu(7, 8, 3, 4, 6, 12, 13)]
     [HttpGet("stock-pos")]
     public async Task<IActionResult> ObtenerStockPos([FromQuery] GenericPaginationQueryDto query, [FromQuery] int almacenId)
     {
@@ -70,6 +78,7 @@ public class ProductoVariantesController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [Menu(7, 8, 3, 4, 6, 12, 13)]
     [HttpGet("CompraInfo/{id}")]
     public async Task<IActionResult> ObtenerCompraInfo(int id)
     {

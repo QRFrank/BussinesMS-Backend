@@ -10,4 +10,7 @@ public class UsuarioSistema
 
     // Solo se usa en el sistema Navideño (SistemaId = 2): permiso "Ver precios de compra"
     public bool VerPreciosCompra { get; set; }
+
+    // Solo se usa en el sistema Navideño (SistemaId = 2): permiso "Puede hacer recepciones"
+    public bool PuedeHacerRecepciones { get; set; }
 }

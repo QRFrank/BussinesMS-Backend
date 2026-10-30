@@ -1,12 +1,14 @@
 using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
 [ApiController]
 [Route("api/Navidad/PagosVendedores")]
 [Produces("application/json")]
+[Menu(161, 162)]
 public class PagosVendedoresNavController : BaseController
 {
     private readonly IPagoVendedorNavService _servicio;
@@ -41,10 +43,12 @@ public class PagosVendedoresNavController : BaseController
             : RespuestaOk(resultado);
     }
 
+    [Menu(162)]
     [HttpPost]
     public async Task<IActionResult> Registrar([FromBody] RegistrarPagoVendedorDto dto)
         => RespuestaCreado(await _servicio.RegistrarAsync(dto), "Pago registrado");
 
+    [Menu(162, Flag = FlagMenu.Eliminar)]
     [HttpPost("{id:int}/anular")]
     public async Task<IActionResult> Anular(int id)
         => RespuestaOk(await _servicio.AnularAsync(id), "Pago anulado");

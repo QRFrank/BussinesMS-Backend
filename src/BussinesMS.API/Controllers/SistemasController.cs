@@ -3,11 +3,13 @@ using Microsoft.AspNetCore.Mvc;
 using BussinesMS.Aplicacion.Interfaces.Auth;
 using BussinesMS.Aplicacion.DTOs.Auth;
 using BussinesMS.Aplicacion.DTOs.Plantillas;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[SoloAdmin]
 public class SistemasController : BaseController
 {
     private readonly ISistemaService _servicio;

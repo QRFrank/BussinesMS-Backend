@@ -1,6 +1,7 @@
 using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
@@ -16,6 +17,8 @@ public class AbastecimientoNavController : BaseController
         _servicio = servicio;
     }
 
+    [Menu(131, 132, 133)]
+    [RequierePuedeHacerRecepciones]
     [HttpGet("faltantes")]
     public async Task<IActionResult> ObtenerFaltantes([FromQuery] AbastecimientoNavFiltroDto filtro)
     {
@@ -23,6 +26,7 @@ public class AbastecimientoNavController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [Menu(134, 135)]
     [HttpGet("deudas")]
     public async Task<IActionResult> ObtenerDeudas([FromQuery] AbastecimientoNavFiltroDto filtro)
     {

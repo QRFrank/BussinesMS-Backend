@@ -1,6 +1,7 @@
 using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
@@ -8,6 +9,7 @@ namespace BussinesMS.API.Controllers.Navidad;
 [ApiController]
 [Route("api/Navidad/Reservas")]
 [Produces("application/json")]
+[Menu(152)]
 public class ReservasNavController : BaseController
 {
     private readonly IReservaNavService _servicio;
@@ -19,6 +21,7 @@ public class ReservasNavController : BaseController
         _cobertura = cobertura;
     }
 
+    [Menu(152, 154)]
     [HttpGet]
     public async Task<IActionResult> ObtenerTodos([FromQuery] VentaNavFiltroDto query)
     {
@@ -26,6 +29,7 @@ public class ReservasNavController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [Menu(152, 154)]
     [HttpGet("{id:int}")]
     public async Task<IActionResult> ObtenerPorId(int id)
     {
@@ -35,6 +39,7 @@ public class ReservasNavController : BaseController
             : RespuestaOk(resultado);
     }
 
+    [Menu(152, 151, 154)]
     [HttpGet("productos")]
     public async Task<IActionResult> ObtenerProductos([FromQuery] int? reservaId)
     {
@@ -42,6 +47,7 @@ public class ReservasNavController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [Menu(152, 151, 154)]
     [HttpGet("cobertura")]
     public async Task<IActionResult> ObtenerCobertura([FromQuery] ReservaCoberturaNavFiltroDto filtro)
     {
@@ -63,6 +69,7 @@ public class ReservasNavController : BaseController
         return RespuestaOk(resultado, "Reserva actualizada");
     }
 
+    [Menu(152, 154, 143)]
     [HttpPost("{id:int}/entregas")]
     public async Task<IActionResult> RegistrarEntrega(int id, [FromBody] RegistrarEntregaVentaDto dto)
     {
@@ -70,6 +77,7 @@ public class ReservasNavController : BaseController
         return RespuestaCreado(resultado, "Entrega registrada");
     }
 
+    [SoloAdmin]
     [HttpPost("{id:int}/bloqueos/liberar")]
     public async Task<IActionResult> LiberarBloqueo(int id, [FromBody] LiberarBloqueoReservaDto dto)
     {

@@ -1,5 +1,6 @@
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
@@ -7,6 +8,7 @@ namespace BussinesMS.API.Controllers.Navidad;
 [ApiController]
 [Route("api/Navidad/Dashboard")]
 [Produces("application/json")]
+[SoloSesion]
 public class DashboardNavController : BaseController
 {
     private readonly IDashboardNavService _servicio;

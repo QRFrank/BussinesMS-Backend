@@ -1,12 +1,14 @@
 using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
 [ApiController]
 [Route("api/Navidad/CierresCaja")]
 [Produces("application/json")]
+[Menu(143, 151)]
 public class CierresCajaNavController : BaseController
 {
     private readonly ICierreCajaNavService _servicio;

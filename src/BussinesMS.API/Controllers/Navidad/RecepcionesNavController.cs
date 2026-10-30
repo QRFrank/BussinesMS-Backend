@@ -1,12 +1,14 @@
 using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
 [ApiController]
 [Route("api/Navidad/Recepciones")]
 [Produces("application/json")]
+[RequierePuedeHacerRecepciones]
 public class RecepcionesNavController : BaseController
 {
     private readonly IRecepcionNavService _servicio;

@@ -125,4 +125,20 @@ public class UsuarioRepository : RepositorioBase<Usuario>, IUsuarioRepository
         fila.VerPreciosCompra = valor;
         await contexto.SaveChangesAsync();
     }
+
+    public async Task<bool> ObtenerPuedeHacerRecepcionesAsync(int usuarioId, int sistemaId)
+    {
+        return await ((AuthDbContext)_contexto).UsuarioSistemas
+            .AsNoTracking()
+            .AnyAsync(us => us.UsuarioId == usuarioId && us.SistemaId == sistemaId && us.PuedeHacerRecepciones);
+    }
+
+    public async Task EstablecerPuedeHacerRecepcionesAsync(int usuarioId, int sistemaId, bool valor)
+    {
+        var contexto = (AuthDbContext)_contexto;
+        var fila = await contexto.UsuarioSistemas.FirstOrDefaultAsync(us => us.UsuarioId == usuarioId && us.SistemaId == sistemaId);
+        if (fila == null || fila.PuedeHacerRecepciones == valor) return;
+        fila.PuedeHacerRecepciones = valor;
+        await contexto.SaveChangesAsync();
+    }
 }

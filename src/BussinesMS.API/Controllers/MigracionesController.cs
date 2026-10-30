@@ -4,12 +4,14 @@ using BussinesMS.Dominio.Entidades.Sistema;
 using BussinesMS.Infraestructura.Persistencia;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers;
 
 [ApiController]
 [Route("api/Sistema/[controller]")]
 [Produces("application/json")]
+[SoloAdmin]
 public class MigracionesController : BaseController
 {
     private readonly IMigracionService _servicio;

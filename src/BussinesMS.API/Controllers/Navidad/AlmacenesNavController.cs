@@ -1,12 +1,14 @@
 using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
 [ApiController]
 [Route("api/Navidad/Almacenes")]
 [Produces("application/json")]
+[Menu(103)]
 public class AlmacenesNavController : BaseController
 {
     private readonly IAlmacenNavService _servicio;
@@ -17,6 +19,7 @@ public class AlmacenesNavController : BaseController
     }
 
     // Almacenes navideños con encargados de la temporada y el indicador aCargo del usuario actual
+    [SoloSesion]
     [HttpGet]
     public async Task<IActionResult> ObtenerTodos([FromQuery] AlmacenNavFiltroDto query)
     {
@@ -39,6 +42,7 @@ public class AlmacenesNavController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [SoloAdmin]
     [HttpPut("{almacenId:int}/encargados")]
     public async Task<IActionResult> ReemplazarEncargados(int almacenId, [FromBody] AsignarEncargadosNavDto dto)
     {

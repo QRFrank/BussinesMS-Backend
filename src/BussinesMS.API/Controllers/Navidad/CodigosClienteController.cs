@@ -1,12 +1,14 @@
 using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
 [ApiController]
 [Route("api/Navidad/CodigosCliente")]
 [Produces("application/json")]
+[Menu(111)]
 public class CodigosClienteController : BaseController
 {
     private readonly ICodigoClienteService _servicio;
@@ -16,6 +18,7 @@ public class CodigosClienteController : BaseController
         _servicio = servicio;
     }
 
+    [SoloSesion]
     [HttpGet]
     public async Task<IActionResult> ObtenerTodos([FromQuery] CodigoClienteFiltroDto query)
     {
@@ -23,6 +26,7 @@ public class CodigosClienteController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [SoloSesion]
     [HttpGet("{id:int}")]
     public async Task<IActionResult> ObtenerPorId(int id)
     {

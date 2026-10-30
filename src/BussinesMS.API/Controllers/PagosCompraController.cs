@@ -1,12 +1,14 @@
 using BussinesMS.Aplicacion.DTOs.Sistema;
 using BussinesMS.Aplicacion.Interfaces.Sistema;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers;
 
 [ApiController]
 [Route("api/Sistema/[controller]")]
 [Produces("application/json")]
+[Menu(30)]
 public class PagosCompraController : BaseController
 {
     private readonly IPagoCompraService _servicio;
@@ -16,6 +18,7 @@ public class PagosCompraController : BaseController
         _servicio = servicio;
     }
 
+    [Menu(30, 13, 3)]
     [HttpGet]
     public async Task<IActionResult> ObtenerTodos([FromQuery] PagoCompraFiltroDto query)
     {
@@ -23,6 +26,7 @@ public class PagosCompraController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [Menu(30, 13, 3)]
     [HttpGet("{id}")]
     public async Task<IActionResult> ObtenerPorId(int id)
     {
@@ -32,6 +36,7 @@ public class PagosCompraController : BaseController
             : RespuestaOk(resultado);
     }
 
+    [Menu(30, 13, 3)]
     [HttpPost]
     public async Task<IActionResult> Crear([FromBody] CrearPagoCompraDto dto)
     {

@@ -521,7 +521,8 @@ Each database has its own DbContext in BussinesMS.Infraestructura.Persistencia:
 | Rol | Admin, VendedorTienda, VendedorRuta, EncargadoAlmacen, Contador |
 | Usuario | Usuarios del sistema con JWT |
 | Almacen | Almacenes por sistema (`SistemaId`, default 1 = Regular) |
-| UsuarioSistema | Sistemas a los que puede entrar cada usuario (login multisistema) |
+| UsuarioSistema | Sistemas a los que puede entrar cada usuario (login multisistema) + permisos `VerPreciosCompra` y `PuedeHacerRecepciones` |
+| PermisoAuditoria | Registro del filtro de permisos (fase 2, ver `docs/permisos/fase2-mapeo.md`) |
 
 ### DB_Sistema (Completo) - Módulo Catálogo
 

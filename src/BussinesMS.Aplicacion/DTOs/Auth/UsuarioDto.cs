@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using BussinesMS.Aplicacion.Seguridad;
 using BussinesMS.Aplicacion.DTOs.Plantillas;
 
 namespace BussinesMS.Aplicacion.DTOs.Auth;
@@ -8,14 +9,17 @@ public class UsuarioDto
     public int Id { get; set; }
     public string Nombre { get; set; } = string.Empty;
     public string Apellido { get; set; } = string.Empty;
+    [OcultoSinAdmin] // GET /Usuarios: lookup liviano para no-admin (permisos fase 2)
     public string? Email { get; set; }
     public string Username { get; set; } = string.Empty;
     public int SistemaIdDefault { get; set; }
+    [OcultoSinAdmin]
     public int? RolId { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
 
     // Solo lo llena el listado (GET /api/Usuarios); en el resto de respuestas queda null y no se serializa
+    [OcultoSinAdmin]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<int>? SistemaIds { get; set; }
 }
@@ -31,6 +35,8 @@ public class CrearUsuarioDto
     public int RolId { get; set; }
     public List<MenuPermisoSimpleDto>? Menus { get; set; }
     public List<int>? SistemaIds { get; set; }
+    // Permiso "Puede hacer recepciones" del sistema Navideño. null = no asignarlo (queda en false)
+    public bool? PuedeHacerRecepciones { get; set; }
 }
 
 public class ActualizarUsuarioDto
@@ -43,6 +49,8 @@ public class ActualizarUsuarioDto
     public int RolId { get; set; }
     // Permiso "Ver precios de compra" del sistema Navideño. null = no cambiarlo. Solo lo puede cambiar el admin
     public bool? VerPreciosCompra { get; set; }
+    // Permiso "Puede hacer recepciones" del sistema Navideño. null = no cambiarlo. Solo lo puede cambiar el admin
+    public bool? PuedeHacerRecepciones { get; set; }
     public List<int>? SistemaIds { get; set; }
 }
 
@@ -73,6 +81,8 @@ public class UsuarioConMenusDto
     public string? RolNombre { get; set; }
     // Permiso "Ver precios de compra" en el sistema Navideño (el admin lo tiene siempre, aparte de esta casilla)
     public bool VerPreciosCompra { get; set; }
+    // Permiso "Puede hacer recepciones" en el sistema Navideño (el admin lo tiene siempre, aparte de esta casilla)
+    public bool PuedeHacerRecepciones { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<MenuArbolDto> Menus { get; set; } = [];

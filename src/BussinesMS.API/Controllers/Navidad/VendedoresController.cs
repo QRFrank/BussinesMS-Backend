@@ -1,12 +1,15 @@
 using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
 [ApiController]
 [Route("api/Navidad/Vendedores")]
 [Produces("application/json")]
+[Menu(113)]
+[OcultarCamposSoloAdmin]
 public class VendedoresController : BaseController
 {
     private readonly IVendedorNavService _servicio;
@@ -16,6 +19,7 @@ public class VendedoresController : BaseController
         _servicio = servicio;
     }
 
+    [SoloSesion]
     [HttpGet]
     public async Task<IActionResult> ObtenerTodos([FromQuery] VendedorFiltroDto query)
     {

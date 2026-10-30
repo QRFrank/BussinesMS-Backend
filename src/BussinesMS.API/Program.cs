@@ -26,7 +26,14 @@ Log.Logger = new LoggerConfiguration()
 builder.Host.UseSerilog();
 
 Console.WriteLine("Agregando servicios MVC...");
-builder.Services.AddControllers(options => options.Filters.Add<BussinesMS.API.Filtros.OcultarPreciosCompraFilter>());
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<BussinesMS.API.Filtros.OcultarPreciosCompraFilter>();
+    // Permisos fase 2: menú + flag por endpoint (Permisos:Modo = Aviso | Bloqueo) y campos solo admin
+    options.Filters.Add<BussinesMS.API.Autorizacion.PermisoMenuFilter>();
+    options.Filters.Add<BussinesMS.API.Filtros.OcultarCamposSoloAdminFilter>();
+});
+builder.Services.Configure<BussinesMS.API.Autorizacion.PermisosOptions>(builder.Configuration.GetSection(BussinesMS.API.Autorizacion.PermisosOptions.Seccion));
 
 // Después de builder.Services.AddControllers();
 builder.Services.AddCors(options =>
@@ -318,6 +325,11 @@ builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IDashboardNa
 // Reportes del sistema navideño (módulo 9, solo admin)
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IReportesNavService, BussinesMS.Aplicacion.Servicios.Navidad.ReportesNavService>();
 
+// Permisos fase 2 (flags por menú del usuario y auditoría de lo que habría sido 403)
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Auth.IPermisoUsuarioService, BussinesMS.Aplicacion.Servicios.Auth.PermisoUsuarioService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Auth.IPermisoAuditoriaRepository, BussinesMS.Infraestructura.Repositorios.Auth.PermisoAuditoriaRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Auth.IPermisoAuditoriaService, BussinesMS.Aplicacion.Servicios.Auth.PermisoAuditoriaService>();
+
 // Background Services
 builder.Services.AddHostedService<BussinesMS.Infraestructura.Jobs.VencimientoLotesJob>();
 
@@ -338,6 +350,27 @@ try
 catch (Exception ex)
 {
     Console.WriteLine($"Error en seed: {ex.Message}");
+}
+
+// Permisos fase 2: modo activo y, en Development, endpoints sin regla (en Bloqueo quedarían denegados)
+{
+    var modoPermisos = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<BussinesMS.API.Autorizacion.PermisosOptions>>().Value.Modo;
+    Console.WriteLine($"Permisos: modo {modoPermisos}");
+    if (app.Environment.IsDevelopment())
+    {
+        var acciones = app.Services.GetRequiredService<Microsoft.AspNetCore.Mvc.Infrastructure.IActionDescriptorCollectionProvider>()
+            .ActionDescriptors.Items.OfType<Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor>();
+        var sinMapear = acciones
+            .SelectMany(a => BussinesMS.API.Autorizacion.ReglaPermisoResolver.Verbos(a)
+                .Where(v => BussinesMS.API.Autorizacion.ReglaPermisoResolver.Resolver(a, v).Tipo == BussinesMS.API.Autorizacion.TipoReglaPermiso.SinMapear)
+                .Select(v => $"{v} {a.AttributeRouteInfo?.Template}"))
+            .ToList();
+        var logPermisos = app.Services.GetRequiredService<ILogger<Program>>();
+        if (sinMapear.Count > 0)
+            logPermisos.LogWarning("Permisos: {Cantidad} endpoints sin regla de permisos:{Lista}", sinMapear.Count, Environment.NewLine + string.Join(Environment.NewLine, sinMapear));
+        else
+            logPermisos.LogInformation("Permisos: todos los endpoints tienen regla");
+    }
 }
 
 // Swagger solo en Development (apagado en produccion)

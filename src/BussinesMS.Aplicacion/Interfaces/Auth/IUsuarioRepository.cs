@@ -18,4 +18,6 @@ public interface IUsuarioRepository : IRepositorio<Usuario>
     Task ReemplazarSistemasAsync(int usuarioId, List<int> sistemaIds);
     Task<bool> ObtenerVerPreciosCompraAsync(int usuarioId, int sistemaId);
     Task EstablecerVerPreciosCompraAsync(int usuarioId, int sistemaId, bool valor);
+    Task<bool> ObtenerPuedeHacerRecepcionesAsync(int usuarioId, int sistemaId);
+    Task EstablecerPuedeHacerRecepcionesAsync(int usuarioId, int sistemaId, bool valor);
 }

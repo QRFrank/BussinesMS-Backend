@@ -17,6 +17,7 @@ public class AuthDbContext : DbContext
     public DbSet<Menu> Menus => Set<Menu>();
     public DbSet<UsuarioMenu> UsuarioMenus => Set<UsuarioMenu>();
     public DbSet<UsuarioSistema> UsuarioSistemas => Set<UsuarioSistema>();
+    public DbSet<PermisoAuditoria> PermisoAuditorias => Set<PermisoAuditoria>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -68,6 +69,7 @@ public class AuthDbContext : DbContext
         {
             entity.HasKey(e => new { e.UsuarioId, e.SistemaId });
             entity.Property(e => e.VerPreciosCompra).HasDefaultValue(false);
+            entity.Property(e => e.PuedeHacerRecepciones).HasDefaultValue(false);
 
             entity.HasOne(us => us.Usuario)
                 .WithMany(u => u.UsuarioSistemas)
@@ -115,6 +117,24 @@ public class AuthDbContext : DbContext
 
             entity.Property(e => e.PermisosEspeciales)
                 .HasColumnType("nvarchar(max)");
+        });
+
+        modelBuilder.Entity<PermisoAuditoria>(entity =>
+        {
+            entity.ToTable("PermisoAuditoria");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Fecha).IsRequired();
+            entity.Property(e => e.Username).HasMaxLength(50);
+            entity.Property(e => e.Metodo).IsRequired().HasMaxLength(10);
+            entity.Property(e => e.Ruta).IsRequired().HasMaxLength(400);
+            entity.Property(e => e.Endpoint).IsRequired().HasMaxLength(300);
+            entity.Property(e => e.Menus).HasMaxLength(100);
+            entity.Property(e => e.FlagRequerido).HasMaxLength(20);
+            entity.Property(e => e.Motivo).IsRequired().HasMaxLength(300);
+            entity.Property(e => e.Modo).IsRequired().HasMaxLength(10);
+
+            entity.HasIndex(e => new { e.UsuarioId, e.Endpoint });
+            entity.HasIndex(e => e.Fecha);
         });
     }
 }

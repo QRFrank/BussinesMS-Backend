@@ -2,12 +2,14 @@ using BussinesMS.Aplicacion.DTOs.Plantillas;
 using BussinesMS.Aplicacion.DTOs.Sistema;
 using BussinesMS.Aplicacion.Interfaces.Sistema;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers;
 
 [ApiController]
 [Route("api/Sistema/[controller]")]
 [Produces("application/json")]
+[Menu(9)]
 public class CategoriasController : BaseController
 {
     private readonly ICategoriaService _servicio;
@@ -17,6 +19,7 @@ public class CategoriasController : BaseController
         _servicio = servicio;
     }
 
+    [Menu(9, 8, 6)]
     [HttpGet]
     public async Task<IActionResult> ObtenerTodos([FromQuery] GenericPaginationQueryDto query)
     {
@@ -24,6 +27,7 @@ public class CategoriasController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [Menu(9, 8, 6)]
     [HttpGet("{id}")]
     public async Task<IActionResult> ObtenerPorId(int id)
     {

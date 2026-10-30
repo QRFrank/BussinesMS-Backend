@@ -1,12 +1,14 @@
 using BussinesMS.Aplicacion.DTOs.Sistema;
 using BussinesMS.Aplicacion.Interfaces.Sistema;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers;
 
 [ApiController]
 [Route("api/Sistema/[controller]")]
 [Produces("application/json")]
+[Menu(29)]
 public class GastosOperativosController : BaseController
 {
     private readonly IGastoOperativoService _servicio;
@@ -16,6 +18,7 @@ public class GastosOperativosController : BaseController
         _servicio = servicio;
     }
 
+    [Menu(29, 3)]
     [HttpGet]
     public async Task<IActionResult> ObtenerTodos([FromQuery] GastoOperativoFiltroDto query)
     {
@@ -23,6 +26,7 @@ public class GastosOperativosController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [Menu(29, 3)]
     [HttpGet("{id}")]
     public async Task<IActionResult> ObtenerPorId(int id)
     {
@@ -32,6 +36,7 @@ public class GastosOperativosController : BaseController
             : RespuestaOk(resultado);
     }
 
+    [Menu(29, 3)]
     [HttpPost]
     public async Task<IActionResult> Crear([FromBody] CrearGastoOperativoDto dto)
     {

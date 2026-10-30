@@ -1,12 +1,14 @@
 using BussinesMS.Aplicacion.DTOs.Sistema;
 using BussinesMS.Aplicacion.Interfaces.Sistema;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers;
 
 [ApiController]
 [Route("api/Sistema/[controller]")]
 [Produces("application/json")]
+[SoloAdmin]
 public class ProductoPresentacionesController : BaseController
 {
     private readonly IProductoPresentacionService _servicio;
@@ -16,6 +18,7 @@ public class ProductoPresentacionesController : BaseController
         _servicio = servicio;
     }
 
+    [Menu(8, 7, 3, 6)]
     [HttpGet("variante/{varianteId}")]
     public async Task<IActionResult> ObtenerPorVariante(int varianteId)
     {
@@ -23,6 +26,7 @@ public class ProductoPresentacionesController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [Menu(8, 7, 3, 6)]
     [HttpGet("{id}")]
     public async Task<IActionResult> ObtenerPorId(int id)
     {
@@ -33,6 +37,7 @@ public class ProductoPresentacionesController : BaseController
     }
 
     // GET api/Sistema/ProductoPresentaciones/stock/5?stockEnUnidades=1083
+    [Menu(8, 7, 3, 6)]
     [HttpGet("stock/{varianteId}")]
     public async Task<IActionResult> ConvertirStock(int varianteId, [FromQuery] int stockEnUnidades)
     {

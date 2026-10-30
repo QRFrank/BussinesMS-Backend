@@ -1,5 +1,6 @@
 using BussinesMS.Aplicacion.DTOs.Plantillas;
 using BussinesMS.Dominio.Enums.Navidad;
+using BussinesMS.Aplicacion.Seguridad;
 
 namespace BussinesMS.Aplicacion.DTOs.Navidad;
 
@@ -18,6 +19,7 @@ public class VendedorNavDto
     public string Username { get; set; } = string.Empty;
     public TipoVendedor Tipo { get; set; }
     public string TipoNombre { get; set; } = string.Empty;
+    [OcultoSinAdmin] // solo el Admin ve sueldos en GET /Navidad/Vendedores (permisos fase 2)
     public decimal? SueldoMensual { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }

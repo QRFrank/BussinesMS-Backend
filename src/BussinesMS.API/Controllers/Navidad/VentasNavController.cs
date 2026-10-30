@@ -1,12 +1,14 @@
 using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
 [ApiController]
 [Route("api/Navidad/Ventas")]
 [Produces("application/json")]
+[Menu(151, 152, 154, 143)]
 public class VentasNavController : BaseController
 {
     private readonly IVentaNavService _servicio;
@@ -18,6 +20,7 @@ public class VentasNavController : BaseController
         _cobertura = cobertura;
     }
 
+    [Menu(154, 172)]
     [HttpGet]
     public async Task<IActionResult> ObtenerTodos([FromQuery] VentaNavFiltroDto query)
     {
@@ -41,6 +44,7 @@ public class VentasNavController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [Menu(151, 152, 154)]
     [HttpGet("productos")]
     public async Task<IActionResult> ObtenerProductos([FromQuery] int almacenId)
     {
@@ -49,6 +53,7 @@ public class VentasNavController : BaseController
     }
 
     // Ruta antigua: apunta al mismo cálculo que GET api/Navidad/Reservas/cobertura
+    [Menu(151, 152, 154)]
     [HttpGet("reservas/cobertura")]
     public async Task<IActionResult> ObtenerCobertura([FromQuery] ReservaCoberturaNavFiltroDto filtro)
     {
@@ -56,6 +61,7 @@ public class VentasNavController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [Menu(151, 154)]
     [HttpPost]
     public async Task<IActionResult> Crear([FromBody] CrearVentaNavDto dto)
     {
@@ -70,6 +76,7 @@ public class VentasNavController : BaseController
         return RespuestaOk(resultado, "Venta actualizada");
     }
 
+    [Menu(151, 152, 154, 143, Flag = FlagMenu.Eliminar)]
     [HttpPost("entregas/{entregaId:int}/anular")]
     public async Task<IActionResult> AnularEntrega(int entregaId)
     {
@@ -84,6 +91,7 @@ public class VentasNavController : BaseController
         return RespuestaCreado(resultado, "Cobro registrado");
     }
 
+    [Menu(151, 152, 154, 143, Flag = FlagMenu.Eliminar)]
     [HttpPost("cobros/{cobroId:int}/anular")]
     public async Task<IActionResult> AnularCobro(int cobroId)
     {
@@ -91,6 +99,7 @@ public class VentasNavController : BaseController
         return RespuestaOk(resultado, "Cobro anulado");
     }
 
+    [Menu(151, 152, 154, 143, Flag = FlagMenu.Eliminar)]
     [HttpPost("{id:int}/anular")]
     public async Task<IActionResult> Anular(int id)
     {

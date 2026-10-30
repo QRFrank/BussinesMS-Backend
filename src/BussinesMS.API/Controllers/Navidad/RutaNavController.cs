@@ -1,12 +1,14 @@
 using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
 [ApiController]
 [Route("api/Navidad/Ruta")]
 [Produces("application/json")]
+[Menu(155)]
 public class RutaNavController : BaseController
 {
     private readonly IRutaNavService _servicio;
@@ -16,6 +18,7 @@ public class RutaNavController : BaseController
         _servicio = servicio;
     }
 
+    [SoloSesion]
     [HttpGet("Contexto")]
     public async Task<IActionResult> ObtenerContexto()
         => RespuestaOk(await _servicio.ObtenerContextoAsync());
@@ -47,18 +50,22 @@ public class RutaNavController : BaseController
     public async Task<IActionResult> Cerrar(int id, [FromBody] CerrarSalidaRutaDto dto)
         => RespuestaOk(await _servicio.CerrarAsync(id, dto), "Salida cerrada");
 
+    [SoloAdmin]
     [HttpPost("Salidas/{id:int}/anular-cierre")]
     public async Task<IActionResult> AnularCierre(int id)
         => RespuestaOk(await _servicio.AnularCierreAsync(id), "Cierre anulado");
 
+    [Menu(155, Flag = FlagMenu.Eliminar)]
     [HttpPost("Salidas/{id:int}/anular")]
     public async Task<IActionResult> AnularSalida(int id)
         => RespuestaOk(await _servicio.AnularSalidaAsync(id), "Salida anulada");
 
+    [Menu(155, Flag = FlagMenu.Eliminar)]
     [HttpPost("Cargas/{cargaId:int}/anular")]
     public async Task<IActionResult> AnularCarga(int cargaId)
         => RespuestaOk(await _servicio.AnularCargaAsync(cargaId), "Carga anulada");
 
+    [Menu(155, Flag = FlagMenu.Eliminar)]
     [HttpPost("Devoluciones/{devolucionId:int}/anular")]
     public async Task<IActionResult> AnularDevolucion(int devolucionId)
         => RespuestaOk(await _servicio.AnularDevolucionAsync(devolucionId), "Devolución anulada");
@@ -86,6 +93,7 @@ public class RutaNavController : BaseController
     public async Task<IActionResult> RegistrarAbono([FromBody] CrearAbonoVendedorDto dto)
         => RespuestaCreado(await _servicio.RegistrarAbonoAsync(dto), "Abono registrado");
 
+    [Menu(155, Flag = FlagMenu.Eliminar)]
     [HttpPost("Abonos/{id:int}/anular")]
     public async Task<IActionResult> AnularAbono(int id)
         => RespuestaOk(await _servicio.AnularAbonoAsync(id), "Abono anulado");
@@ -96,6 +104,7 @@ public class RutaNavController : BaseController
     public async Task<IActionResult> EditarPrecios(int ventaId, [FromBody] EditarPreciosVentaRutaDto dto)
         => RespuestaOk(await _servicio.EditarPreciosVentaAsync(ventaId, dto), "Precios actualizados");
 
+    [SoloAdmin]
     [HttpPost("Ventas/{ventaId:int}/devolver")]
     public async Task<IActionResult> DevolverVenta(int ventaId, [FromBody] DevolverVentaRutaDto dto)
         => RespuestaOk(await _servicio.DevolverVentaAsync(ventaId, dto), "Devolución registrada");

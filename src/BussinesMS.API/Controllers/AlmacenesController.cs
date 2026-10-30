@@ -3,11 +3,13 @@ using BussinesMS.Aplicacion.Interfaces.Auth;
 using BussinesMS.Aplicacion.DTOs.Auth;
 using BussinesMS.Aplicacion.DTOs.Plantillas;
 using BussinesMS.Aplicacion.Seguridad;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Menu(26, 103)]
 public class AlmacenesController : BaseController
 {
     private readonly IAlmacenService _servicio;
@@ -19,6 +21,7 @@ public class AlmacenesController : BaseController
         _jwtHelper = jwtHelper;
     }
 
+    [SoloSesion]
     [HttpGet]
     public async Task<IActionResult> ObtenerTodos([FromQuery] GenericPaginationQueryDto query, [FromQuery] int? sistemaId = null)
     {

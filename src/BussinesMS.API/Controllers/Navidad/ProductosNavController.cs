@@ -1,12 +1,14 @@
 using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
 [ApiController]
 [Route("api/Navidad/Productos")]
 [Produces("application/json")]
+[SoloAdmin]
 public class ProductosNavController : BaseController
 {
     private readonly IProductoNavService _servicio;
@@ -16,6 +18,7 @@ public class ProductosNavController : BaseController
         _servicio = servicio;
     }
 
+    [SoloSesion]
     [HttpGet]
     public async Task<IActionResult> ObtenerTodos([FromQuery] ProductoNavFiltroDto query)
     {
@@ -23,6 +26,7 @@ public class ProductosNavController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [SoloSesion]
     [HttpGet("{id:int}")]
     public async Task<IActionResult> ObtenerPorId(int id)
     {

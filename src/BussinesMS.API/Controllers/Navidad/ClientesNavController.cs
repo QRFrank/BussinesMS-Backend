@@ -2,12 +2,14 @@ using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.DTOs.Plantillas;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
 [ApiController]
 [Route("api/Navidad/Clientes")]
 [Produces("application/json")]
+[Menu(114)]
 public class ClientesNavController : BaseController
 {
     private readonly IClienteNavService _servicio;
@@ -17,6 +19,7 @@ public class ClientesNavController : BaseController
         _servicio = servicio;
     }
 
+    [SoloSesion]
     [HttpGet]
     public async Task<IActionResult> ObtenerTodos([FromQuery] GenericPaginationQueryDto query)
     {
@@ -24,6 +27,7 @@ public class ClientesNavController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [SoloSesion]
     [HttpGet("{id:int}")]
     public async Task<IActionResult> ObtenerPorId(int id)
     {
@@ -33,6 +37,7 @@ public class ClientesNavController : BaseController
             : RespuestaOk(resultado);
     }
 
+    [Menu(114, 151, 152, 154, 155)]
     [HttpPost]
     public async Task<IActionResult> Crear([FromBody] CrearClienteNavDto dto)
     {

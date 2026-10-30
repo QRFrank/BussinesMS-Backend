@@ -2,12 +2,14 @@ using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.DTOs.Plantillas;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
 [ApiController]
 [Route("api/Navidad/Temporadas")]
 [Produces("application/json")]
+[Menu(102)]
 public class TemporadasController : BaseController
 {
     private readonly ITemporadaService _servicio;
@@ -35,6 +37,7 @@ public class TemporadasController : BaseController
             : RespuestaOk(resultado);
     }
 
+    [SoloSesion]
     [HttpGet("actual")]
     public async Task<IActionResult> ObtenerActual()
     {
@@ -56,6 +59,7 @@ public class TemporadasController : BaseController
         return RespuestaOk(resultado, "Temporada actualizada exitosamente.");
     }
 
+    [SoloAdmin]
     [HttpPost("{id:int}/cerrar")]
     public async Task<IActionResult> Cerrar(int id)
     {
@@ -64,6 +68,7 @@ public class TemporadasController : BaseController
     }
 
     // Copia proveedores, códigos, productos, presentaciones y vendedores desde otra temporada
+    [SoloAdmin]
     [HttpPost("{destinoId:int}/copiar-catalogo")]
     public async Task<IActionResult> CopiarCatalogo(int destinoId, [FromBody] CopiarCatalogoDto dto)
     {

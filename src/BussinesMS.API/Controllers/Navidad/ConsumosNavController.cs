@@ -1,12 +1,14 @@
 using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
 [ApiController]
 [Route("api/Navidad/Consumos")]
 [Produces("application/json")]
+[Menu(153)]
 public class ConsumosNavController : BaseController
 {
     private readonly IConsumoNavService _servicio;
@@ -39,6 +41,7 @@ public class ConsumosNavController : BaseController
         return RespuestaCreado(resultado, "Consumo registrado");
     }
 
+    [Menu(153, Flag = FlagMenu.Eliminar)]
     [HttpPost("{id:int}/anular")]
     public async Task<IActionResult> Anular(int id)
     {

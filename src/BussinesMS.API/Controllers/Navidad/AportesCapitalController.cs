@@ -1,12 +1,14 @@
 using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
 [ApiController]
 [Route("api/Navidad/AportesCapital")]
 [Produces("application/json")]
+[Menu(104)]
 public class AportesCapitalController : BaseController
 {
     private readonly IAporteCapitalService _servicio;

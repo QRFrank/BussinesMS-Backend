@@ -1,12 +1,14 @@
 using BussinesMS.Aplicacion.DTOs.Sistema;
 using BussinesMS.Aplicacion.Interfaces.Sistema;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers;
 
 [ApiController]
 [Route("api/Sistema/[controller]")]
 [Produces("application/json")]
+[Menu(16, 17, 30, 3)]
 public class SesionesCajaController : BaseController
 {
     private readonly ISesionCajaService _servicio;
@@ -16,6 +18,7 @@ public class SesionesCajaController : BaseController
         _servicio = servicio;
     }
 
+    [Menu(17, 3)]
     [HttpPost("abrir")]
     public async Task<IActionResult> AbrirCaja([FromBody] CrearSesionCajaDto dto)
     {
@@ -23,6 +26,7 @@ public class SesionesCajaController : BaseController
         return RespuestaCreado(resultado, "Sesión de caja abierta");
     }
 
+    [Menu(17, 3)]
     [HttpPost("{id}/cerrar")]
     public async Task<IActionResult> CerrarCaja(int id, [FromBody] CerrarSesionCajaDto dto)
     {

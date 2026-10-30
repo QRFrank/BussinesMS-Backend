@@ -11,4 +11,7 @@ public class LoginResponseDto
 
     // Permiso "Ver precios de compra" del sistema Navideño (true siempre para el rol Admin)
     public bool VerPreciosCompra { get; set; }
+
+    // Permiso "Puede hacer recepciones" del sistema Navideño (true siempre para el rol Admin)
+    public bool PuedeHacerRecepciones { get; set; }
 }

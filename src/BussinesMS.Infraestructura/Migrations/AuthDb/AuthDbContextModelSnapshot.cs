@@ -142,6 +142,69 @@ namespace BussinesMS.Infraestructura.Migrations.AuthDb
                     b.ToTable("Menus");
                 });
 
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Auth.PermisoAuditoria", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Endpoint")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FlagRequerido")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Menus")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Metodo")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Modo")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Motivo")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Ruta")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<int?>("SistemaId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Username")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Fecha");
+
+                    b.HasIndex("UsuarioId", "Endpoint");
+
+                    b.ToTable("PermisoAuditoria", (string)null);
+                });
+
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Auth.Rol", b =>
                 {
                     b.Property<int>("Id")
@@ -327,6 +390,11 @@ namespace BussinesMS.Infraestructura.Migrations.AuthDb
 
                     b.Property<int>("SistemaId")
                         .HasColumnType("int");
+
+                    b.Property<bool>("PuedeHacerRecepciones")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("VerPreciosCompra")
                         .ValueGeneratedOnAdd()

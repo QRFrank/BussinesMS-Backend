@@ -2,12 +2,14 @@ using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.DTOs.Plantillas;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
 [ApiController]
 [Route("api/Navidad/CategoriasGasto")]
 [Produces("application/json")]
+[Menu(105)]
 public class CategoriasGastoNavController : BaseController
 {
     private readonly ICategoriaGastoNavService _servicio;
@@ -17,6 +19,7 @@ public class CategoriasGastoNavController : BaseController
         _servicio = servicio;
     }
 
+    [SoloSesion]
     [HttpGet]
     public async Task<IActionResult> ObtenerTodos([FromQuery] GenericPaginationQueryDto query, [FromQuery] int? temporadaId = null)
     {
@@ -24,6 +27,7 @@ public class CategoriasGastoNavController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [SoloSesion]
     [HttpGet("{id:int}")]
     public async Task<IActionResult> ObtenerPorId(int id)
     {

@@ -1,12 +1,14 @@
 using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
 [ApiController]
 [Route("api/Navidad/Conteos")]
 [Produces("application/json")]
+[Menu(143, 151)]
 public class ConteosNavController : BaseController
 {
     private readonly IConteoNavService _servicio;
@@ -30,6 +32,7 @@ public class ConteosNavController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [SoloSesion]
     [HttpGet("estado")]
     public async Task<IActionResult> ObtenerEstado([FromQuery] int almacenId, [FromQuery] DateTime? fecha)
     {

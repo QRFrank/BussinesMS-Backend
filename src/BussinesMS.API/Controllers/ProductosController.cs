@@ -2,12 +2,14 @@ using BussinesMS.Aplicacion.DTOs.Sistema;
 using BussinesMS.Aplicacion.DTOs.Plantillas;
 using BussinesMS.Aplicacion.Interfaces.Sistema;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers;
 
 [ApiController]
 [Route("api/Sistema/[controller]")]
 [Produces("application/json")]
+[SoloAdmin]
 public class ProductosController : BaseController
 {
     private readonly IProductoService _servicio;
@@ -17,6 +19,7 @@ public class ProductosController : BaseController
         _servicio = servicio;
     }
 
+    [SoloSesion]
     [HttpGet]
     public async Task<IActionResult> ObtenerTodos([FromQuery] ProductoPaginationQueryDto query)
     {
@@ -24,6 +27,7 @@ public class ProductosController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [SoloSesion]
     [HttpGet("{id}")]
     public async Task<IActionResult> ObtenerPorId(int id)
     {

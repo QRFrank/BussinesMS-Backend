@@ -2,12 +2,14 @@ using BussinesMS.Aplicacion.DTOs.Plantillas;
 using BussinesMS.Aplicacion.DTOs.Sistema;
 using BussinesMS.Aplicacion.Interfaces.Sistema;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers;
 
 [ApiController]
 [Route("api/Sistema/[controller]")]
 [Produces("application/json")]
+[Menu(6)]
 public class InventarioLotesController : BaseController
 {
     private readonly IInventarioLoteService _servicio;
@@ -60,6 +62,7 @@ public class InventarioLotesController : BaseController
         return RespuestaOk(new { mensaje = "Lote de inventario eliminado" });
     }
 
+    [Menu(6, Flag = FlagMenu.Editar)]
     [HttpPost("{id}/ajuste")]
     public async Task<IActionResult> AjustarStock(int id, [FromBody] AjusteInventarioDto dto)
     {
@@ -67,6 +70,7 @@ public class InventarioLotesController : BaseController
         return RespuestaOk(resultado, "Stock ajustado exitosamente");
     }
 
+    [SoloAdmin]
     [HttpPost("vencidos/procesar")]
     public async Task<IActionResult> ProcesarVencidos()
     {

@@ -123,7 +123,9 @@ public class UsuarioService : IUsuarioService
                 CreatedAt = BoliviaTimeZone.ToLocal(usuario.CreatedAt),
                 Menus = menus,
                 VerPreciosCompra = string.Equals(usuario.Rol?.Nombre, "Admin", StringComparison.OrdinalIgnoreCase)
-                    || await _repositorio.ObtenerVerPreciosCompraAsync(usuario.Id, 2)
+                    || await _repositorio.ObtenerVerPreciosCompraAsync(usuario.Id, 2),
+                PuedeHacerRecepciones = string.Equals(usuario.Rol?.Nombre, "Admin", StringComparison.OrdinalIgnoreCase)
+                    || await _repositorio.ObtenerPuedeHacerRecepcionesAsync(usuario.Id, 2)
             };
         }
         catch (Exception ex)
@@ -157,6 +159,9 @@ public class UsuarioService : IUsuarioService
 
             var resultado = await _repositorio.CrearAsync(usuario);
             await _repositorio.ReemplazarSistemasAsync(resultado.Id, sistemaIds);
+
+            if (dto.PuedeHacerRecepciones == true)
+                await _repositorio.EstablecerPuedeHacerRecepcionesAsync(resultado.Id, 2, true);
 
             List<MenuPermisoSimpleDto> menusAsignar;
 
@@ -259,6 +264,17 @@ public class UsuarioService : IUsuarioService
                     if (!await EsAdminActualAsync())
                         throw new ExcepcionDominio("Solo el administrador puede cambiar el permiso de ver precios de compra", 403, "SIN_PERMISO");
                     await _repositorio.EstablecerVerPreciosCompraAsync(id, 2, dto.VerPreciosCompra.Value);
+                }
+            }
+
+            if (dto.PuedeHacerRecepciones.HasValue)
+            {
+                var actual = await _repositorio.ObtenerPuedeHacerRecepcionesAsync(id, 2);
+                if (actual != dto.PuedeHacerRecepciones.Value)
+                {
+                    if (!await EsAdminActualAsync())
+                        throw new ExcepcionDominio("Solo el administrador puede cambiar el permiso de hacer recepciones", 403, "SIN_PERMISO");
+                    await _repositorio.EstablecerPuedeHacerRecepcionesAsync(id, 2, dto.PuedeHacerRecepciones.Value);
                 }
             }
 
@@ -368,6 +384,8 @@ public class UsuarioService : IUsuarioService
                 Token = token,
                 VerPreciosCompra = string.Equals(usuario.Rol?.Nombre, "Admin", StringComparison.OrdinalIgnoreCase)
                     || await _repositorio.ObtenerVerPreciosCompraAsync(usuario.Id, 2),
+                PuedeHacerRecepciones = string.Equals(usuario.Rol?.Nombre, "Admin", StringComparison.OrdinalIgnoreCase)
+                    || await _repositorio.ObtenerPuedeHacerRecepcionesAsync(usuario.Id, 2),
                 RolNombre = usuario.Rol?.Nombre,
                 SistemaId = sistemaElegido,
                 SistemaNombre = sistema?.Nombre,

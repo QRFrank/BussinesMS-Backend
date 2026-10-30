@@ -18,7 +18,8 @@
 | Rol | Admin, VendedorTienda, VendedorRuta, EncargadoAlmacen, Contador |
 | Usuario | Usuarios del sistema con JWT |
 | Almacen | Almacenes por sistema (`SistemaId`, default 1 = Regular). Seed: Tienda Principal, Almacén 1, Almacén 2 |
-| UsuarioSistema | A qué sistemas puede entrar cada usuario (login multisistema) + permiso `VerPreciosCompra` por sistema |
+| UsuarioSistema | A qué sistemas puede entrar cada usuario (login multisistema) + permisos `VerPreciosCompra` y `PuedeHacerRecepciones` por sistema |
+| PermisoAuditoria | Decisiones de permisos que habrían sido 403 (modo Aviso) o que lo fueron (modo Bloqueo). Ver `docs/permisos/fase2-mapeo.md` |
 
 ### Esquema
 
@@ -64,6 +65,12 @@ Table UsuarioSistema {
   UsuarioId int [pk, note: 'FK a Usuario (cascade)']
   SistemaId int [pk, note: 'FK a Sistema. Backfill: una fila por usuario con su SistemaIdDefault']
   VerPreciosCompra bit [default: 0, note: 'Permiso "Ver precios de compra" (usado en sistema 2, Navideño). Admin lo tiene siempre. Migración 20261027225031_AgregarVerPreciosCompra']
+  PuedeHacerRecepciones bit [not null, default: 0, note: 'Permiso "Puede hacer recepciones" (sistema 2). Habilita Recepciones navideñas completas y GET /Navidad/Pedidos (lista y {id}). Admin lo tiene siempre. Migración 20261030230635_AgregarPuedeHacerRecepciones (relleno: 1 a quien tenía el menú 132)']
+}
+
+Table PermisoAuditoria {
+  Id int [pk, increment]
+  note: 'Registro del filtro de permisos (fecha UTC, usuario, sistema, método, ruta, plantilla, menús, flag requerido, motivo, modo). Consulta: GET /api/Permisos/Auditoria (solo admin). Migración 20261030181027_AgregarPermisoAuditoria'
 }
 
 Ref: Usuario.RolId > Rol.Id

@@ -2,12 +2,14 @@ using BussinesMS.Aplicacion.DTOs.Plantillas;
 using BussinesMS.Aplicacion.DTOs.Sistema;
 using BussinesMS.Aplicacion.Interfaces.Sistema;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers;
 
 [ApiController]
 [Route("api/Sistema/[controller]")]
 [Produces("application/json")]
+[Menu(28)]
 public class ClientesController : BaseController
 {
     private readonly IClienteService _servicio;
@@ -17,6 +19,7 @@ public class ClientesController : BaseController
         _servicio = servicio;
     }
 
+    [Menu(28, 3, 4)]
     [HttpGet]
     public async Task<IActionResult> ObtenerTodos([FromQuery] GenericPaginationQueryDto query)
     {
@@ -24,6 +27,7 @@ public class ClientesController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [Menu(28, 3, 4)]
     [HttpGet("{id}")]
     public async Task<IActionResult> ObtenerPorId(int id)
     {
@@ -33,6 +37,7 @@ public class ClientesController : BaseController
             : RespuestaOk(resultado);
     }
 
+    [Menu(28, 3, 4)]
     [HttpGet("carnet/{numeroCarnet}")]
     public async Task<IActionResult> ObtenerPorNumeroCarnet(string numeroCarnet)
     {
@@ -42,6 +47,7 @@ public class ClientesController : BaseController
             : RespuestaOk(resultado);
     }
 
+    [Menu(28, 3, 4)]
     [HttpPost]
     public async Task<IActionResult> Crear([FromBody] CrearClienteDto dto)
     {

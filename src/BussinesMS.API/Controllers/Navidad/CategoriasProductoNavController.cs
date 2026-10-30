@@ -2,12 +2,14 @@ using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.DTOs.Plantillas;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
 [ApiController]
 [Route("api/Navidad/CategoriasProducto")]
 [Produces("application/json")]
+[Menu(112)]
 public class CategoriasProductoNavController : BaseController
 {
     private readonly ICategoriaProductoNavService _servicio;

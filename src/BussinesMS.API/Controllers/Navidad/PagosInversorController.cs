@@ -1,12 +1,14 @@
 using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
 [ApiController]
 [Route("api/Navidad/PagosInversor")]
 [Produces("application/json")]
+[Menu(104)]
 public class PagosInversorController : BaseController
 {
     private readonly IPagoInversorService _servicio;

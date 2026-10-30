@@ -1,12 +1,14 @@
 using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
 [ApiController]
 [Route("api/Navidad/Traslados")]
 [Produces("application/json")]
+[Menu(142)]
 public class TrasladosNavController : BaseController
 {
     private readonly ITrasladoNavService _servicio;
@@ -39,6 +41,7 @@ public class TrasladosNavController : BaseController
         return RespuestaCreado(resultado, "Traslado registrado");
     }
 
+    [Menu(142, Flag = FlagMenu.Eliminar)]
     [HttpPost("{id:int}/anular")]
     public async Task<IActionResult> Anular(int id)
     {

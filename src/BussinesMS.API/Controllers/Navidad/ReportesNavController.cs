@@ -1,6 +1,7 @@
 using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
@@ -8,6 +9,7 @@ namespace BussinesMS.API.Controllers.Navidad;
 [ApiController]
 [Route("api/Navidad/Reportes")]
 [Produces("application/json")]
+[SoloAdmin]
 public class ReportesNavController : BaseController
 {
     private readonly IReportesNavService _servicio;

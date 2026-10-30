@@ -1,12 +1,14 @@
 using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using Microsoft.AspNetCore.Mvc;
+using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
 [ApiController]
 [Route("api/Navidad/Pedidos")]
 [Produces("application/json")]
+[SoloAdmin]
 public class PedidosNavController : BaseController
 {
     private readonly IPedidoNavService _servicio;
@@ -16,6 +18,8 @@ public class PedidosNavController : BaseController
         _servicio = servicio;
     }
 
+    // El form de recepción elige el pedido: admin o "Puede hacer recepciones"
+    [RequierePuedeHacerRecepciones]
     [HttpGet]
     public async Task<IActionResult> ObtenerTodos([FromQuery] PedidoNavFiltroDto query)
     {
@@ -23,6 +27,7 @@ public class PedidosNavController : BaseController
         return RespuestaOk(resultado);
     }
 
+    [RequierePuedeHacerRecepciones]
     [HttpGet("{id:int}")]
     public async Task<IActionResult> ObtenerPorId(int id)
     {
