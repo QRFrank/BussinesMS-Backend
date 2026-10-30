@@ -57,7 +57,7 @@ public class ProductoRepository : IProductoRepository
 
     public async Task<Producto> CrearAsync(Producto entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
         entidad.IsActive = true;
@@ -68,7 +68,7 @@ public class ProductoRepository : IProductoRepository
 
     public async Task<Producto> ActualizarAsync(Producto entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.UpdatedByUsuarioId = usuarioId;
         entidad.UpdatedAt = DateTime.UtcNow;
         _context.Productos.Update(entidad);
@@ -81,7 +81,7 @@ public class ProductoRepository : IProductoRepository
         var entidad = await _context.Productos.FindAsync(id);
         if (entidad == null) return;
 
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.DeletedByUsuarioId = usuarioId;
         entidad.DeletedAt = DateTime.UtcNow;
         entidad.IsActive = false;

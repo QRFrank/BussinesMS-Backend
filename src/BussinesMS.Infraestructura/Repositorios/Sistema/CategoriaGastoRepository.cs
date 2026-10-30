@@ -42,7 +42,7 @@ public class CategoriaGastoRepository : ICategoriaGastoRepository
 
     public async Task<CategoriaGasto> CrearAsync(CategoriaGasto entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
         entidad.IsActive = true;
@@ -53,7 +53,7 @@ public class CategoriaGastoRepository : ICategoriaGastoRepository
 
     public async Task<CategoriaGasto> ActualizarAsync(CategoriaGasto entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.UpdatedByUsuarioId = usuarioId;
         entidad.UpdatedAt = DateTime.UtcNow;
         _context.CategoriasGasto.Update(entidad);
@@ -66,7 +66,7 @@ public class CategoriaGastoRepository : ICategoriaGastoRepository
         var entidad = await _context.CategoriasGasto.FindAsync(id);
         if (entidad == null) return;
 
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.DeletedByUsuarioId = usuarioId;
         entidad.DeletedAt = DateTime.UtcNow;
         entidad.IsActive = false;

@@ -40,7 +40,7 @@ public class ProveedorRepository : IProveedorRepository
 
     public async Task<Proveedor> CrearAsync(Proveedor entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
         entidad.IsActive = true;
@@ -51,7 +51,7 @@ public class ProveedorRepository : IProveedorRepository
 
     public async Task<Proveedor> ActualizarAsync(Proveedor entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.UpdatedByUsuarioId = usuarioId;
         entidad.UpdatedAt = DateTime.UtcNow;
         _context.Proveedores.Update(entidad);
@@ -64,7 +64,7 @@ public class ProveedorRepository : IProveedorRepository
         var entidad = await _context.Proveedores.FindAsync(id);
         if (entidad == null) return;
 
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.DeletedByUsuarioId = usuarioId;
         entidad.DeletedAt = DateTime.UtcNow;
         entidad.IsActive = false;

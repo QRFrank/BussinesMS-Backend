@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using BussinesMS.Aplicacion.Interfaces.Auth;
 using BussinesMS.Aplicacion.DTOs.Auth;
@@ -16,6 +17,7 @@ public class SistemasController : BaseController
         _servicio = servicio;
     }
 
+    [AllowAnonymous] // la pantalla de login lo carga antes de tener sesion (solo id y nombre)
     [HttpGet]
     public async Task<IActionResult> ObtenerTodos([FromQuery] GenericPaginationQueryDto query)
     {

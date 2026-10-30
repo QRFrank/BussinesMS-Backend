@@ -38,7 +38,7 @@ public class GastoOperativoRepository : IGastoOperativoRepository
 
     public async Task<GastoOperativo> CrearAsync(GastoOperativo entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
         entidad.IsActive = true;
@@ -49,7 +49,7 @@ public class GastoOperativoRepository : IGastoOperativoRepository
 
     public async Task<GastoOperativo> ActualizarAsync(GastoOperativo entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.UpdatedByUsuarioId = usuarioId;
         entidad.UpdatedAt = DateTime.UtcNow;
         _context.GastosOperativos.Update(entidad);
@@ -63,7 +63,7 @@ public class GastoOperativoRepository : IGastoOperativoRepository
         if (entidad == null) return;
 
         // Siempre soft-delete (anulación)
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.DeletedByUsuarioId = usuarioId;
         entidad.DeletedAt = DateTime.UtcNow;
         entidad.IsActive = false;

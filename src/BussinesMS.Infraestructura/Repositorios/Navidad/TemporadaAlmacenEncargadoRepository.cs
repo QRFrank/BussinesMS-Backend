@@ -32,7 +32,7 @@ public class TemporadaAlmacenEncargadoRepository : NavidadRepositorioBase<Tempor
         // Se guarda el borrado antes de insertar para no chocar con el índice único
         await _contexto.SaveChangesAsync();
 
-        var adminId = _currentUser.GetUsuarioId() ?? 1;
+        var adminId = _currentUser.ObtenerUsuarioIdRequerido();
         var ahora = DateTime.UtcNow;
         foreach (var usuarioId in usuarioIds.Distinct())
         {

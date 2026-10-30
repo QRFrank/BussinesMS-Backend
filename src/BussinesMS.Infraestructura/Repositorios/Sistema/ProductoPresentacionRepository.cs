@@ -58,7 +58,7 @@ public class ProductoPresentacionRepository : IProductoPresentacionRepository
 
     public async Task<ProductoPresentacion> CrearAsync(ProductoPresentacion entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
         entidad.IsActive = true;
@@ -69,7 +69,7 @@ public class ProductoPresentacionRepository : IProductoPresentacionRepository
 
     public async Task<ProductoPresentacion> ActualizarAsync(ProductoPresentacion entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.UpdatedByUsuarioId = usuarioId;
         entidad.UpdatedAt = DateTime.UtcNow;
         _context.ProductoPresentaciones.Update(entidad);
@@ -82,7 +82,7 @@ public class ProductoPresentacionRepository : IProductoPresentacionRepository
         var entidad = await _context.ProductoPresentaciones.FindAsync(id);
         if (entidad == null) return;
 
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.DeletedByUsuarioId = usuarioId;
         entidad.DeletedAt = DateTime.UtcNow;
         entidad.IsActive = false;
@@ -96,7 +96,7 @@ public class ProductoPresentacionRepository : IProductoPresentacionRepository
             .Where(x => x.VarianteId == varianteId && x.IsActive)
             .ToListAsync();
 
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         foreach (var p in presentaciones)
         {
             p.IsActive = false;

@@ -37,7 +37,7 @@ public class SesionCajaService : ISesionCajaService
     {
         try
         {
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
 
             var existente = await _repo.ObtenerAbiertaPorUsuarioAsync(usuarioId, dto.AlmacenId);
             if (existente != null)

@@ -353,7 +353,7 @@ public class VentaNavService : IVentaNavService
             if (!desdeCierre)
                 await _conteo.VerificarAperturaParaVentaAsync(dto.AlmacenId);
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
             var hoy = BoliviaTimeZone.Now().Date;
 
@@ -528,7 +528,7 @@ public class VentaNavService : IVentaNavService
             if (aSumarEnEntrega > 0)
                 await _conteo.VerificarAperturaParaVentaAsync(almacenVentaId);
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             await _uow.BeginTransactionAsync();
@@ -658,7 +658,7 @@ public class VentaNavService : IVentaNavService
             var (esAdmin, vendedorActual) = await ObtenerPermisosAsync(venta.TemporadaId);
             VerificarPropietario(venta, esAdmin, vendedorActual);
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             await _uow.BeginTransactionAsync();
@@ -729,7 +729,7 @@ public class VentaNavService : IVentaNavService
                 await _acceso.VerificarAlmacenAsync(venta.TemporadaId, dto.AlmacenId.Value);
             }
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             await _uow.BeginTransactionAsync();
@@ -792,7 +792,7 @@ public class VentaNavService : IVentaNavService
             var (esAdmin, vendedorActual) = await ObtenerPermisosAsync(venta.TemporadaId);
             VerificarPropietario(venta, esAdmin, vendedorActual);
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             await _uow.BeginTransactionAsync();
@@ -839,7 +839,7 @@ public class VentaNavService : IVentaNavService
             var (esAdmin, vendedorActual) = await ObtenerPermisosAsync(venta.TemporadaId);
             VerificarPropietario(venta, esAdmin, vendedorActual);
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             await _uow.BeginTransactionAsync();

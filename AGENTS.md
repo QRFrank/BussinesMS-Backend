@@ -796,6 +796,12 @@ For crear-modulo-crud:
 
 - URL: `https://localhost:5001/swagger` (or configured port)
 - JSON: `https://localhost:5001/swagger/v1/swagger.json`
+
+### Autenticación (fase 1 de permisos, 2026-10-30)
+
+- **Toda la API exige sesión** (`FallbackPolicy = RequireAuthenticatedUser`). Anónimos solo `POST /api/Usuarios/login` y `GET /api/Sistemas`. Sin token o token vencido: 401 JSON `{ success:false, message, errorCode:"NO_AUTENTICADO" }`; 403: `errorCode:"SIN_PERMISO"`.
+- **Swagger** (solo en Development; apagado en producción): `POST /api/Usuarios/login` > copiar `data.token` > botón **Authorize** > pegar solo el token (sin `Bearer`). `persistAuthorization` lo conserva entre recargas. El token vence todos los días a las 05:00 UTC; no hay refresh, se vuelve a loguear.
+- En código: `_currentUser.ObtenerUsuarioIdRequerido()` (devuelve el id o lanza 401). **Nunca** usar `GetUsuarioId() ?? 1`. Procesos sin request (`VencimientoLotesJob`) hacen `SetUser(UsuarioDeSistema.Id, ...)` explícito (`UsuarioDeSistema.Id = 1`, el admin del seed).
 - Enable in Development environment only
 
 ## Dependencies Between Projects

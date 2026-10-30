@@ -41,7 +41,7 @@ public class TemporadaRepository : NavidadRepositorioBase<Temporada>, ITemporada
         var actuales = await set.Where(x => x.TemporadaId == temporadaId).ToListAsync();
         set.RemoveRange(actuales);
 
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         var ahora = DateTime.UtcNow;
         foreach (var almacenId in almacenIds.Distinct())
         {

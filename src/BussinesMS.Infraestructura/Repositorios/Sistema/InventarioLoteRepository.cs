@@ -44,7 +44,7 @@ public class InventarioLoteRepository : IInventarioLoteRepository
 
     public async Task<InventarioLote> CrearAsync(InventarioLote entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
         entidad.IsActive = true;
@@ -55,7 +55,7 @@ public class InventarioLoteRepository : IInventarioLoteRepository
 
     public async Task<InventarioLote> CrearSinGuardarAsync(InventarioLote entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
         entidad.IsActive = true;
@@ -65,7 +65,7 @@ public class InventarioLoteRepository : IInventarioLoteRepository
 
     public async Task<InventarioLote> ActualizarAsync(InventarioLote entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.UpdatedByUsuarioId = usuarioId;
         entidad.UpdatedAt = DateTime.UtcNow;
         _context.InventarioLotes.Update(entidad);
@@ -78,7 +78,7 @@ public class InventarioLoteRepository : IInventarioLoteRepository
         var entidad = await _context.InventarioLotes.FindAsync(id);
         if (entidad == null) return;
 
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.DeletedByUsuarioId = usuarioId;
         entidad.DeletedAt = DateTime.UtcNow;
         entidad.IsActive = false;

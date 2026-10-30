@@ -110,7 +110,7 @@ public class InventarioLoteAlmacenRepository : IInventarioLoteAlmacenRepository
 
     public async Task<InventarioLoteAlmacen> CrearAsync(InventarioLoteAlmacen entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
         entidad.IsActive = true;
@@ -121,7 +121,7 @@ public class InventarioLoteAlmacenRepository : IInventarioLoteAlmacenRepository
 
     public async Task<InventarioLoteAlmacen> CrearSinGuardarAsync(InventarioLoteAlmacen entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
         entidad.IsActive = true;
@@ -131,7 +131,7 @@ public class InventarioLoteAlmacenRepository : IInventarioLoteAlmacenRepository
 
     public async Task<InventarioLoteAlmacen> ActualizarAsync(InventarioLoteAlmacen entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.UpdatedByUsuarioId = usuarioId;
         entidad.UpdatedAt = DateTime.UtcNow;
         _context.InventarioLoteAlmacenes.Update(entidad);
@@ -144,7 +144,7 @@ public class InventarioLoteAlmacenRepository : IInventarioLoteAlmacenRepository
         var entidad = await _context.InventarioLoteAlmacenes.FindAsync(id);
         if (entidad == null) return;
 
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.DeletedByUsuarioId = usuarioId;
         entidad.DeletedAt = DateTime.UtcNow;
         entidad.IsActive = false;

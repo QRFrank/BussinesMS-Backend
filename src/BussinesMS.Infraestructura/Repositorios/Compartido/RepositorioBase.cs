@@ -35,7 +35,7 @@ public class RepositorioBase<T> : IRepositorio<T> where T : EntidadBase
 
     public virtual async Task<T> CrearAsync(T entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
         
@@ -63,7 +63,7 @@ public class RepositorioBase<T> : IRepositorio<T> where T : EntidadBase
         var entidad = await _dbSet.FindAsync(id);
         if (entidad == null) return;
 
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.DeletedByUsuarioId = usuarioId;
         entidad.DeletedAt = DateTime.UtcNow;
         entidad.IsActive = false;

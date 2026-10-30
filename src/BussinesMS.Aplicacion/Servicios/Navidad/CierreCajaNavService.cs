@@ -135,7 +135,7 @@ public class CierreCajaNavService : ICierreCajaNavService
                 throw new ValidacionException(
                     $"Hay una diferencia de {diferencia} entre lo entregado y lo esperado ({resumen.EfectivoEsperado}): la observación es obligatoria");
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var entidad = new CierreCajaTienda
             {
                 TemporadaId = temporada.Id,

@@ -38,7 +38,7 @@ public class SesionCajaRepository : ISesionCajaRepository
 
     public async Task<SesionCaja> CrearAsync(SesionCaja entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.UsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
@@ -50,7 +50,7 @@ public class SesionCajaRepository : ISesionCajaRepository
 
     public async Task<SesionCaja> CrearSinGuardarAsync(SesionCaja entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.UsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
@@ -61,7 +61,7 @@ public class SesionCajaRepository : ISesionCajaRepository
 
     public async Task<SesionCaja> ActualizarAsync(SesionCaja entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.UpdatedByUsuarioId = usuarioId;
         entidad.UpdatedAt = DateTime.UtcNow;
         _context.SesionesCaja.Update(entidad);

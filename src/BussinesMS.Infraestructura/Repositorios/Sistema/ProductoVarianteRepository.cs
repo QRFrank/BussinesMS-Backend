@@ -94,7 +94,7 @@ public class ProductoVarianteRepository : IProductoVarianteRepository
 
     public async Task<ProductoVariante> CrearAsync(ProductoVariante entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
         entidad.IsActive = true;
@@ -105,7 +105,7 @@ public class ProductoVarianteRepository : IProductoVarianteRepository
 
     public async Task<ProductoVariante> ActualizarAsync(ProductoVariante entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.UpdatedByUsuarioId = usuarioId;
         entidad.UpdatedAt = DateTime.UtcNow;
         _context.ProductoVariantes.Update(entidad);
@@ -118,7 +118,7 @@ public class ProductoVarianteRepository : IProductoVarianteRepository
         var entidad = await _context.ProductoVariantes.FindAsync(id);
         if (entidad == null) return;
 
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.DeletedByUsuarioId = usuarioId;
         entidad.DeletedAt = DateTime.UtcNow;
         entidad.IsActive = false;

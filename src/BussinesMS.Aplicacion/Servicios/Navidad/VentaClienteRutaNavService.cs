@@ -263,7 +263,7 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
 
             var salida = await ResolverSalidaAsync(temporada.Id, vendedor.Id, dto.SalidaRutaId);
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
             var fecha = (dto.Fecha ?? BoliviaTimeZone.Now()).Date;
 
@@ -471,7 +471,7 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
                 throw new ValidacionException($"El total no puede ser menor a lo ya cobrado (Bs {cobrado:0.00})");
 
             var nuevas = dto.Detalles.ToDictionary(l => l.ProductoId);
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             await _uow.BeginTransactionAsync();
@@ -576,7 +576,7 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
             if (monto > venta.Saldo)
                 throw new ValidacionException($"El monto no puede superar el saldo pendiente ({venta.Saldo:0.00})");
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             await _uow.BeginTransactionAsync();
@@ -624,7 +624,7 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
             if (cobro.Anulado)
                 throw new ValidacionException("El cobro ya está anulado");
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             await _uow.BeginTransactionAsync();
@@ -660,7 +660,7 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
             if (venta.Anulada)
                 throw new ValidacionException("La venta ya está anulada");
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             await _uow.BeginTransactionAsync();

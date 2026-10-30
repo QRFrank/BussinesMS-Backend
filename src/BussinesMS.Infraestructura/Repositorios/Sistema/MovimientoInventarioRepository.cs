@@ -23,8 +23,7 @@ public class MovimientoInventarioRepository : IMovimientoInventarioRepository
 
     public async Task<MovimientoInventario> CrearAsync(MovimientoInventario entidad)
     {
-        var rawId = _currentUser.GetUsuarioId();
-        var usuarioId = rawId is int id && id > 0 ? id : 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.UsuarioId = usuarioId;
         entidad.FechaMovimiento = DateTime.UtcNow;
         _context.MovimientosInventario.Add(entidad);
@@ -34,8 +33,7 @@ public class MovimientoInventarioRepository : IMovimientoInventarioRepository
 
     public async Task<MovimientoInventario> CrearSinGuardarAsync(MovimientoInventario entidad)
     {
-        var rawId = _currentUser.GetUsuarioId();
-        var usuarioId = rawId is int id && id > 0 ? id : 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.UsuarioId = usuarioId;
         entidad.FechaMovimiento = DateTime.UtcNow;
         _context.MovimientosInventario.Add(entidad);

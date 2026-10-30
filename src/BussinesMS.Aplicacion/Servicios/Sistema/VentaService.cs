@@ -71,10 +71,10 @@ public class VentaService : IVentaService
     {
         try
         {
-            // Visibilidad: un usuario que no es Admin solo ve sus ventas (sin token no se restringe)
-            var usuarioActualId = _currentUser.GetUsuarioId();
-            if (usuarioActualId.HasValue && !await EsAdminAsync())
-                query.UsuarioId = usuarioActualId.Value;
+            // Visibilidad: un usuario que no es Admin solo ve sus ventas (sin sesion: 401)
+            var usuarioActualId = _currentUser.ObtenerUsuarioIdRequerido();
+            if (!await EsAdminAsync())
+                query.UsuarioId = usuarioActualId;
 
             var activo = query.IsActive ?? true;
             var baseQuery = _ventaRepo.AsQueryable().Where(x => x.IsActive == activo);

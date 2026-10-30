@@ -49,11 +49,12 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new() { Title = "BussinesMS API", Version = "v1" });
     c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme",
+        Description = "Pegá solo el token JWT (sin la palabra Bearer).",
         Name = "Authorization",
         In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
     });
     c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
     {
@@ -119,15 +120,40 @@ builder.Services.AddAuthentication(options =>
         {
             var currentUser = context.HttpContext.RequestServices.GetRequiredService<ICurrentUserService>();
             var claims = context.Principal?.Claims;
-            var usuarioId = int.Parse(claims?.FirstOrDefault(c => c.Type == "sub")?.Value ?? "0");
+            // Un token sin "sub" valido no autentica: nunca se asume un usuario por defecto.
+            if (!int.TryParse(claims?.FirstOrDefault(c => c.Type == "sub")?.Value, out var usuarioId) || usuarioId <= 0)
+            {
+                context.Fail("Token sin usuario valido");
+                return Task.CompletedTask;
+            }
             var username = claims?.FirstOrDefault(c => c.Type == "unique_name")?.Value ?? "";
-            var rolId = int.Parse(claims?.FirstOrDefault(c => c.Type == "rolId")?.Value ?? "0");
+            int.TryParse(claims?.FirstOrDefault(c => c.Type == "rolId")?.Value, out var rolId);
 
             currentUser.SetUser(usuarioId, username, rolId);
             Console.WriteLine($"User authenticated: {username} (ID: {usuarioId})");
             return Task.CompletedTask;
+        },
+        // 401/403 en JSON con el mismo formato que ErrorHandlingMiddleware
+        OnChallenge = async context =>
+        {
+            context.HandleResponse();
+            await EscribirErrorAsync(context.HttpContext, 401, "NO_AUTENTICADO",
+                "La sesión venció o no existe. Iniciá sesión nuevamente.");
+        },
+        OnForbidden = async context =>
+        {
+            await EscribirErrorAsync(context.HttpContext, 403, "SIN_PERMISO",
+                "No tenés permiso para realizar esta acción.");
         }
     };
+});
+
+// Toda la API exige sesion salvo lo marcado con [AllowAnonymous] (login y GET /Sistemas)
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
 });
 
 Console.WriteLine("Configurando DbContexts...");
@@ -314,10 +340,13 @@ catch (Exception ex)
     Console.WriteLine($"Error en seed: {ex.Message}");
 }
 
-// Swagger siempre activo
-Console.WriteLine("Activando Swagger...");
-app.UseSwagger();
-app.UseSwaggerUI();
+// Swagger solo en Development (apagado en produccion)
+if (app.Environment.IsDevelopment())
+{
+    Console.WriteLine("Activando Swagger...");
+    app.UseSwagger();
+    app.UseSwaggerUI(c => c.ConfigObject.PersistAuthorization = true);
+}
 
 // Evita que el navegador cachee respuestas de la API (F5 mostraba datos viejos)
 app.Use(async (context, next) =>
@@ -353,3 +382,14 @@ var port = Environment.GetEnvironmentVariable("PORT") ?? "5001";
 app.Urls.Add($"http://0.0.0.0:{port}");
 
 app.Run();
+
+static async Task EscribirErrorAsync(HttpContext http, int status, string errorCode, string message)
+{
+    if (http.Response.HasStarted) return;
+    http.Response.StatusCode = status;
+    http.Response.ContentType = "application/json";
+    await http.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(
+        new { success = false, message, errorCode },
+        new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }));
+}
+

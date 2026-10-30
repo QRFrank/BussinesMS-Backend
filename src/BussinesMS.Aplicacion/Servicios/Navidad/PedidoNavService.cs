@@ -398,7 +398,7 @@ public class PedidoNavService : IPedidoNavService
     // El precio ya fue validado como obligatorio (ValidarPrecios).
     private List<PedidoDetalle> CrearDetalles(CrearPedidoNavDto dto)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         var ahora = DateTime.UtcNow;
         return dto.Detalles.Select(d => new PedidoDetalle
         {

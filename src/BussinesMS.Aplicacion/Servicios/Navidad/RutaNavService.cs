@@ -333,7 +333,7 @@ public class RutaNavService : IRutaNavService
                 if (!productos[l.ProductoId].IsActive)
                     throw new ValidacionException($"El producto {NombreMostrar(productos[l.ProductoId])} está inactivo");
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
             var hoy = BoliviaTimeZone.Now();
 
@@ -476,7 +476,7 @@ public class RutaNavService : IRutaNavService
                         $"No se pueden devolver {pedido} de {NombreMostrar(productos[g.Key])}: el vendedor solo tiene {Math.Max(0, enPoder)} en poder");
             }
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             var devolucion = new DevolucionRuta
@@ -569,7 +569,7 @@ public class RutaNavService : IRutaNavService
                 .OrderBy(x => x.ProductoId)
                 .ToList();
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
             var hoy = BoliviaTimeZone.Now();
 
@@ -726,7 +726,7 @@ public class RutaNavService : IRutaNavService
             foreach (var almacenId in carga.Detalles.Select(d => d.AlmacenOrigenId).Distinct())
                 await _acceso.VerificarAlmacenAsync(salida.TemporadaId, almacenId);
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             await _uow.BeginTransactionAsync();
@@ -782,7 +782,7 @@ public class RutaNavService : IRutaNavService
             foreach (var almacenId in devolucion.Detalles.Select(d => d.AlmacenDestinoId).Distinct())
                 await _acceso.VerificarAlmacenAsync(salida.TemporadaId, almacenId);
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             await _uow.BeginTransactionAsync();
@@ -830,7 +830,7 @@ public class RutaNavService : IRutaNavService
             if (otraAbierta)
                 throw new ExcepcionDominio("El vendedor ya tiene otra salida abierta: no se puede reabrir esta", 409, "SALIDA_ABIERTA_EXISTE");
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             VentaNav? venta = null;
@@ -897,7 +897,7 @@ public class RutaNavService : IRutaNavService
             foreach (var almacenId in cargas.SelectMany(c => c.Detalles).Select(d => d.AlmacenOrigenId).Distinct())
                 await _acceso.VerificarAlmacenAsync(salida.TemporadaId, almacenId);
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             await _uow.BeginTransactionAsync();
@@ -1147,7 +1147,7 @@ public class RutaNavService : IRutaNavService
                 productos = await _ventas.CargarProductosAsync(temporada.Id,
                     ventas.SelectMany(v => v.Detalles).Where(d => d.Unidades > 0).Select(d => d.ProductoId));
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
             var hoy = BoliviaTimeZone.Now().Date;
 
@@ -1256,7 +1256,7 @@ public class RutaNavService : IRutaNavService
                 .Where(v => ventaIds.Contains(v.Id))
                 .ToListAsync();
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             await _uow.BeginTransactionAsync();
@@ -1326,7 +1326,7 @@ public class RutaNavService : IRutaNavService
                 if (!existentes.ContainsKey(l.ProductoId))
                     throw new ValidacionException($"El producto {l.ProductoId} no está en la venta");
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             // Las líneas no indicadas quedan igual
@@ -1447,7 +1447,7 @@ public class RutaNavService : IRutaNavService
                     $"El nuevo neto ({nuevoNeto}) es menor a lo ya cobrado ({venta.MontoCobrado}): primero anule un cobro",
                     409, "NETO_MENOR_COBRADO");
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             var devolucion = new DevolucionRuta

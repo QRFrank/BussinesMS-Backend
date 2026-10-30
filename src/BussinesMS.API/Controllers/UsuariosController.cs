@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using BussinesMS.Aplicacion.DTOs.Auth;
 using BussinesMS.Aplicacion.Interfaces.Auth;
@@ -81,6 +82,7 @@ public class UsuariosController : BaseController
         return RespuestaOk(new { mensaje = "Usuario reactivado" }, "Usuario reactivado");
     }
 
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto login)
     {

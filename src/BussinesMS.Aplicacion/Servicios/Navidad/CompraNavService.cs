@@ -182,7 +182,7 @@ public class CompraNavService : ICompraNavService
             // Sin permiso "Ver precios de compra" no se puede pisar el costo del producto
             var puedeActualizarPrecio = await _precioAcceso.PuedeVerPreciosCompraAsync();
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             var compra = new Compra

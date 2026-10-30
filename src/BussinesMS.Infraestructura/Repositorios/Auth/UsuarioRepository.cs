@@ -63,7 +63,7 @@ public class UsuarioRepository : RepositorioBase<Usuario>, IUsuarioRepository
     public async Task<Usuario> ReactivarAsync(int id)
     {
         var entidad = await _dbSet.FindAsync(id);
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad!.IsActive = true;
         entidad.UpdatedAt = DateTime.UtcNow;
         entidad.UpdatedByUsuarioId = usuarioId;

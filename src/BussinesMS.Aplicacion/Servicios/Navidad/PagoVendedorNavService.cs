@@ -391,7 +391,7 @@ public class PagoVendedorNavService : IPagoVendedorNavService
             if (vendedor == null)
                 throw new ValidacionException("El vendedor no existe, está inactivo o no es de la temporada");
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
             var pago = new PagoVendedor
             {
@@ -517,7 +517,7 @@ public class PagoVendedorNavService : IPagoVendedorNavService
             await _temporadaActual.VerificarEditableAsync(pago.TemporadaId);
 
             pago.Anulado = true;
-            Tocar(pago, _currentUser.GetUsuarioId() ?? 1, DateTime.UtcNow);
+            Tocar(pago, _currentUser.ObtenerUsuarioIdRequerido(), DateTime.UtcNow);
             await _uow.SaveChangesAsync();
 
             _logger.LogInformation("Pago a vendedor {Id} anulado", id);

@@ -281,7 +281,7 @@ public class ReservaCoberturaNavService : IReservaCoberturaNavService
             .ToListAsync();
         if (bloqueos.Count == 0) return;
 
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         var ahora = DateTime.UtcNow;
         foreach (var b in bloqueos)
             ReservaBloqueoHelper.Desactivar(b, usuarioId, ahora);

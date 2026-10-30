@@ -295,7 +295,7 @@ public class StockNavService : IStockNavService
             Tipo = tipo,
             ReferenciaTipo = referenciaTipo,
             ReferenciaId = referenciaId,
-            UsuarioId = _currentUser.GetUsuarioId() ?? 1,
+            UsuarioId = _currentUser.ObtenerUsuarioIdRequerido(),
             Fecha = DateTime.UtcNow,
             Motivo = motivo
         });

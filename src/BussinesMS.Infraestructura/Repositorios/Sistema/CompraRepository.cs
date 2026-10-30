@@ -48,7 +48,7 @@ public class CompraRepository : ICompraRepository
 
     public async Task<Compra> CrearAsync(Compra entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.UsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
@@ -61,7 +61,7 @@ public class CompraRepository : ICompraRepository
 
     public async Task<Compra> CrearSinGuardarAsync(Compra entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.UsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
@@ -72,7 +72,7 @@ public class CompraRepository : ICompraRepository
 
     public async Task<Compra> ActualizarAsync(Compra entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.UpdatedByUsuarioId = usuarioId;
         entidad.UpdatedAt = DateTime.UtcNow;
         _context.Compras.Update(entidad);
@@ -85,7 +85,7 @@ public class CompraRepository : ICompraRepository
         var entidad = await _context.Compras.FindAsync(id);
         if (entidad == null) return;
 
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.DeletedByUsuarioId = usuarioId;
         entidad.DeletedAt = DateTime.UtcNow;
         entidad.IsActive = false;

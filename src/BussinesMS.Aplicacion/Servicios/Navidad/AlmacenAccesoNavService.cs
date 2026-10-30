@@ -52,13 +52,14 @@ public class AlmacenAccesoNavService : IAlmacenAccesoNavService
     }
 
     public async Task<List<int>?> ObtenerRestriccionAsync(int temporadaId)
-        => await EsEncargadoAsync() ? await ObtenerAlmacenesACargoAsync(temporadaId) : null;
+        => _currentUser.ObtenerUsuarioIdRequerido() > 0 && await EsEncargadoAsync() ? await ObtenerAlmacenesACargoAsync(temporadaId) : null;
 
     public async Task VerificarAlmacenAsync(int temporadaId, int almacenId)
         => await VerificarAlmacenesAsync(temporadaId, new[] { almacenId });
 
     public async Task VerificarAlmacenesAsync(int temporadaId, IEnumerable<int> almacenIds)
     {
+        _currentUser.ObtenerUsuarioIdRequerido(); // sin sesion no se habilita nada (401)
         if (!await EsEncargadoAsync()) return;
 
         var aCargo = await ObtenerAlmacenesACargoAsync(temporadaId);

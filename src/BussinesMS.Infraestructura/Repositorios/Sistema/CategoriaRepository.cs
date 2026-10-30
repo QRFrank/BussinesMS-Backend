@@ -74,7 +74,7 @@ public class CategoriaRepository : ICategoriaRepository
 
     public async Task<Categoria> CrearAsync(Categoria entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
         entidad.IsActive = true;
@@ -103,7 +103,7 @@ public class CategoriaRepository : ICategoriaRepository
         var entidad = await _context.Categorias.FindAsync(id);
         if (entidad == null) return;
 
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.DeletedByUsuarioId = usuarioId;
         entidad.DeletedAt = DateTime.UtcNow;
         entidad.IsActive = false;
@@ -117,7 +117,7 @@ public class CategoriaRepository : ICategoriaRepository
         if (entidad == null)
             throw new EntidadNoEncontradaException("Categoría", id);
 
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.UpdatedByUsuarioId = usuarioId;
         entidad.UpdatedAt = DateTime.UtcNow;
         entidad.DeletedAt = null;

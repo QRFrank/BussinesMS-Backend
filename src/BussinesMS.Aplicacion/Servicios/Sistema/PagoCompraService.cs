@@ -173,7 +173,7 @@ public class PagoCompraService : IPagoCompraService
                 MontoExterno = dto.MontoExterno,
                 FechaPago = DateTime.UtcNow,
                 SesionCajaId = dto.SesionCajaId,
-                PagadoPorUsuarioId = _currentUser.GetUsuarioId() ?? 1,
+                PagadoPorUsuarioId = _currentUser.ObtenerUsuarioIdRequerido(),
                 Observacion = string.IsNullOrWhiteSpace(dto.Observacion) ? null : dto.Observacion.Trim()
             };
 

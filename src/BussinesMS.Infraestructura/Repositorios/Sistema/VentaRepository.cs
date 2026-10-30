@@ -51,7 +51,7 @@ public class VentaRepository : IVentaRepository
 
     public async Task<Venta> CrearAsync(Venta entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.UsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
@@ -64,7 +64,7 @@ public class VentaRepository : IVentaRepository
 
     public async Task<Venta> CrearSinGuardarAsync(Venta entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.UsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
@@ -75,7 +75,7 @@ public class VentaRepository : IVentaRepository
 
     public async Task<Venta> ActualizarAsync(Venta entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.UpdatedByUsuarioId = usuarioId;
         entidad.UpdatedAt = DateTime.UtcNow;
         _context.Ventas.Update(entidad);
@@ -88,7 +88,7 @@ public class VentaRepository : IVentaRepository
         var entidad = await _context.Ventas.FindAsync(id);
         if (entidad == null) return;
 
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.DeletedByUsuarioId = usuarioId;
         entidad.DeletedAt = DateTime.UtcNow;
         entidad.IsActive = false;

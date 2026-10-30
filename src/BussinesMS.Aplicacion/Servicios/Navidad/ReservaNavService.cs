@@ -210,7 +210,7 @@ public class ReservaNavService : IReservaNavService
                     .Select(l => (l.ProductoId, NombreMostrar(productos[l.ProductoId]), l.Unidades - bloqueos[l.ProductoId].Sum(b => b.Unidades)))
                     .ToList());
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
             var hoy = BoliviaTimeZone.Now().Date;
 
@@ -388,7 +388,7 @@ public class ReservaNavService : IReservaNavService
             }
             await _cobertura.ValidarCoberturaAsync(venta.TemporadaId, aValidar, venta.Id);
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             await _uow.BeginTransactionAsync();
@@ -596,7 +596,7 @@ public class ReservaNavService : IReservaNavService
             // Sale stock del almacén: exige apertura de hoy si es tienda con conteo
             await _conteo.VerificarAperturaParaVentaAsync(dto.AlmacenId);
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
             var hoy = BoliviaTimeZone.Now().Date;
 
@@ -679,7 +679,7 @@ public class ReservaNavService : IReservaNavService
             if (unidades <= 0 || unidades > bloqueo.Unidades)
                 throw new ValidacionException($"Las unidades a liberar deben estar entre 1 y {bloqueo.Unidades}");
 
-            ReservaBloqueoHelper.Liberar(new[] { bloqueo }, unidades, _currentUser.GetUsuarioId() ?? 1, DateTime.UtcNow);
+            ReservaBloqueoHelper.Liberar(new[] { bloqueo }, unidades, _currentUser.ObtenerUsuarioIdRequerido(), DateTime.UtcNow);
             await _uow.SaveChangesAsync();
 
             _logger.LogInformation("Reserva {Id}: bloqueo {BloqueoId} liberado ({Unidades} u)", ventaId, dto.BloqueoId, unidades);

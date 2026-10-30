@@ -46,7 +46,7 @@ public class TipoPresentacionRepository : ITipoPresentacionRepository
 
     public async Task<TipoPresentacion> CrearAsync(TipoPresentacion entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
         entidad.IsActive = true;
@@ -57,7 +57,7 @@ public class TipoPresentacionRepository : ITipoPresentacionRepository
 
     public async Task<TipoPresentacion> ActualizarAsync(TipoPresentacion entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.UpdatedByUsuarioId = usuarioId;
         entidad.UpdatedAt = DateTime.UtcNow;
         _context.TiposPresentacion.Update(entidad);
@@ -70,7 +70,7 @@ public class TipoPresentacionRepository : ITipoPresentacionRepository
         var entidad = await _context.TiposPresentacion.FindAsync(id);
         if (entidad == null) return;
 
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.DeletedByUsuarioId = usuarioId;
         entidad.DeletedAt = DateTime.UtcNow;
         entidad.IsActive = false;

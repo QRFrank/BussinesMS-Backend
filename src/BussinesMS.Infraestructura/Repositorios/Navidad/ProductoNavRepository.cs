@@ -48,7 +48,7 @@ public class ProductoNavRepository : NavidadRepositorioBase<Producto>, IProducto
 
     public async Task CambiarEstadoAsync(Producto entidad, bool isActive)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         var ahora = DateTime.UtcNow;
         entidad.IsActive = isActive;
         entidad.UpdatedAt = ahora;

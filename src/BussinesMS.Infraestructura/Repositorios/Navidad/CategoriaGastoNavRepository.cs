@@ -52,7 +52,7 @@ public class CategoriaGastoNavRepository : NavidadRepositorioBase<CategoriaGasto
             CategoriaGastoId = categoriaId,
             TemporadaId = temporadaId,
             CreatedAt = DateTime.UtcNow,
-            CreatedByUsuarioId = _currentUser.GetUsuarioId() ?? 1
+            CreatedByUsuarioId = _currentUser.ObtenerUsuarioIdRequerido()
         });
         await _contexto.SaveChangesAsync();
     }
@@ -67,7 +67,7 @@ public class CategoriaGastoNavRepository : NavidadRepositorioBase<CategoriaGasto
             .Select(v => v.CategoriaGastoId)
             .ToListAsync();
 
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         var ahora = DateTime.UtcNow;
         foreach (var id in categoriaIds.Except(yaLigadas))
         {

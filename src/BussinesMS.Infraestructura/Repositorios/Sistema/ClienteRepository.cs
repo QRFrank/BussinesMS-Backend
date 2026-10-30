@@ -46,7 +46,7 @@ public class ClienteRepository : IClienteRepository
 
     public async Task<Cliente> CrearAsync(Cliente entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
         entidad.IsActive = true;
@@ -57,7 +57,7 @@ public class ClienteRepository : IClienteRepository
 
     public async Task<Cliente> ActualizarAsync(Cliente entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.UpdatedByUsuarioId = usuarioId;
         entidad.UpdatedAt = DateTime.UtcNow;
         _context.Clientes.Update(entidad);
@@ -70,7 +70,7 @@ public class ClienteRepository : IClienteRepository
         var entidad = await _context.Clientes.FindAsync(id);
         if (entidad == null) return;
 
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.DeletedByUsuarioId = usuarioId;
         entidad.DeletedAt = DateTime.UtcNow;
         entidad.IsActive = false;
@@ -81,7 +81,7 @@ public class ClienteRepository : IClienteRepository
     public async Task<Cliente> ReactivarAsync(int id)
     {
         var entidad = await _context.Clientes.FindAsync(id);
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad!.IsActive = true;
         entidad.UpdatedAt = DateTime.UtcNow;
         entidad.UpdatedByUsuarioId = usuarioId;

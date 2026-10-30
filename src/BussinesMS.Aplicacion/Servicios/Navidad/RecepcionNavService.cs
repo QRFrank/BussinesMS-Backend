@@ -200,7 +200,7 @@ public class RecepcionNavService : IRecepcionNavService
                     .ToDictionaryAsync(x => x.ProductoId, x => x.Total);
             }
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             var recepcion = new Recepcion

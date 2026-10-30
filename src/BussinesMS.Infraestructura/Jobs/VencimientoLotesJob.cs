@@ -64,6 +64,9 @@ public class VencimientoLotesJob : BackgroundService
     private async Task ProcesarAsync()
     {
         using var scope = _scopeFactory.CreateScope();
+        // Proceso sin request: actua como usuario de sistema explicito
+        scope.ServiceProvider.GetRequiredService<BussinesMS.Aplicacion.Seguridad.ICurrentUserService>()
+            .SetUser(BussinesMS.Aplicacion.Seguridad.UsuarioDeSistema.Id, BussinesMS.Aplicacion.Seguridad.UsuarioDeSistema.Username, 0);
         var vencimientoService = scope.ServiceProvider
             .GetRequiredService<IVencimientoLoteService>();
 

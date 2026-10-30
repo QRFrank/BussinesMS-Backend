@@ -118,7 +118,7 @@ public class AlmacenService : IAlmacenService
             almacen.Direccion = string.IsNullOrWhiteSpace(dto.Direccion) ? null : dto.Direccion.Trim();
             almacen.IsActive = dto.IsActive;
             almacen.UpdatedAt = DateTime.UtcNow;
-            almacen.UpdatedByUsuarioId = _currentUser.GetUsuarioId() ?? 1;
+            almacen.UpdatedByUsuarioId = _currentUser.ObtenerUsuarioIdRequerido();
 
             var resultado = await _repositorio.ActualizarAsync(almacen);
             return _mapper.Map<AlmacenDto>(resultado);

@@ -32,7 +32,7 @@ public class PagoCompraRepository : IPagoCompraRepository
 
     public async Task<PagoCompra> CrearAsync(PagoCompra entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
         entidad.IsActive = true;
@@ -43,7 +43,7 @@ public class PagoCompraRepository : IPagoCompraRepository
 
     public async Task<PagoCompra> CrearSinGuardarAsync(PagoCompra entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
         entidad.IsActive = true;
@@ -53,7 +53,7 @@ public class PagoCompraRepository : IPagoCompraRepository
 
     public async Task<PagoCompra> ActualizarAsync(PagoCompra entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.UpdatedByUsuarioId = usuarioId;
         entidad.UpdatedAt = DateTime.UtcNow;
         _context.PagosCompra.Update(entidad);
@@ -66,7 +66,7 @@ public class PagoCompraRepository : IPagoCompraRepository
         var entidad = await _context.PagosCompra.FindAsync(id);
         if (entidad == null) return;
 
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.DeletedByUsuarioId = usuarioId;
         entidad.DeletedAt = DateTime.UtcNow;
         entidad.IsActive = false;

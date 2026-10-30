@@ -356,7 +356,7 @@ public class ConteoNavService : IConteoNavService
                     "Falta registrar la entrega de caja del cierre anterior", 409, "CAJA_PENDIENTE");
             }
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             var conteo = new ConteoInventario

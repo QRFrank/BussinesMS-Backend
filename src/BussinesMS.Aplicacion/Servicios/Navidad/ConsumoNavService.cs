@@ -196,7 +196,7 @@ public class ConsumoNavService : IConsumoNavService
             // Baja stock de ese almacén: exige apertura de hoy si es tienda con conteo
             await _conteo.VerificarAperturaParaVentaAsync(dto.AlmacenId);
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
 
             var consumo = new ConsumoNav

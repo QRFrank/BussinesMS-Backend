@@ -32,7 +32,7 @@ public class DevolucionClienteRepository : IDevolucionClienteRepository
 
     public async Task<DevolucionCliente> CrearAsync(DevolucionCliente entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.UsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
@@ -44,7 +44,7 @@ public class DevolucionClienteRepository : IDevolucionClienteRepository
 
     public async Task<DevolucionCliente> ActualizarAsync(DevolucionCliente entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.UpdatedByUsuarioId = usuarioId;
         entidad.UpdatedAt = DateTime.UtcNow;
         _context.DevolucionesClientes.Update(entidad);

@@ -37,7 +37,7 @@ public class DescripcionSaborRepository : IDescripcionSaborRepository
 
     public async Task<DescripcionSabor> CrearAsync(DescripcionSabor entidad)
     {
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.CreatedByUsuarioId = usuarioId;
         entidad.CreatedAt = DateTime.UtcNow;
         entidad.IsActive = true;
@@ -94,7 +94,7 @@ public class DescripcionSaborRepository : IDescripcionSaborRepository
         if (entidad == null)
             throw new Exception("Sabor no encontrado");
 
-        var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+        var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
         entidad.UpdatedByUsuarioId = usuarioId;
         entidad.UpdatedAt = DateTime.UtcNow;
         entidad.DeletedAt = null;

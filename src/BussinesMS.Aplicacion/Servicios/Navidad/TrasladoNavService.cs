@@ -206,7 +206,7 @@ public class TrasladoNavService : ITrasladoNavService
                     $"Stock insuficiente en '{almacenes[dto.AlmacenOrigenId]}': {string.Join("; ", faltantes)}",
                     409, "STOCK_INSUFICIENTE");
 
-            var usuarioId = _currentUser.GetUsuarioId() ?? 1;
+            var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
             var motivo = NormalizarTexto(dto.Motivo);
 
