@@ -6,6 +6,8 @@ namespace BussinesMS.Aplicacion.Interfaces.Navidad;
 public interface IVentaNavService
 {
     Task<PagedResultDto<VentaNavDto>> ObtenerTodosAsync(VentaNavFiltroDto query);
+    // "Mis ventas" de tienda: canal Tienda y vendedor = el vinculado al usuario logueado (se ignora el vendedor/canal del query)
+    Task<(PagedResultDto<VentaNavDto> Resultado, bool TieneVendedor)> ObtenerMiasAsync(VentaNavFiltroDto query);
     Task<VentaNavDto?> ObtenerPorIdAsync(int id);
 
     // {esAdmin, vendedorActual?} del usuario logueado en la temporada abierta

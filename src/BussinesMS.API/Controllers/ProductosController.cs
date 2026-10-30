@@ -9,7 +9,7 @@ namespace BussinesMS.API.Controllers;
 [ApiController]
 [Route("api/Sistema/[controller]")]
 [Produces("application/json")]
-[SoloAdmin]
+[Menu(8, 7)]
 public class ProductosController : BaseController
 {
     private readonly IProductoService _servicio;

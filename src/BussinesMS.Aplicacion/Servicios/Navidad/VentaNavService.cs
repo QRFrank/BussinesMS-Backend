@@ -217,6 +217,36 @@ public class VentaNavService : IVentaNavService
         }
     }
 
+    public async Task<(PagedResultDto<VentaNavDto> Resultado, bool TieneVendedor)> ObtenerMiasAsync(VentaNavFiltroDto query)
+    {
+        try
+        {
+            var temporadaId = await _temporadaActual.ResolverTemporadaIdAsync(query.TemporadaId);
+            var (_, vendedor) = await ObtenerPermisosAsync(temporadaId);
+
+            if (vendedor == null)
+            {
+                return (new PagedResultDto<VentaNavDto>
+                {
+                    Items = new List<VentaNavDto>(),
+                    TotalCount = 0,
+                    Page = query.GetPageValue(),
+                    PageSize = query.GetPageSizeValue()
+                }, false);
+            }
+
+            // Filtro forzado: lo que pida el query para canal y vendedor se ignora
+            query.Canal = (int)CanalVentaNav.Tienda;
+            query.VendedorId = vendedor.Id;
+            return (await ObtenerTodosAsync(query), true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener mis ventas");
+            throw;
+        }
+    }
+
     public async Task<VentaNavDto?> ObtenerPorIdAsync(int id)
     {
         try

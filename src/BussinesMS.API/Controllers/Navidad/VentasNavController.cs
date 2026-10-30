@@ -28,6 +28,17 @@ public class VentasNavController : BaseController
         return RespuestaOk(resultado);
     }
 
+    // "Mis ventas" del vendedor de tienda: solo las suyas (el cierre de caja usa GET Ventas)
+    [Menu(151)]
+    [HttpGet("mias")]
+    public async Task<IActionResult> ObtenerMias([FromQuery] VentaNavFiltroDto query)
+    {
+        var (resultado, tieneVendedor) = await _servicio.ObtenerMiasAsync(query);
+        return tieneVendedor
+            ? RespuestaOk(resultado)
+            : RespuestaOk(resultado, "Tu usuario no tiene un vendedor vinculado en la temporada: no hay ventas propias para mostrar.");
+    }
+
     [HttpGet("{id:int}")]
     public async Task<IActionResult> ObtenerPorId(int id)
     {
