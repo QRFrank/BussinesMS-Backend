@@ -20,11 +20,22 @@ public class PagosVendedoresNavController : BaseController
 
     [HttpGet("Contexto")]
     public async Task<IActionResult> ObtenerContexto()
-        => RespuestaOk(await _servicio.ObtenerContextoAsync());
+    {
+        var contexto = await _servicio.ObtenerContextoAsync();
+        return !contexto.EsAdmin && contexto.VendedorId == null
+            ? RespuestaOk(contexto, SinVendedorMensaje)
+            : RespuestaOk(contexto);
+    }
 
+    // Pantalla "Ventas por vendedor" (161): no-admin solo ve lo suyo; sin vendedor vinculado, lista vacía con mensaje
     [HttpGet("Reporte")]
     public async Task<IActionResult> ObtenerReporte([FromQuery] ReporteVentasVendedorFiltroDto filtro)
-        => RespuestaOk(await _servicio.ObtenerReporteAsync(filtro));
+    {
+        var (items, tieneAcceso) = await _servicio.ObtenerReporteConEstadoAsync(filtro);
+        return tieneAcceso ? RespuestaOk(items) : RespuestaOk(items, SinVendedorMensaje);
+    }
+
+    private const string SinVendedorMensaje = "Tu usuario no tiene un vendedor vinculado en la temporada: no hay ventas propias para mostrar.";
 
     [HttpGet("Sueldos/Resumen")]
     public async Task<IActionResult> ObtenerResumenSueldos([FromQuery] int? temporadaId, [FromQuery] int? vendedorId)

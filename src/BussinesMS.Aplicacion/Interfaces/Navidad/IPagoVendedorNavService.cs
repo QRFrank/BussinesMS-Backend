@@ -8,6 +8,7 @@ public interface IPagoVendedorNavService
 {
     Task<PagoVendedorContextoDto> ObtenerContextoAsync();
     Task<List<ReporteVentasVendedorDto>> ObtenerReporteAsync(ReporteVentasVendedorFiltroDto filtro);
+    Task<(List<ReporteVentasVendedorDto> Items, bool TieneAcceso)> ObtenerReporteConEstadoAsync(ReporteVentasVendedorFiltroDto filtro, bool vacioSinVendedor = true);
     Task<PagedResultDto<PagoVendedorDto>> ObtenerPagosAsync(PagoVendedorFiltroDto query);
     Task<PagoVendedorDto?> ObtenerPagoAsync(int id);
     Task<PagoVendedorDto> RegistrarAsync(RegistrarPagoVendedorDto dto);

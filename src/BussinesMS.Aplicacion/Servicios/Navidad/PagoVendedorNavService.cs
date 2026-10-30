@@ -82,13 +82,13 @@ public class PagoVendedorNavService : IPagoVendedorNavService
         {
             var temporada = await _temporadaActual.ObtenerAbiertaAsync();
             var (esAdmin, vendedorActual) = await _ventas.ObtenerPermisosAsync(temporada.Id);
-            if (!esAdmin && vendedorActual == null) throw SinPermiso();
+            // Sin vendedor vinculado (y no admin): contexto vacío, sin 403 (la pantalla muestra un aviso)
 
             var query = _vendedorRepo.AsQueryable().AsNoTracking()
                 .Where(v => v.TemporadaId == temporada.Id && v.IsActive);
             if (!esAdmin)
             {
-                var propio = vendedorActual!.Id;
+                var propio = vendedorActual?.Id ?? 0;
                 query = query.Where(v => v.Id == propio);
             }
             var vendedores = await query.ToListAsync();
@@ -123,10 +123,20 @@ public class PagoVendedorNavService : IPagoVendedorNavService
     // ================= Reporte =================
 
     public async Task<List<ReporteVentasVendedorDto>> ObtenerReporteAsync(ReporteVentasVendedorFiltroDto filtro)
+        => (await ObtenerReporteConEstadoAsync(filtro, false)).Items;
+
+    // Pantalla "Ventas por vendedor": no-admin solo ve lo suyo (se ignora el vendedorId del query); sin vendedor vinculado, lista vacía y TieneAcceso=false
+    public async Task<(List<ReporteVentasVendedorDto> Items, bool TieneAcceso)> ObtenerReporteConEstadoAsync(ReporteVentasVendedorFiltroDto filtro, bool vacioSinVendedor = true)
     {
         try
         {
             var temporadaId = await _temporadaActual.ResolverTemporadaIdAsync(filtro.TemporadaId);
+            if (vacioSinVendedor)
+            {
+                var (esAdminR, vendedorR) = await _ventas.ObtenerPermisosAsync(temporadaId);
+                if (!esAdminR && vendedorR == null)
+                    return (new List<ReporteVentasVendedorDto>(), false);
+            }
             var forzado = await RestriccionLecturaAsync(temporadaId);
             var vendedorId = forzado ?? filtro.VendedorId;
 
@@ -141,8 +151,8 @@ public class PagoVendedorNavService : IPagoVendedorNavService
             if (vendedorId.HasValue && vendedores.Count == 0)
                 throw new ValidacionException("El vendedor no existe o no es de la temporada");
 
-            return await ConstruirReportesAsync(temporadaId, vendedores, (CanalVentaNav?)filtro.Canal, filtro.Desde, filtro.Hasta, forzado == null,
-                filtro.AlmacenId, (TipoVentaNav?)filtro.Tipo);
+            return (await ConstruirReportesAsync(temporadaId, vendedores, (CanalVentaNav?)filtro.Canal, filtro.Desde, filtro.Hasta, forzado == null,
+                filtro.AlmacenId, (TipoVentaNav?)filtro.Tipo), true);
         }
         catch (Exception ex)
         {
