@@ -162,8 +162,8 @@ public class AbastecimientoNavService : IAbastecimientoNavService
                 pagosQuery = pagosQuery.Where(p => p.CodigoClienteId == filtro.CodigoClienteId.Value);
 
             var pagados = await pagosQuery
-                .GroupBy(p => new { p.ProveedorId, p.CodigoClienteId })
-                .Select(g => new { g.Key.ProveedorId, g.Key.CodigoClienteId, Total = g.Sum(x => x.Monto) })
+                .GroupBy(p => new { p.ProveedorId, p.CodigoClienteId, ConCompra = p.CompraId != null })
+                .Select(g => new { g.Key.ProveedorId, g.Key.CodigoClienteId, g.Key.ConCompra, Total = g.Sum(x => x.Monto) })
                 .ToListAsync();
 
             // Pedido: Σ MontoTotalProveedor de pedidos activos
@@ -179,24 +179,24 @@ public class AbastecimientoNavService : IAbastecimientoNavService
                 .Select(g => new { g.Key.ProveedorId, g.Key.CodigoClienteId, Total = g.Sum(x => x.MontoTotalProveedor) })
                 .ToListAsync();
 
-            var filas = new Dictionary<(int ProveedorId, int? CodigoClienteId), (decimal Pedido, decimal Compra, decimal Pagado)>();
+            var filas = new Dictionary<(int ProveedorId, int? CodigoClienteId), (decimal Pedido, decimal Compra, decimal Pagado, decimal PagadoSuelto)>();
             foreach (var p in pedidos)
             {
                 var key = (p.ProveedorId, p.CodigoClienteId);
                 filas.TryGetValue(key, out var v);
-                filas[key] = (v.Pedido + p.Total, v.Compra, v.Pagado);
+                filas[key] = (v.Pedido + p.Total, v.Compra, v.Pagado, v.PagadoSuelto);
             }
             foreach (var c in compras)
             {
                 var key = (c.ProveedorId, c.CodigoClienteId);
                 filas.TryGetValue(key, out var v);
-                filas[key] = (v.Pedido, v.Compra + c.Total, v.Pagado);
+                filas[key] = (v.Pedido, v.Compra + c.Total, v.Pagado, v.PagadoSuelto);
             }
             foreach (var p in pagados)
             {
                 var key = (p.ProveedorId, p.CodigoClienteId);
                 filas.TryGetValue(key, out var v);
-                filas[key] = (v.Pedido, v.Compra, v.Pagado + p.Total);
+                filas[key] = (v.Pedido, v.Compra, v.Pagado + p.Total, v.PagadoSuelto + (p.ConCompra ? 0m : p.Total));
             }
 
             // Solo filas con algo
@@ -215,6 +215,7 @@ public class AbastecimientoNavService : IAbastecimientoNavService
                     var totalPedidos = Redondear(f.Value.Pedido);
                     var totalCompras = Redondear(f.Value.Compra);
                     var totalPagado = Redondear(f.Value.Pagado);
+                    var pagadoSuelto = Redondear(f.Value.PagadoSuelto);
                     var totalDeuda = totalPedidos + totalCompras;
                     return new DeudaProveedorNavDto
                     {
@@ -228,7 +229,10 @@ public class AbastecimientoNavService : IAbastecimientoNavService
                         TotalCompras = totalCompras,
                         TotalDeuda = totalDeuda,
                         TotalPagado = totalPagado,
-                        Saldo = Redondear(totalDeuda - totalPagado)
+                        Saldo = Redondear(totalDeuda - totalPagado),
+                        PagadoPedidos = pagadoSuelto,
+                        SaldoPedidos = Redondear(totalPedidos - pagadoSuelto),
+                        SaldoCompras = Redondear(totalCompras - (totalPagado - pagadoSuelto))
                     };
                 })
                 .OrderBy(x => x.ProveedorNombre)

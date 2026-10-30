@@ -46,4 +46,10 @@ public class DeudaProveedorNavDto
     public decimal TotalPagado { get; set; }
     // TotalDeuda − TotalPagado. Negativo = saldo a favor
     public decimal Saldo { get; set; }
+    // Σ pagos activos sin compra (pagos sueltos, que solo cubren pedidos)
+    public decimal PagadoPedidos { get; set; }
+    // TotalPedidos − PagadoPedidos
+    public decimal SaldoPedidos { get; set; }
+    // TotalCompras − Σ pagos activos vinculados a compra (las compras se pagan desde la compra)
+    public decimal SaldoCompras { get; set; }
 }

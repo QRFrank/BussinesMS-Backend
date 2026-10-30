@@ -20,6 +20,7 @@ public class PagoProveedorNavService : IPagoProveedorNavService
     private readonly ICodigoClienteRepository _codigoRepo;
     private readonly ICompraNavRepository _compraRepo;
     private readonly ITemporadaActualService _temporadaActual;
+    private readonly IAbastecimientoNavService _abastecimiento;
     private readonly ILogger<PagoProveedorNavService> _logger;
 
     public PagoProveedorNavService(
@@ -28,6 +29,7 @@ public class PagoProveedorNavService : IPagoProveedorNavService
         ICodigoClienteRepository codigoRepo,
         ICompraNavRepository compraRepo,
         ITemporadaActualService temporadaActual,
+        IAbastecimientoNavService abastecimiento,
         ILogger<PagoProveedorNavService> logger)
     {
         _repo = repo;
@@ -35,6 +37,7 @@ public class PagoProveedorNavService : IPagoProveedorNavService
         _codigoRepo = codigoRepo;
         _compraRepo = compraRepo;
         _temporadaActual = temporadaActual;
+        _abastecimiento = abastecimiento;
         _logger = logger;
     }
 
@@ -151,6 +154,7 @@ public class PagoProveedorNavService : IPagoProveedorNavService
             else
             {
                 await ValidarCodigoClienteAsync(proveedor, dto.CodigoClienteId);
+                await ValidarMontoContraDeudaAsync(temporada.Id, proveedor.Id, proveedor.Nombre, dto.CodigoClienteId, dto.Monto, 0m);
             }
 
             var entidad = new PagoProveedor
@@ -209,6 +213,13 @@ public class PagoProveedorNavService : IPagoProveedorNavService
                 var (compra, total, saldoSinEste) = await ObtenerSaldoCompraAsync(pago.CompraId.Value, pago.Id);
                 if (dto.Monto > saldoSinEste)
                     throw new ValidacionException($"El monto ({dto.Monto}) no puede superar lo que admite la compra #{compra.Id}: {saldoSinEste} (total {total} menos los otros pagos)");
+            }
+            else
+            {
+                // Pago por proveedor/código: no puede superar la deuda vigente (sin contar este mismo pago)
+                var nombreProv = await _proveedorRepo.AsQueryable().AsNoTracking()
+                    .Where(p => p.Id == pago.ProveedorId).Select(p => p.Nombre).FirstOrDefaultAsync() ?? string.Empty;
+                await ValidarMontoContraDeudaAsync(pago.TemporadaId, pago.ProveedorId, nombreProv, pago.CodigoClienteId, dto.Monto, pago.Monto);
             }
 
             // No cambia proveedor, código ni compra vinculada
@@ -308,6 +319,31 @@ public class PagoProveedorNavService : IPagoProveedorNavService
             throw new ValidacionException("El código de cliente no existe o está inactivo");
         if (codigo.ProveedorId != proveedor.Id)
             throw new ValidacionException("El código no pertenece al proveedor");
+    }
+
+    // Pagos sueltos: solo cubren pedidos (SaldoPedidos de GET /Abastecimiento/deudas, reutilizando ObtenerDeudasAsync).
+    // montoPropio = monto del pago que se edita (ya está restado en el saldo), 0 al crear.
+    private async Task ValidarMontoContraDeudaAsync(int temporadaId, int proveedorId, string proveedorNombre, int? codigoClienteId, decimal monto, decimal montoPropio)
+    {
+        var deudas = await _abastecimiento.ObtenerDeudasAsync(new AbastecimientoNavFiltroDto
+        {
+            TemporadaId = temporadaId,
+            ProveedorId = proveedorId,
+            CodigoClienteId = codigoClienteId
+        });
+        var fila = deudas.FirstOrDefault(d => d.ProveedorId == proveedorId && d.CodigoClienteId == codigoClienteId);
+        var saldo = Math.Round((fila?.SaldoPedidos ?? 0m) + montoPropio, 2, MidpointRounding.AwayFromZero);
+        var saldoCompras = fila?.SaldoCompras ?? 0m;
+        var montoRed = Math.Round(monto, 2, MidpointRounding.AwayFromZero);
+        if (montoRed <= saldo) return;
+
+        var etiqueta = proveedorNombre;
+        if (fila?.Codigo != null) etiqueta += $" · {fila.Codigo}";
+        if (saldo <= 0 && saldoCompras > 0)
+            throw new ValidacionException("Este proveedor no tiene deuda de pedidos pendiente. Las compras se pagan desde la compra");
+        if (saldo <= 0)
+            throw new ValidacionException($"La deuda con {etiqueta} ya está pagada");
+        throw new ValidacionException($"El monto ({montoRed}) supera el saldo de pedidos pendiente con {etiqueta} ({saldo})");
     }
 
     // Pago → compra vinculada (solo los que tienen compra)
