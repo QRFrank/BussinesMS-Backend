@@ -20,6 +20,7 @@
 | Almacen | Almacenes por sistema (`SistemaId`, default 1 = Regular). Seed: Tienda Principal, Almacén 1, Almacén 2 |
 | UsuarioSistema | A qué sistemas puede entrar cada usuario (login multisistema) + permisos `VerPreciosCompra` y `PuedeHacerRecepciones` por sistema |
 | PermisoAuditoria | Decisiones de permisos que habrían sido 403 (modo Aviso) o que lo fueron (modo Bloqueo). Ver `docs/permisos/fase2-mapeo.md` |
+| WhatsAppInstancia | Número de WhatsApp (instancia de Evolution API) vigente del sistema navideño: una sola fila `IsActive=1` (índice único filtrado por `NombreInstancia`); "Cambiar número" da de baja la vieja y crea otra. Migración 20261031172327_AgregarWhatsAppInstancia |
 
 ### Esquema
 
@@ -71,6 +72,17 @@ Table UsuarioSistema {
 Table PermisoAuditoria {
   Id int [pk, increment]
   note: 'Registro del filtro de permisos (fecha UTC, usuario, sistema, método, ruta, plantilla, menús, flag requerido, motivo, modo). Consulta: GET /api/Permisos/Auditoria (solo admin). Migración 20261030181027_AgregarPermisoAuditoria'
+}
+
+Table WhatsAppInstancia {
+  Id int [pk, increment]
+  NombreInstancia nvarchar(100) [not null, note: 'Nombre en Evolution, bussinesms-yyyyMMddHHmmss; único entre activas']
+  Alias nvarchar(100)
+  UltimoEstado nvarchar(30)
+  UltimoEstadoEn datetime2
+  NumeroEnmascarado nvarchar(30)
+  NombrePerfil nvarchar(100)
+  note: 'Más campos de EntidadBase. Un solo número vigente por temporada'
 }
 
 Ref: Usuario.RolId > Rol.Id

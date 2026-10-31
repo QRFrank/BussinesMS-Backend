@@ -18,6 +18,7 @@ public class AuthDbContext : DbContext
     public DbSet<UsuarioMenu> UsuarioMenus => Set<UsuarioMenu>();
     public DbSet<UsuarioSistema> UsuarioSistemas => Set<UsuarioSistema>();
     public DbSet<PermisoAuditoria> PermisoAuditorias => Set<PermisoAuditoria>();
+    public DbSet<WhatsAppInstancia> WhatsAppInstancias => Set<WhatsAppInstancia>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -63,6 +64,21 @@ public class AuthDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(a => a.SistemaId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<WhatsAppInstancia>(entity =>
+        {
+            entity.ToTable("WhatsAppInstancia");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.NombreInstancia).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Alias).HasMaxLength(100);
+            entity.Property(e => e.UltimoEstado).HasMaxLength(30);
+            entity.Property(e => e.NumeroEnmascarado).HasMaxLength(30);
+            entity.Property(e => e.NombrePerfil).HasMaxLength(100);
+            entity.HasIndex(e => e.NombreInstancia)
+                .IsUnique()
+                .HasFilter("[IsActive] = 1")
+                .HasDatabaseName("UX_WhatsAppInstancia_Nombre_Activa");
         });
 
         modelBuilder.Entity<UsuarioSistema>(entity =>

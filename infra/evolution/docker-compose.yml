@@ -1,0 +1,46 @@
+# Evolution API (WhatsApp) para BussinesMS.
+# - Imagen evoapicloud/evolution-api (la vieja atendai/evolution-api ya no se actualiza).
+# - Version fija v2.3.7 en vez de latest, para que un "docker compose pull" no cambie la version sin querer.
+# - Solo escucha en 127.0.0.1:8080: no se expone a la red; la API de BussinesMS lo llama por localhost.
+name: bussinesms-evolution
+
+services:
+  evolution-api:
+    image: evoapicloud/evolution-api:v2.3.7
+    container_name: bussinesms-evolution-api
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - evolution_instances:/evolution/instances
+    depends_on:
+      - evolution-postgres
+      - evolution-redis
+    mem_limit: 768m
+
+  evolution-postgres:
+    image: postgres:16-alpine
+    container_name: bussinesms-evolution-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - evolution_postgres_data:/var/lib/postgresql/data
+    mem_limit: 256m
+
+  evolution-redis:
+    image: redis:7-alpine
+    container_name: bussinesms-evolution-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - evolution_redis_data:/data
+    mem_limit: 128m
+
+volumes:
+  evolution_instances:
+  evolution_postgres_data:
+  evolution_redis_data:

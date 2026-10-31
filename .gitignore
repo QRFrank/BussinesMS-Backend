@@ -8,3 +8,5 @@
 # Variables de entorno
 *.env
 appsettings.Development.json
+# Evolution API (secretos)
+infra/evolution/.env

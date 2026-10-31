@@ -74,6 +74,9 @@
   { "id": 161, "nombre": "Ventas por vendedor","url": "/navidad/ventas-vendedor",      "icono": "solar:chart-2-bold-duotone",                   "orden": 1, "isGroup": false, "parentId": 160,  "sistemaId": 2 },
   { "id": 162, "nombre": "Pagos a vendedores", "url": "/navidad/pagos-vendedores",     "icono": "solar:wallet-money-bold-duotone",              "orden": 2, "isGroup": false, "parentId": 160,  "sistemaId": 2 },
 
+  { "id": 180, "nombre": "WhatsApp",           "url": null,                            "icono": "solar:chat-round-dots-bold-duotone",           "orden": 9, "isGroup": true,  "parentId": null, "sistemaId": 2 },
+  { "id": 181, "nombre": "Números y QR",       "url": "/navidad/whatsapp/numeros",     "icono": "solar:qr-code-bold-duotone",                   "orden": 1, "isGroup": false, "parentId": 180,  "sistemaId": 2 },
+
   { "id": 170, "nombre": "Reportes",           "url": null,                            "icono": "solar:chart-square-bold-duotone",              "orden": 8, "isGroup": true,  "parentId": null, "sistemaId": 2 },
   { "id": 171, "nombre": "Resultado",          "url": "/navidad/reportes/resultado",   "icono": "solar:chart-square-bold-duotone",              "orden": 1, "isGroup": false, "parentId": 170,  "sistemaId": 2 },
   { "id": 172, "nombre": "Ventas y stock",      "url": "/navidad/reportes/ventas-stock", "icono": "solar:cart-large-2-bold-duotone",              "orden": 2, "isGroup": false, "parentId": 170,  "sistemaId": 2 },

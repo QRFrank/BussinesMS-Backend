@@ -523,6 +523,7 @@ Each database has its own DbContext in BussinesMS.Infraestructura.Persistencia:
 | Almacen | Almacenes por sistema (`SistemaId`, default 1 = Regular) |
 | UsuarioSistema | Sistemas a los que puede entrar cada usuario (login multisistema) + permisos `VerPreciosCompra` y `PuedeHacerRecepciones` |
 | PermisoAuditoria | Registro del filtro de permisos (fase 2, ver `docs/permisos/fase2-mapeo.md`) |
+| WhatsAppInstancia | Número de WhatsApp vigente (una sola fila activa; instancia de Evolution API) |
 
 ### DB_Sistema (Completo) - Módulo Catálogo
 
@@ -822,3 +823,10 @@ BussinesMS.Aplicacion
 ```
 
 DO NOT create circular dependencies. Always depend on the layer below.
+## WhatsApp (Evolution API) - fase 1 (31/10/2026)
+
+- Infra Docker en `infra/evolution/` (compose, `.env.example`, `README.md` paso a paso para Windows). Imagen fija `evoapicloud/evolution-api:v2.3.7`, solo `127.0.0.1:8080`.
+- Config: sección `WhatsApp` (`WhatsAppOpciones`). La apikey **nunca** en `appsettings.json`: `dotnet user-secrets set "WhatsApp:Evolution:ApiKey" ...` o variable `WhatsApp__Evolution__ApiKey`; también `WhatsApp:Habilitado`. Sin configurar la API arranca igual (log de advertencia) y los endpoints responden `SinConfigurar`/409 `WHATSAPP_NO_CONFIGURADO`.
+- `IEvolutionApiClient` (Aplicación) / `EvolutionApiClient` (Infraestructura/Evolution, HttpClient tipado, header `apikey`): estado, crear instancia, QR, desconectar, borrar, enviar texto. Evolution caído: 503 `EVOLUTION_NO_DISPONIBLE`.
+- Entidad `WhatsAppInstancia` (AuthDB): **un solo número** vigente. `WhatsAppAdminService` + `WhatsAppNavController` `api/Navidad/WhatsApp/{numero,numero/qr,numero/desconectar,numero/cambiar,prueba}`, todos `[SoloAdmin]`. Menús 180 (grupo WhatsApp) y 181 (Números y QR). Contratos: `../docs/whatsapp/contratos-fase1.md`.
+- `NormalizadorTelefono` / `EnmascaradorTelefono` en `Aplicacion/Comun`.

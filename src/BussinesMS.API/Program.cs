@@ -330,6 +330,19 @@ builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Auth.IPermisoUsuario
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Auth.IPermisoAuditoriaRepository, BussinesMS.Infraestructura.Repositorios.Auth.PermisoAuditoriaRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Auth.IPermisoAuditoriaService, BussinesMS.Aplicacion.Servicios.Auth.PermisoAuditoriaService>();
 
+// ===== WhatsApp =====
+builder.Services.Configure<BussinesMS.Aplicacion.Comun.WhatsAppOpciones>(builder.Configuration.GetSection(BussinesMS.Aplicacion.Comun.WhatsAppOpciones.Seccion));
+builder.Services.AddHttpClient<BussinesMS.Aplicacion.Interfaces.Compartido.IEvolutionApiClient, BussinesMS.Infraestructura.Evolution.EvolutionApiClient>((sp, client) =>
+{
+    var cfg = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<BussinesMS.Aplicacion.Comun.WhatsAppOpciones>>().Value;
+    if (Uri.TryCreate(cfg.Evolution.UrlBase?.TrimEnd('/') + "/", UriKind.Absolute, out var baseUri))
+        client.BaseAddress = baseUri;
+    // Cada llamada fija su propio timeout (CancellationTokenSource); este es el tope general.
+    client.Timeout = TimeSpan.FromSeconds(Math.Max(1, cfg.Evolution.TimeoutSegundos) + 5);
+});
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Auth.IWhatsAppInstanciaRepository, BussinesMS.Infraestructura.Repositorios.Auth.WhatsAppInstanciaRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IWhatsAppAdminService, BussinesMS.Aplicacion.Servicios.Navidad.WhatsAppAdminService>();
+
 // Background Services
 builder.Services.AddHostedService<BussinesMS.Infraestructura.Jobs.VencimientoLotesJob>();
 
@@ -350,6 +363,13 @@ try
 catch (Exception ex)
 {
     Console.WriteLine($"Error en seed: {ex.Message}");
+}
+
+// WhatsApp: aviso si no está configurado (sin loguear la key)
+{
+    var waCfg = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<BussinesMS.Aplicacion.Comun.WhatsAppOpciones>>().Value;
+    if (!waCfg.EstaConfigurado)
+        app.Services.GetRequiredService<ILogger<Program>>().LogWarning("WhatsApp no configurado (Habilitado={Habilitado}; se requieren UrlBase y ApiKey): las funciones de WhatsApp responderán SinConfigurar", waCfg.Habilitado);
 }
 
 // Permisos fase 2: modo activo y, en Development, endpoints sin regla (en Bloqueo quedarían denegados)

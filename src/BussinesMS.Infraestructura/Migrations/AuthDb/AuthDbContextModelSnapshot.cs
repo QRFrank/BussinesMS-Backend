@@ -408,6 +408,69 @@ namespace BussinesMS.Infraestructura.Migrations.AuthDb
                     b.ToTable("UsuarioSistemas");
                 });
 
+            modelBuilder.Entity("BussinesMS.Dominio.Entidades.Auth.WhatsAppInstancia", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Alias")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DeletedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("NombreInstancia")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("NombrePerfil")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("NumeroEnmascarado")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("UltimoEstado")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("UltimoEstadoEn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedByUsuarioId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NombreInstancia")
+                        .IsUnique()
+                        .HasDatabaseName("UX_WhatsAppInstancia_Nombre_Activa")
+                        .HasFilter("[IsActive] = 1");
+
+                    b.ToTable("WhatsAppInstancia", (string)null);
+                });
+
             modelBuilder.Entity("BussinesMS.Dominio.Entidades.Auth.Almacen", b =>
                 {
                     b.HasOne("BussinesMS.Dominio.Entidades.Auth.Sistema", "Sistema")
