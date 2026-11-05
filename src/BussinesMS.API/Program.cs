@@ -342,9 +342,18 @@ builder.Services.AddHttpClient<BussinesMS.Aplicacion.Interfaces.Compartido.IEvol
 });
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Auth.IWhatsAppInstanciaRepository, BussinesMS.Infraestructura.Repositorios.Auth.WhatsAppInstanciaRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IWhatsAppAdminService, BussinesMS.Aplicacion.Servicios.Navidad.WhatsAppAdminService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.INotificacionNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.NotificacionNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.INotificacionEnvioNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.NotificacionEnvioNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IConfigAvisoNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.ConfigAvisoNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.INotificadorNav, BussinesMS.Aplicacion.Servicios.Navidad.NotificadorNav>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IBandejaNotificacionNavService, BussinesMS.Aplicacion.Servicios.Navidad.BandejaNotificacionNavService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IMonitorWhatsAppService, BussinesMS.Aplicacion.Servicios.Navidad.MonitorWhatsAppService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IWhatsAppBandejaAdminService, BussinesMS.Aplicacion.Servicios.Navidad.WhatsAppBandejaAdminService>();
 
 // Background Services
 builder.Services.AddHostedService<BussinesMS.Infraestructura.Jobs.VencimientoLotesJob>();
+builder.Services.AddHostedService<BussinesMS.Infraestructura.Jobs.BandejaWhatsAppJob>();
+builder.Services.AddHostedService<BussinesMS.Infraestructura.Jobs.MonitorWhatsAppJob>();
 
 Console.WriteLine("Construyendo aplicación...");
 var app = builder.Build();

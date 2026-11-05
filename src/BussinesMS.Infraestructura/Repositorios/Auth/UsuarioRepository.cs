@@ -1,5 +1,6 @@
 using BussinesMS.Aplicacion.Interfaces.Auth;
 using BussinesMS.Aplicacion.Seguridad;
+using BussinesMS.Aplicacion.Servicios.Navidad;
 using BussinesMS.Dominio.Entidades.Auth;
 using BussinesMS.Infraestructura.Persistencia;
 using BussinesMS.Infraestructura.Repositorios.Compartido;
@@ -26,6 +27,21 @@ public class UsuarioRepository : RepositorioBase<Usuario>, IUsuarioRepository
     public async Task<Usuario?> ObtenerConRolAsync(int id)
     {
         return await _dbSet.Include(u => u.Rol).FirstOrDefaultAsync(u => u.Id == id);
+    }
+
+    public async Task<List<Usuario>> ObtenerPorIdsAsync(IEnumerable<int> ids)
+    {
+        var lista = ids.Distinct().ToList();
+        if (lista.Count == 0) return new List<Usuario>();
+        return await _dbSet.AsNoTracking().Where(u => lista.Contains(u.Id)).ToListAsync();
+    }
+
+    public async Task<List<Usuario>> ObtenerAdminsNavidadAsync()
+    {
+        return await _dbSet.AsNoTracking()
+            .ValidosNavidad()
+            .Where(u => u.Rol != null && u.Rol.Nombre == "Admin")
+            .ToListAsync();
     }
 
     public async Task<Usuario?> ObtenerConRolAsyncPorUsername(string username)

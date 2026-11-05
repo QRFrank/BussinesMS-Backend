@@ -332,6 +332,10 @@ namespace BussinesMS.Infraestructura.Migrations.AuthDb
                     b.Property<int>("SistemaIdDefault")
                         .HasColumnType("int");
 
+                    b.Property<string>("Telefono")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 

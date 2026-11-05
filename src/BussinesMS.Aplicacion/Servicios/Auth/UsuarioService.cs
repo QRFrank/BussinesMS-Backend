@@ -114,6 +114,7 @@ public class UsuarioService : IUsuarioService
                 Nombre = usuario.Nombre,
                 Apellido = usuario.Apellido,
                 Email = usuario.Email,
+                Telefono = usuario.Telefono,
                 Username = usuario.Username,
                 SistemaIdDefault = usuario.SistemaIdDefault,
                 SistemaIds = sistemaIds,
@@ -139,6 +140,8 @@ public class UsuarioService : IUsuarioService
     {
         try
         {
+            ValidarTelefono(dto.Telefono);
+
             var duplicado = await _repositorio.ObtenerPorUsernameAsync(dto.Username);
 
             if (duplicado != null)
@@ -155,6 +158,7 @@ public class UsuarioService : IUsuarioService
 
             var usuario = _mapper.Map<Usuario>(dto);
             usuario.PasswordHash = HashPassword(dto.Password);
+            usuario.Telefono = NormalizadorTelefono.Normalizar(dto.Telefono);
             usuario.CreatedAt = DateTime.UtcNow;
 
             var resultado = await _repositorio.CrearAsync(usuario);
@@ -234,6 +238,8 @@ public class UsuarioService : IUsuarioService
             if (string.IsNullOrWhiteSpace(dto.Username))
                 throw new ArgumentException("El username es obligatorio.");
 
+            ValidarTelefono(dto.Telefono);
+
             var duplicado = await _repositorio.ObtenerPorUsernameAsync(dto.Username);
             if (duplicado != null && duplicado.Id != id)
                 throw new InvalidOperationException($"El username '{dto.Username}' ya está en uso por otro usuario.");
@@ -245,6 +251,9 @@ public class UsuarioService : IUsuarioService
             usuario.Nombre = dto.Nombre;
             usuario.Apellido = dto.Apellido;
             usuario.Email = dto.Email;
+            // Telefono null = no tocarlo (front viejo que no lo manda); vacío = borrarlo
+            if (dto.Telefono != null)
+                usuario.Telefono = NormalizadorTelefono.Normalizar(dto.Telefono);
             usuario.SistemaIdDefault = dto.SistemaIdDefault;
             usuario.Username = dto.Username;
             usuario.RolId = dto.RolId;
@@ -287,6 +296,12 @@ public class UsuarioService : IUsuarioService
             _logger.LogError(ex, "Error al actualizar usuario {Id}", id);
             throw;
         }
+    }
+
+    private static void ValidarTelefono(string? telefono)
+    {
+        if (!NormalizadorTelefono.EsValidoOVacio(telefono))
+            throw new ExcepcionDominio("El teléfono no es válido", 400, "TELEFONO_INVALIDO");
     }
 
     public async Task<List<MenuArbolDto>> ObtenerMenusAsync(int id)

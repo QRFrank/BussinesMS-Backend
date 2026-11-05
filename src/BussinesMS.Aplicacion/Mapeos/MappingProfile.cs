@@ -28,9 +28,12 @@ public class MappingProfile : Profile
 
         // Usuarios
         CreateMap<Usuario, UsuarioDto>()
+            .ForMember(dest => dest.Telefono, opt => opt.MapFrom(src => string.IsNullOrWhiteSpace(src.Telefono) ? null : BussinesMS.Aplicacion.Comun.EnmascaradorTelefono.Enmascarar(src.Telefono)))
             .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => BoliviaTimeZone.ToLocal(src.CreatedAt)));
-        CreateMap<UsuarioDto, Usuario>();
-        CreateMap<CrearUsuarioDto, Usuario>();
+        CreateMap<UsuarioDto, Usuario>()
+            .ForMember(dest => dest.Telefono, opt => opt.Ignore()); // el DTO lo lleva enmascarado
+        CreateMap<CrearUsuarioDto, Usuario>()
+            .ForMember(dest => dest.Telefono, opt => opt.Ignore()); // se normaliza en UsuarioService
 
         // Menus
         CreateMap<Menu, MenuDto>();

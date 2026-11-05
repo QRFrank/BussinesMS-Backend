@@ -42,6 +42,7 @@ public class AuthDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Nombre).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Apellido).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Telefono).HasMaxLength(20);
             entity.Property(e => e.Username).IsRequired().HasMaxLength(50);
             entity.Property(e => e.PasswordHash).IsRequired();
             entity.HasIndex(e => e.Username).IsUnique();
@@ -619,6 +620,9 @@ public class NavidadDbContext : DbContext
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.Producto> Productos => Set<BussinesMS.Dominio.Entidades.Navidad.Producto>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.Vendedor> Vendedores => Set<BussinesMS.Dominio.Entidades.Navidad.Vendedor>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.ClienteNav> ClientesNav => Set<BussinesMS.Dominio.Entidades.Navidad.ClienteNav>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.NotificacionNav> NotificacionesNav => Set<BussinesMS.Dominio.Entidades.Navidad.NotificacionNav>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.NotificacionEnvioNav> NotificacionEnviosNav => Set<BussinesMS.Dominio.Entidades.Navidad.NotificacionEnvioNav>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.ConfigAvisoNav> ConfigAvisosNav => Set<BussinesMS.Dominio.Entidades.Navidad.ConfigAvisoNav>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.Pedido> Pedidos => Set<BussinesMS.Dominio.Entidades.Navidad.Pedido>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.PedidoDetalle> PedidosDetalle => Set<BussinesMS.Dominio.Entidades.Navidad.PedidoDetalle>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.Recepcion> Recepciones => Set<BussinesMS.Dominio.Entidades.Navidad.Recepcion>();
@@ -918,6 +922,51 @@ public class NavidadDbContext : DbContext
             entity.HasIndex(e => e.Nombre);
         });
 
+
+        // ===== WhatsApp: bandeja de salida =====
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.NotificacionNav>(entity =>
+        {
+            entity.ToTable("NotificacionNav");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Mensaje).IsRequired().HasColumnType("nvarchar(max)");
+            entity.Property(e => e.TelefonoDirecto).HasMaxLength(20);
+            entity.Property(e => e.AdjuntoTipo).HasMaxLength(30);
+            entity.Property(e => e.ClaveUnica).HasMaxLength(150);
+            entity.HasIndex(e => e.ClaveUnica)
+                .IsUnique()
+                .HasFilter("[ClaveUnica] IS NOT NULL AND [IsActive] = 1")
+                .HasDatabaseName("UX_NotificacionNav_ClaveUnica");
+            entity.HasIndex(e => e.ResueltaEn).HasDatabaseName("IX_NotificacionNav_ResueltaEn");
+            entity.HasIndex(e => e.Evento);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.NotificacionEnvioNav>(entity =>
+        {
+            entity.ToTable("NotificacionEnvioNav");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Destino).HasMaxLength(20);
+            entity.Property(e => e.DestinatarioDescripcion).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.UltimoError).HasMaxLength(500);
+            entity.Property(e => e.InstanciaUsada).HasMaxLength(100);
+            entity.HasOne(e => e.Notificacion)
+                .WithMany(n => n.Envios)
+                .HasForeignKey(e => e.NotificacionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => new { e.Estado, e.ProximoIntentoEn }).HasDatabaseName("IX_NotificacionEnvioNav_Estado_Proximo");
+            entity.HasIndex(e => new { e.Estado, e.EnviadoEn }).HasDatabaseName("IX_NotificacionEnvioNav_Estado_Enviado");
+            entity.HasIndex(e => e.NotificacionId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.ConfigAvisoNav>(entity =>
+        {
+            entity.ToTable("ConfigAvisoNav");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Activo).HasDefaultValue(true);
+            entity.HasIndex(e => e.Evento)
+                .IsUnique()
+                .HasFilter("[IsActive] = 1")
+                .HasDatabaseName("UX_ConfigAvisoNav_Evento");
+        });
         // ===== Abastecimiento =====
         modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.Pedido>(entity =>
         {

@@ -8,6 +8,10 @@ public interface IUsuarioRepository : IRepositorio<Usuario>
     Task<Usuario?> ObtenerPorUsernameAsync(string username);
     Task<Usuario?> ValidarCredencialesAsync(string username, string password);
     Task<Usuario?> ObtenerConRolAsync(int id);
+    /// <summary>Sin tracking. Para resolver nombre y teléfono de destinatarios de WhatsApp.</summary>
+    Task<List<Usuario>> ObtenerPorIdsAsync(IEnumerable<int> ids);
+    /// <summary>Sin tracking. Usuarios activos con rol Admin y acceso al sistema Navideño.</summary>
+    Task<List<Usuario>> ObtenerAdminsNavidadAsync();
     Task<Usuario?> ObtenerConRolAsyncPorUsername(string username);
     Task<List<UsuarioMenu>> ObtenerMenusAsync(int usuarioId);
     Task AgregarMenusAsync(int usuarioId, List<UsuarioMenu> menus);

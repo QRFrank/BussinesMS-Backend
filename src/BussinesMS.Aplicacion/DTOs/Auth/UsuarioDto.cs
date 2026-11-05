@@ -11,6 +11,9 @@ public class UsuarioDto
     public string Apellido { get; set; } = string.Empty;
     [OcultoSinAdmin] // GET /Usuarios: lookup liviano para no-admin (permisos fase 2)
     public string? Email { get; set; }
+    // Enmascarado (+591 7123****); el número completo solo viaja en el detalle (GET /Usuarios/{id}) para el admin
+    [OcultoSinAdmin]
+    public string? Telefono { get; set; }
     public string Username { get; set; } = string.Empty;
     public int SistemaIdDefault { get; set; }
     [OcultoSinAdmin]
@@ -29,6 +32,8 @@ public class CrearUsuarioDto
     public string Nombre { get; set; } = string.Empty;
     public string Apellido { get; set; } = string.Empty;
     public string? Email { get; set; }
+    // Opcional. Se guarda normalizado (+591XXXXXXXX); 400 TELEFONO_INVALIDO si no se puede normalizar
+    public string? Telefono { get; set; }
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
     public int SistemaIdDefault { get; set; } = 1;
@@ -44,6 +49,8 @@ public class ActualizarUsuarioDto
     public string Nombre { get; set; } = string.Empty;
     public string Apellido { get; set; } = string.Empty;
     public string? Email { get; set; }
+    // null = no cambiarlo; vacío = borrarlo; con valor = normalizar y guardar (400 TELEFONO_INVALIDO si no es válido)
+    public string? Telefono { get; set; }
     public int SistemaIdDefault { get; set; }
     public string Username { get; set; } = string.Empty;
     public int RolId { get; set; }
@@ -74,6 +81,8 @@ public class UsuarioConMenusDto
     public string Nombre { get; set; } = string.Empty;
     public string Apellido { get; set; } = string.Empty;
     public string? Email { get; set; }
+    // Normalizado completo (+591XXXXXXXX): es el detalle para editar; el endpoint es de admin
+    public string? Telefono { get; set; }
     public string Username { get; set; } = string.Empty;
     public int SistemaIdDefault { get; set; }
     public List<int> SistemaIds { get; set; } = [];

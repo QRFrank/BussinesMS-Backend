@@ -12,3 +12,12 @@ public class EnviarPruebaWhatsAppDtoValidator : AbstractValidator<EnviarPruebaWh
             .MaximumLength(30).WithMessage("El teléfono no puede superar 30 caracteres");
     }
 }
+
+public class EnviarPruebaBandejaDtoValidator : AbstractValidator<EnviarPruebaBandejaDto>
+{
+    public EnviarPruebaBandejaDtoValidator()
+    {
+        RuleFor(x => x.Telefono)
+            .MaximumLength(30).WithMessage("El teléfono no puede superar 30 caracteres");
+    }
+}

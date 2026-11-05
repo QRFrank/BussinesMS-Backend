@@ -37,4 +37,7 @@ public static partial class NormalizadorTelefono
         TryNormalizar(telefono, out var n) ? n : null;
 
     public static bool EsValido(string? telefono) => TryNormalizar(telefono, out _);
+
+    /// <summary>true si viene vacío/null o se puede normalizar.</summary>
+    public static bool EsValidoOVacio(string? telefono) => string.IsNullOrWhiteSpace(telefono) || TryNormalizar(telefono, out _);
 }

@@ -12,10 +12,12 @@ namespace BussinesMS.API.Controllers.Navidad;
 public class WhatsAppNavController : BaseController
 {
     private readonly IWhatsAppAdminService _servicio;
+    private readonly IWhatsAppBandejaAdminService _bandeja;
 
-    public WhatsAppNavController(IWhatsAppAdminService servicio)
+    public WhatsAppNavController(IWhatsAppAdminService servicio, IWhatsAppBandejaAdminService bandeja)
     {
         _servicio = servicio;
+        _bandeja = bandeja;
     }
 
     [HttpGet("numero")]
@@ -37,4 +39,27 @@ public class WhatsAppNavController : BaseController
     [HttpPost("prueba")]
     public async Task<IActionResult> EnviarPrueba([FromBody] EnviarPruebaWhatsAppDto dto)
         => RespuestaOk(await _servicio.EnviarPruebaAsync(dto));
+
+    // ===== Fase 2: bandeja =====
+
+    /// <summary>Estado liviano para el banner (lee lo que dejó el monitor; no consulta a Evolution).</summary>
+    [HttpGet("estado")]
+    public async Task<IActionResult> ObtenerEstado()
+        => RespuestaOk(await _bandeja.ObtenerEstadoBannerAsync());
+
+    [HttpGet("envios")]
+    public async Task<IActionResult> ObtenerBitacora([FromQuery] WhatsAppBitacoraFiltroDto filtro)
+        => RespuestaOk(await _bandeja.ObtenerBitacoraAsync(filtro));
+
+    [HttpGet("envios/{id:int}")]
+    public async Task<IActionResult> ObtenerEnvio(int id)
+        => RespuestaOk(await _bandeja.ObtenerEnvioAsync(id));
+
+    [HttpPost("envios/{id:int}/reintentar")]
+    public async Task<IActionResult> Reintentar(int id)
+        => RespuestaOk(await _bandeja.ReintentarAsync(id));
+
+    [HttpPost("prueba-bandeja")]
+    public async Task<IActionResult> EnviarPruebaPorBandeja([FromBody] EnviarPruebaBandejaDto? dto)
+        => RespuestaOk(await _bandeja.EnviarPruebaPorBandejaAsync(dto ?? new EnviarPruebaBandejaDto()));
 }
