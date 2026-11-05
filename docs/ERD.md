@@ -48,6 +48,7 @@ Table Usuario {
   PasswordHash nvarchar(255) [not null]
   RolId int [not null]
   SistemaIdDefault int [not null, default: 1]
+  Telefono nvarchar(20) [null, note: 'WhatsApp del usuario, normalizado +591... (NormalizadorTelefono). Única fuente del número de admins, encargados y vendedores de ruta para los avisos. Migración 20261105234953_AgregarTelefonoUsuario']
   IsActive bit [not null, default: true]
 }
 
@@ -591,6 +592,7 @@ Ref: GastoOperativo.PagoCompraId > PagoCompra.Id
 | VentaClienteRuta, VentaClienteRutaDetalle, CobroClienteRuta | ✅ | Registro personal y privado del vendedor de ruta (ventas a sus clientes `ClienteNav`, precio libre, cobros; no afecta stock ni ventas del sistema). Migración `20261027224033_VentasClienteRuta`. Lógica `docs/navidad/logica-ventas-cliente-ruta.md` |
 | CierreCajaTienda | ✅ | Entrega de efectivo por turno de tienda (montos congelados: vendido, esperado, transferencias, crédito, entregado, diferencia); único por `ConteoCierreId`. Migración `20261027180716_CierreCajaTienda` (+ `CobroVenta.AlmacenId?`). Lógica `docs/navidad/logica-cierre-caja.md` |
 | TemporadaAlmacenEncargado | ✅ | Encargados de almacén por temporada (`TemporadaId` FK, `AlmacenId`/`UsuarioId` sin FK, único por los tres). Migración `20261027164057_TemporadaAlmacenEncargado`. Lógica `docs/navidad/logica-encargados.md` |
+| NotificacionNav, NotificacionEnvioNav, ConfigAvisoNav | ✅ | Bandeja de WhatsApp (fase 2): el aviso (`NotificacionNav`: evento, prioridad, mensaje, audiencia), sus envíos por destinatario (`NotificacionEnvioNav`: teléfono resuelto al enviar; estados Pendiente/Enviado/Fallido/Omitido; intentos) y el encendido por evento (`ConfigAvisoNav`). Los procesan `BandejaWhatsAppJob` y `MonitorWhatsAppJob`. Migración `20261105235001_AgregarBandejaWhatsApp`. Plan `../docs/whatsapp/plan-whatsapp.md`, contratos `../docs/whatsapp/contratos-fase2.md` |
 
 > Migraciones: `20261001163014_InicialTemporadaCapital` (crea la BD y las 6 tablas) y `20261001191956_TemporadaAlmacenConteo` (crea `TemporadaAlmacenConteo`, migra la antigua `TiendaPrincipalAlmacenId` como una fila y borra esa columna).
 
