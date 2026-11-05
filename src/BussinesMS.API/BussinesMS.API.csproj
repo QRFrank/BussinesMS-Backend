@@ -7,6 +7,7 @@
     <RootNamespace>BussinesMS.API</RootNamespace>
     <NuGetAudit>false</NuGetAudit>
     <NuGetAuditMode>disabled</NuGetAuditMode>
+    <UserSecretsId>b0727383-8a34-4c05-a0d8-60d6f8ce4d65</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
