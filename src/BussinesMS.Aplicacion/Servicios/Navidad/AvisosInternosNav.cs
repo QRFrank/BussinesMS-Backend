@@ -343,6 +343,34 @@ public class AvisosInternosNav : IAvisosInternosNav
             ExcluirUsuarioId = autorId,
             ClaveUnica = $"traslado:{traslado.Id}:admins"
         });
+
+        var origenNombre = almacenes.GetValueOrDefault(traslado.AlmacenOrigenId, $"#{traslado.AlmacenOrigenId}");
+        var destinoNombre = almacenes.GetValueOrDefault(traslado.AlmacenDestinoId, $"#{traslado.AlmacenDestinoId}");
+        var total = lineas.Sum(l => l.Unidades);
+        // Encargados del almacen de origen (sale mercaderia)
+        await _notificador.EncolarAsync(new NuevaNotificacionNav
+        {
+            TemporadaId = traslado.TemporadaId,
+            Evento = EventoNotificacionNav.TrasladoSalidaAlmacen,
+            Mensaje = MensajesAvisosNav.TrasladoSalidaAlmacen(traslado.Id, traslado.Fecha, origenNombre, destinoNombre,
+                usuario, traslado.Motivo, lineas, total),
+            Audiencia = AudienciaNotificacionNav.EncargadosAlmacen,
+            AudienciaId = traslado.AlmacenOrigenId,
+            ExcluirUsuarioId = autorId,
+            ClaveUnica = $"traslado:{traslado.Id}:origen:{traslado.AlmacenOrigenId}"
+        });
+        // Encargados del almacen de destino (entra mercaderia)
+        await _notificador.EncolarAsync(new NuevaNotificacionNav
+        {
+            TemporadaId = traslado.TemporadaId,
+            Evento = EventoNotificacionNav.TrasladoIngresoAlmacen,
+            Mensaje = MensajesAvisosNav.TrasladoIngresoAlmacen(traslado.Id, traslado.Fecha, origenNombre, destinoNombre,
+                usuario, traslado.Motivo, lineas, total),
+            Audiencia = AudienciaNotificacionNav.EncargadosAlmacen,
+            AudienciaId = traslado.AlmacenDestinoId,
+            ExcluirUsuarioId = autorId,
+            ClaveUnica = $"traslado:{traslado.Id}:destino:{traslado.AlmacenDestinoId}"
+        });
     });
 
     // ================= Anulaciones =================
@@ -366,6 +394,21 @@ public class AvisosInternosNav : IAvisosInternosNav
             ExcluirUsuarioId = autorId,
             ClaveUnica = $"anulacion:{a.Clave}"
         });
+
+        // Encargados de los almacenes involucrados (si la anulacion los informa), mismo texto, sin el autor
+        foreach (var almacenId in (a.AlmacenesEncargadosIds ?? Array.Empty<int>()).Distinct())
+        {
+            await _notificador.EncolarAsync(new NuevaNotificacionNav
+            {
+                TemporadaId = a.TemporadaId,
+                Evento = EventoNotificacionNav.Anulacion,
+                Mensaje = MensajesAvisosNav.Anulacion(a.Tipo, a.Referencia, detalle, usuario, BoliviaTimeZone.Now()),
+                Audiencia = AudienciaNotificacionNav.EncargadosAlmacen,
+                AudienciaId = almacenId,
+                ExcluirUsuarioId = autorId,
+                ClaveUnica = $"anulacion:{a.Clave}:almacen:{almacenId}"
+            });
+        }
     });
 
     // ================= Helpers =================

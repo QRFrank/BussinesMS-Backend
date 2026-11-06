@@ -22,7 +22,10 @@ public enum EventoNotificacionNav
     Anulacion = 29,
     ResumenDiario = 30,
     // Fase 3: traslado registrado, aviso inmediato a admins
-    Traslado = 31
+    Traslado = 31,
+    // Traslado: aviso a encargados del almacén de origen (sale) y de destino (entra)
+    TrasladoSalidaAlmacen = 32,
+    TrasladoIngresoAlmacen = 33
 }
 
 public enum AudienciaNotificacionNav

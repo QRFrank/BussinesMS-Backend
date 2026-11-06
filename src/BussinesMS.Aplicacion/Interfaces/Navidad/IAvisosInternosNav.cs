@@ -14,7 +14,9 @@ public sealed record AnulacionAviso(
     string Clave,
     string? Detalle = null,
     /// <summary>Si la anulación es de un vendedor de ruta, se agrega "Vendedor: Nombre" al texto.</summary>
-    int? VendedorId = null);
+    int? VendedorId = null,
+    /// <summary>Si se informa, además de los admins se avisa a los encargados de estos almacenes (clave "anulacion:{Clave}:almacen:{id}").</summary>
+    IReadOnlyList<int>? AlmacenesEncargadosIds = null);
 
 /// <summary>
 /// Avisos internos inmediatos de WhatsApp (fase 3). Los llaman los servicios de negocio DENTRO de su transacción

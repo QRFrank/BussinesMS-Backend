@@ -317,7 +317,8 @@ public class TrasladoNavService : ITrasladoNavService
                 await _repo.ActualizarAsync(entidad);
 
                 await _avisos.AnulacionAsync(new AnulacionAviso(traslado.TemporadaId, "Traslado", $"N° {traslado.Id}", $"traslado:{traslado.Id}",
-                    $"{traslado.Detalles.Sum(d => d.CantidadUnidades)} u de {nombresAlmacen.GetValueOrDefault(traslado.AlmacenOrigenId, $"#{traslado.AlmacenOrigenId}")} a {almacenDestino}"));
+                    $"{traslado.Detalles.Sum(d => d.CantidadUnidades)} u de {nombresAlmacen.GetValueOrDefault(traslado.AlmacenOrigenId, $"#{traslado.AlmacenOrigenId}")} a {almacenDestino}",
+                    null, new[] { traslado.AlmacenOrigenId, traslado.AlmacenDestinoId }));
 
                 await _uow.CommitAsync();
             }
