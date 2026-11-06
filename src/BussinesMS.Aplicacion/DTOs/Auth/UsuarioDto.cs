@@ -11,7 +11,7 @@ public class UsuarioDto
     public string Apellido { get; set; } = string.Empty;
     [OcultoSinAdmin] // GET /Usuarios: lookup liviano para no-admin (permisos fase 2)
     public string? Email { get; set; }
-    // Enmascarado (+591 7123****); el número completo solo viaja en el detalle (GET /Usuarios/{id}) para el admin
+    // Completo (+59171234567), tal como está guardado; solo lo ve el admin
     [OcultoSinAdmin]
     public string? Telefono { get; set; }
     public string Username { get; set; } = string.Empty;
