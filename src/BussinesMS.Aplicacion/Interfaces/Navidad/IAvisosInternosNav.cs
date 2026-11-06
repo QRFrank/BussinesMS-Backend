@@ -45,6 +45,9 @@ public interface IAvisosInternosNav
     /// <summary>V2 al vendedor: abono registrado y saldo restante.</summary>
     Task AbonoVendedorAsync(AbonoVendedor abono);
 
+    /// <summary>Traslado registrado: aviso inmediato a admins (sin el autor).</summary>
+    Task TrasladoAsync(Traslado traslado);
+
     /// <summary>S1 a admins.</summary>
     Task AnulacionAsync(AnulacionAviso anulacion);
 }

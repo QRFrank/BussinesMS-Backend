@@ -268,6 +268,20 @@ public static class MensajesAvisosNav
         return Cerrar(sb);
     }
 
+    // ---------- Traslados ----------
+
+    public static string Traslado(int trasladoId, DateTime fecha, string origen, string destino, string usuario,
+        string? motivo, IEnumerable<LineaAviso> productos, int totalUnidades)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"🔁 Traslado N° {trasladoId} — {Dia(fecha)}");
+        sb.AppendLine($"{origen} → {destino} · Registró: {usuario}");
+        AgregarProductos(sb, productos);
+        sb.AppendLine($"Total: {totalUnidades} u");
+        if (!string.IsNullOrWhiteSpace(motivo)) sb.AppendLine($"Motivo: {motivo}");
+        return Cerrar(sb);
+    }
+
     // ---------- Anulaciones (S1) ----------
 
     public static string Anulacion(string tipo, string referencia, string? detalle, string usuario, DateTime fecha)

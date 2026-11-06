@@ -6,4 +6,10 @@ public interface INavidadUnitOfWork
     Task<int> SaveChangesAsync();
     Task CommitAsync();
     Task RollbackAsync();
+
+    /// <summary>
+    /// Avisa que se encoló una notificación de WhatsApp. Con transacción abierta, despierta la bandeja recién después del Commit;
+    /// sin transacción, de inmediato (ya está guardada).
+    /// </summary>
+    void MarcarAvisosPendientes();
 }

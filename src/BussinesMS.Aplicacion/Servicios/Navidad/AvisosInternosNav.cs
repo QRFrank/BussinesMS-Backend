@@ -321,6 +321,30 @@ public class AvisosInternosNav : IAvisosInternosNav
         });
     });
 
+    // ================= Traslados =================
+
+    public Task TrasladoAsync(Traslado traslado) => SeguroAsync("traslado", async () =>
+    {
+        var autorId = _currentUser.GetUsuarioId();
+        var almacenes = await NombresAlmacenAsync(new[] { traslado.AlmacenOrigenId, traslado.AlmacenDestinoId });
+        var productos = await ProductosAsync(traslado.Detalles.Select(d => d.ProductoId));
+        var usuario = await NombreUsuarioAsync(traslado.UsuarioId);
+        var lineas = traslado.Detalles.GroupBy(d => d.ProductoId)
+            .Select(g => Linea(productos, g.Key, g.Sum(x => x.CantidadUnidades))).ToList();
+        await _notificador.EncolarAsync(new NuevaNotificacionNav
+        {
+            TemporadaId = traslado.TemporadaId,
+            Evento = EventoNotificacionNav.Traslado,
+            Mensaje = MensajesAvisosNav.Traslado(traslado.Id, traslado.Fecha,
+                almacenes.GetValueOrDefault(traslado.AlmacenOrigenId, $"#{traslado.AlmacenOrigenId}"),
+                almacenes.GetValueOrDefault(traslado.AlmacenDestinoId, $"#{traslado.AlmacenDestinoId}"),
+                usuario, traslado.Motivo, lineas, lineas.Sum(l => l.Unidades)),
+            Audiencia = AudienciaNotificacionNav.Admins,
+            ExcluirUsuarioId = autorId,
+            ClaveUnica = $"traslado:{traslado.Id}:admins"
+        });
+    });
+
     // ================= Anulaciones =================
 
     public Task AnulacionAsync(AnulacionAviso a) => SeguroAsync("anulacion", async () =>

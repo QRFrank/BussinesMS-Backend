@@ -13,17 +13,20 @@ public class NotificadorNav : INotificadorNav
 
     private readonly INotificacionNavRepository _notificaciones;
     private readonly IConfigAvisoNavRepository _config;
+    private readonly INavidadUnitOfWork _uow;
     private readonly IOptions<WhatsAppOpciones> _opciones;
     private readonly ILogger<NotificadorNav> _logger;
 
     public NotificadorNav(
         INotificacionNavRepository notificaciones,
         IConfigAvisoNavRepository config,
+        INavidadUnitOfWork uow,
         IOptions<WhatsAppOpciones> opciones,
         ILogger<NotificadorNav> logger)
     {
         _notificaciones = notificaciones;
         _config = config;
+        _uow = uow;
         _opciones = opciones;
         _logger = logger;
     }
@@ -90,6 +93,9 @@ public class NotificadorNav : INotificadorNav
             ProgramadaPara = nueva.ProgramadaPara
         };
 
-        return await _notificaciones.CrearAsync(entidad);
+        var creada = await _notificaciones.CrearAsync(entidad);
+        // Despierta a la bandeja (despues del Commit si hay transaccion abierta)
+        _uow.MarcarAvisosPendientes();
+        return creada;
     }
 }

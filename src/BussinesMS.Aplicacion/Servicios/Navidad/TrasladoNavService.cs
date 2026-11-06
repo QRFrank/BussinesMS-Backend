@@ -247,6 +247,9 @@ public class TrasladoNavService : ITrasladoNavService
                         detalle.CantidadUnidades, TipoMovimientoNav.TrasladoEntrada, ReferenciaTraslado, creado.Id, motivo);
                 }
 
+                // Aviso por WhatsApp a admins (misma transaccion; no falla la operacion)
+                await _avisos.TrasladoAsync(creado);
+
                 await _uow.CommitAsync();
             }
             catch

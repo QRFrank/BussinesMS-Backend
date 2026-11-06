@@ -12,15 +12,18 @@ namespace BussinesMS.Infraestructura.Jobs;
 public class BandejaWhatsAppJob : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IBandejaSenal _senal;
     private readonly IOptions<WhatsAppOpciones> _opciones;
     private readonly ILogger<BandejaWhatsAppJob> _logger;
 
     public BandejaWhatsAppJob(
         IServiceScopeFactory scopeFactory,
+        IBandejaSenal senal,
         IOptions<WhatsAppOpciones> opciones,
         ILogger<BandejaWhatsAppJob> logger)
     {
         _scopeFactory = scopeFactory;
+        _senal = senal;
         _opciones = opciones;
         _logger = logger;
     }
@@ -30,11 +33,13 @@ public class BandejaWhatsAppJob : BackgroundService
         var intervalo = TimeSpan.FromSeconds(Math.Max(5, _opciones.Value.IntervaloBandejaSegundos));
         _logger.LogInformation("BandejaWhatsAppJob iniciado (cada {Segundos} s)", intervalo.TotalSeconds);
 
-        using var timer = new PeriodicTimer(intervalo);
         try
         {
-            while (await timer.WaitForNextTickAsync(stoppingToken))
+            while (true)
             {
+                // Espera una senal (aviso recien confirmado) o el intervalo (respaldo)
+                await _senal.EsperarAsync(intervalo, stoppingToken);
+
                 if (!_opciones.Value.EstaConfigurado)
                     continue;
 

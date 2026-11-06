@@ -20,7 +20,9 @@ public enum EventoNotificacionNav
     CierreSalidaRuta = 27,
     AbonoVendedor = 28,
     Anulacion = 29,
-    ResumenDiario = 30
+    ResumenDiario = 30,
+    // Fase 3: traslado registrado, aviso inmediato a admins
+    Traslado = 31
 }
 
 public enum AudienciaNotificacionNav
