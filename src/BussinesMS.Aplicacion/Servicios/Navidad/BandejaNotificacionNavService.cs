@@ -302,7 +302,11 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
 
             try
             {
-                await _evolution.EnviarTextoAsync(fila.NombreInstancia, telefono, envio.Notificacion!.Mensaje, ct);
+                var texto = envio.Notificacion!.Mensaje;
+                // TEMPORAL: quitar antes de producción (MostrarDestinatario)
+                if (_opciones.Value.MostrarDestinatario)
+                    texto += TextoDestinatarioDebug(envio, telefono, usuarios);
+                await _evolution.EnviarTextoAsync(fila.NombreInstancia, telefono, texto, ct);
 
                 envio.Intentos++;
                 envio.Estado = EstadoEnvioNotificacionNav.Enviado;
@@ -336,6 +340,17 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
             if (i < pendientes.Count - 1 && pausa > 0)
                 await Task.Delay(TimeSpan.FromSeconds(pausa) + TimeSpan.FromMilliseconds(Random.Shared.Next(0, 1000)), ct);
         }
+    }
+
+    // TEMPORAL: quitar antes de producción (MostrarDestinatario)
+    private static string TextoDestinatarioDebug(NotificacionEnvioNav envio, string telefono, Dictionary<int, Usuario> usuarios)
+    {
+        if (envio.UsuarioId.HasValue && usuarios.TryGetValue(envio.UsuarioId.Value, out var u))
+            return $"\n\n🧪 Para: {NombreCompleto(u)} ({u.Username} · {u.Rol?.Nombre ?? "sin rol"})";
+        var enmascarado = EnmascaradorTelefono.Enmascarar(telefono);
+        return envio.ClienteId.HasValue
+            ? $"\n\n🧪 Para: {envio.DestinatarioDescripcion} ({enmascarado})"
+            : $"\n\n🧪 Para: sin usuario ({enmascarado})";
     }
 
     private async Task RegistrarFalloAsync(NotificacionEnvioNav envio, string telefono, string instancia, string mensaje)

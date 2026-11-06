@@ -13,6 +13,8 @@ public class WhatsAppOpciones
     public int IntervaloBandejaSegundos { get; set; } = 30;
     /// <summary>Cada cuánto consulta el monitor el estado de la instancia (default 60 s).</summary>
     public int IntervaloMonitorSegundos { get; set; } = 60;
+    // TEMPORAL: quitar antes de producción (MostrarDestinatario)
+    public bool MostrarDestinatario { get; set; }
 
     /// <summary>Configurado = Habilitado y con UrlBase y ApiKey no vacíos.</summary>
     public bool EstaConfigurado =>

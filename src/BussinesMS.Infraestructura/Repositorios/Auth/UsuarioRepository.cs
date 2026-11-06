@@ -33,7 +33,7 @@ public class UsuarioRepository : RepositorioBase<Usuario>, IUsuarioRepository
     {
         var lista = ids.Distinct().ToList();
         if (lista.Count == 0) return new List<Usuario>();
-        return await _dbSet.AsNoTracking().Where(u => lista.Contains(u.Id)).ToListAsync();
+        return await _dbSet.AsNoTracking().Include(u => u.Rol).Where(u => lista.Contains(u.Id)).ToListAsync();
     }
 
     public async Task<List<Usuario>> ObtenerAdminsNavidadAsync()
