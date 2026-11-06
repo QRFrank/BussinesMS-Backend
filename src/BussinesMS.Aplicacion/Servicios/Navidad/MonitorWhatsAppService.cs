@@ -67,6 +67,12 @@ public class MonitorWhatsAppService : IMonitorWhatsAppService
                 fila.NumeroEnmascarado = enmascarado;
                 cambio = true;
             }
+            var completo = EnmascaradorTelefono.Completo(estado.NumeroJid);
+            if (!string.IsNullOrEmpty(completo) && fila.Numero != completo)
+            {
+                fila.Numero = completo;
+                cambio = true;
+            }
             if (!string.IsNullOrWhiteSpace(estado.NombrePerfil) && fila.NombrePerfil != estado.NombrePerfil)
             {
                 fila.NombrePerfil = estado.NombrePerfil.Length <= 100 ? estado.NombrePerfil : estado.NombrePerfil[..100];

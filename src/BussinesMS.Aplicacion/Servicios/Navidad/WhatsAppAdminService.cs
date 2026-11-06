@@ -65,6 +65,7 @@ public class WhatsAppAdminService : IWhatsAppAdminService
                 Instancia = fila?.NombreInstancia,
                 Estado = "SinConfigurar",
                 NumeroEnmascarado = fila?.NumeroEnmascarado,
+                Numero = fila?.Numero,
                 NombrePerfil = fila?.NombrePerfil,
                 UltimoEstadoEn = fila?.UltimoEstadoEn
             };
@@ -91,6 +92,7 @@ public class WhatsAppAdminService : IWhatsAppAdminService
             Instancia = fila.NombreInstancia,
             Estado = nombreEstado,
             NumeroEnmascarado = fila.NumeroEnmascarado,
+            Numero = fila.Numero,
             NombrePerfil = fila.NombrePerfil,
             Detalle = estado.Detalle,
             UltimoEstadoEn = fila.UltimoEstadoEn
@@ -109,6 +111,12 @@ public class WhatsAppAdminService : IWhatsAppAdminService
             if (!string.IsNullOrEmpty(enmascarado) && fila.NumeroEnmascarado != enmascarado)
             {
                 fila.NumeroEnmascarado = enmascarado;
+                cambio = true;
+            }
+            var completo = EnmascaradorTelefono.Completo(estado.NumeroJid);
+            if (!string.IsNullOrEmpty(completo) && fila.Numero != completo)
+            {
+                fila.Numero = completo;
                 cambio = true;
             }
             if (!string.IsNullOrWhiteSpace(estado.NombrePerfil) && fila.NombrePerfil != estado.NombrePerfil)

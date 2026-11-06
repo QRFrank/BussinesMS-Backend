@@ -8,6 +8,8 @@ public class WhatsAppNumeroDto
     /// <summary>Conectado | Desconectado | Conectando | SinConfigurar | Error | SinNumero</summary>
     public string Estado { get; set; } = "SinNumero";
     public string? NumeroEnmascarado { get; set; }
+    /// <summary>Número vinculado completo (+591XXXXXXXX); null si aún no se conoce.</summary>
+    public string? Numero { get; set; }
     public string? NombrePerfil { get; set; }
     public string? Detalle { get; set; }
     public DateTime? UltimoEstadoEn { get; set; }

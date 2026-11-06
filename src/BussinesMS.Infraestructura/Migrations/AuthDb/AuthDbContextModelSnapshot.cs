@@ -448,6 +448,10 @@ namespace BussinesMS.Infraestructura.Migrations.AuthDb
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("Numero")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<string>("NumeroEnmascarado")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");

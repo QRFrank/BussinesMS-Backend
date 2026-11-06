@@ -49,6 +49,8 @@ public class WhatsAppEstadoBannerDto
     /// <summary>Desde cuándo está en ese estado (UTC, con Z).</summary>
     public DateTime? Desde { get; set; }
     public string? NumeroEnmascarado { get; set; }
+    /// <summary>Número vinculado completo (+591XXXXXXXX); null si aún no se conoce.</summary>
+    public string? Numero { get; set; }
     /// <summary>Envíos pendientes esperando en la bandeja.</summary>
     public int MensajesEnEspera { get; set; }
 }

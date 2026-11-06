@@ -173,6 +173,7 @@ public class WhatsAppBandejaAdminService : IWhatsAppBandejaAdminService
             Caido = estado is "Desconectado" or "Error",
             Desde = EnUtc(fila.UltimoEstadoEn),
             NumeroEnmascarado = fila.NumeroEnmascarado,
+            Numero = fila.Numero,
             MensajesEnEspera = enEspera
         };
     }

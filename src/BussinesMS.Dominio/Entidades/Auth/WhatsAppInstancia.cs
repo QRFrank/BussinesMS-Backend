@@ -10,5 +10,7 @@ public class WhatsAppInstancia : EntidadBase
     public string? UltimoEstado { get; set; }
     public DateTime? UltimoEstadoEn { get; set; }
     public string? NumeroEnmascarado { get; set; }
+    /// <summary>Número vinculado completo y normalizado (+591XXXXXXXX).</summary>
+    public string? Numero { get; set; }
     public string? NombrePerfil { get; set; }
 }

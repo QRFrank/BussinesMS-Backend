@@ -75,6 +75,7 @@ public class AuthDbContext : DbContext
             entity.Property(e => e.Alias).HasMaxLength(100);
             entity.Property(e => e.UltimoEstado).HasMaxLength(30);
             entity.Property(e => e.NumeroEnmascarado).HasMaxLength(30);
+            entity.Property(e => e.Numero).HasMaxLength(20);
             entity.Property(e => e.NombrePerfil).HasMaxLength(100);
             entity.HasIndex(e => e.NombreInstancia)
                 .IsUnique()
