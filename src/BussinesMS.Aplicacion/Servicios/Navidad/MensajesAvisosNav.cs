@@ -12,6 +12,7 @@ public sealed record DiferenciaConteoAviso(string Nombre, int Sistema, int Conta
 /// <summary>
 /// Textos de los avisos internos de WhatsApp (fase 3). Funciones puras: sin acceso a datos.
 /// Reglas: nunca precios de compra ni costos; productos agrupados en un solo mensaje (hasta 15 líneas y "y N más").
+/// Formato: encabezado, línea en blanco, un dato por línea ("Etiqueta: valor"), línea en blanco, productos, línea en blanco, firma.
 /// </summary>
 public static class MensajesAvisosNav
 {
@@ -56,10 +57,12 @@ public static class MensajesAvisosNav
         return $"{unidades} u";
     }
 
-    /// <summary>Líneas "• Producto: cantidad" (máx. 15) y "• y N más" si hay más.</summary>
+    /// <summary>Bloque de productos: línea en blanco y luego "• Producto: cantidad" (máx. 15) y "• y N más". Si no hay productos, no agrega nada.</summary>
     public static void AgregarProductos(StringBuilder sb, IEnumerable<LineaAviso> lineas)
     {
         var lista = lineas.Where(l => l.Unidades != 0).OrderBy(l => l.Nombre).ToList();
+        if (lista.Count == 0) return;
+        sb.AppendLine();
         foreach (var l in lista.Take(MaxLineas))
             sb.Append("• ").Append(l.Nombre).Append(": ").AppendLine(Cantidad(l.Unidades, l.UnidadesPorEmpaque, l.NombreEmpaque));
         if (lista.Count > MaxLineas)
@@ -72,10 +75,19 @@ public static class MensajesAvisosNav
             .Select(g => g.First() with { Unidades = g.Sum(x => x.Unidades) })
             .ToList();
 
+    /// <summary>Línea en blanco + firma.</summary>
     private static string Cerrar(StringBuilder sb)
     {
+        sb.AppendLine();
         sb.Append("— ").Append(Firma);
         return sb.ToString();
+    }
+
+    /// <summary>Encabezado seguido de una línea en blanco.</summary>
+    private static void Encabezado(StringBuilder sb, string texto)
+    {
+        sb.AppendLine(texto);
+        sb.AppendLine();
     }
 
     // ---------- Tienda y caja (decisión 8.8) ----------
@@ -84,18 +96,23 @@ public static class MensajesAvisosNav
         DateTime? diaPendiente, int productos, int totalContado, IReadOnlyList<DiferenciaConteoAviso> diferencias)
     {
         var sb = new StringBuilder();
-        sb.AppendLine(apertura ? $"🏪 Tienda abierta — {almacen}" : $"🔒 Tienda cerrada — {almacen}");
-        sb.Append(Fecha(fechaHora)).Append(" · ").Append(apertura ? "Abrió: " : "Cerró: ").AppendLine(usuario);
+        Encabezado(sb, apertura ? $"🏪 Tienda abierta — {almacen}" : $"🔒 Tienda cerrada — {almacen}");
+        sb.AppendLine($"Fecha: {Fecha(fechaHora)}");
+        sb.AppendLine($"{(apertura ? "Abrió" : "Cerró")}: {usuario}");
         if (diaPendiente.HasValue)
-            sb.AppendLine($"Cierre atrasado del día {Dia(diaPendiente.Value)}");
-        sb.AppendLine($"Contó {productos} producto(s) · {totalContado} u en total");
+            sb.AppendLine($"Cierre atrasado del día: {Dia(diaPendiente.Value)}");
+        sb.AppendLine($"Productos contados: {productos}");
+        sb.AppendLine($"Total contado: {totalContado} u");
         if (diferencias.Count == 0)
-            sb.AppendLine("Sin diferencias con el sistema");
+            sb.AppendLine("Diferencias: ninguna");
         else
         {
             var sobran = diferencias.Where(d => d.Diferencia > 0).Sum(d => d.Diferencia);
             var faltan = -diferencias.Where(d => d.Diferencia < 0).Sum(d => d.Diferencia);
-            sb.AppendLine($"⚠️ Diferencias: {diferencias.Count} producto(s) · sobran {sobran} u · faltan {faltan} u");
+            sb.AppendLine($"⚠️ Diferencias: {diferencias.Count} producto(s)");
+            sb.AppendLine($"Sobran: {sobran} u");
+            sb.AppendLine($"Faltan: {faltan} u");
+            sb.AppendLine();
             foreach (var d in diferencias.OrderBy(d => d.Nombre).Take(MaxLineas))
                 sb.AppendLine($"• {d.Nombre}: contó {d.Contado}, sistema {d.Sistema} ({(d.Diferencia > 0 ? "+" : "")}{d.Diferencia})");
             if (diferencias.Count > MaxLineas)
@@ -108,15 +125,18 @@ public static class MensajesAvisosNav
         decimal efectivoEsperado, decimal efectivoEntregado, decimal diferencia, decimal transferencias, decimal credito, string? observacion)
     {
         var sb = new StringBuilder();
-        sb.AppendLine(diferencia != 0 ? $"⚠️ Cierre de caja CON DIFERENCIA — {almacen}" : $"💰 Cierre de caja — {almacen}");
-        sb.AppendLine($"Turno {Fecha(desde)} → {Fecha(hasta)} · Registró: {usuario}");
-        sb.AppendLine($"Vendido: {Bs(totalVendido)} · Efectivo esperado: {Bs(efectivoEsperado)}");
+        Encabezado(sb, diferencia != 0 ? $"⚠️ Cierre de caja CON DIFERENCIA — {almacen}" : $"💰 Cierre de caja — {almacen}");
+        sb.AppendLine($"Turno: {Fecha(desde)} → {Fecha(hasta)}");
+        sb.AppendLine($"Registró: {usuario}");
+        sb.AppendLine($"Vendido: {Bs(totalVendido)}");
+        sb.AppendLine($"Efectivo esperado: {Bs(efectivoEsperado)}");
+        sb.AppendLine($"Entregado: {Bs(efectivoEntregado)}");
         if (diferencia == 0)
-            sb.AppendLine($"Entregado: {Bs(efectivoEntregado)} → sin diferencia");
+            sb.AppendLine("Diferencia: ninguna");
         else if (diferencia < 0)
-            sb.AppendLine($"Entregado: {Bs(efectivoEntregado)} → *FALTA {Bs(-diferencia)}*");
+            sb.AppendLine($"Diferencia: *FALTA {Bs(-diferencia)}*");
         else
-            sb.AppendLine($"Entregado: {Bs(efectivoEntregado)} → *SOBRA {Bs(diferencia)}*");
+            sb.AppendLine($"Diferencia: *SOBRA {Bs(diferencia)}*");
         sb.AppendLine($"Transferencias: {Bs(transferencias)} (no se entregan)");
         if (credito > 0) sb.AppendLine($"A crédito: {Bs(credito)}");
         if (!string.IsNullOrWhiteSpace(observacion)) sb.AppendLine($"Obs.: \"{observacion}\"");
@@ -129,14 +149,13 @@ public static class MensajesAvisosNav
         IReadOnlyList<(string Almacen, int Unidades)> porAlmacen, IEnumerable<LineaAviso> productos)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"📦 Recepción N° {recepcionId} — {Dia(fecha)}");
-        sb.Append("Proveedor: ").Append(proveedor);
-        if (!string.IsNullOrWhiteSpace(nroFactura)) sb.Append(" · Factura ").Append(nroFactura);
-        sb.AppendLine();
-        sb.AppendLine(string.Join(" · ", porAlmacen.Select(a => $"{a.Almacen}: {a.Unidades} u")));
-        AgregarProductos(sb, productos);
+        Encabezado(sb, $"📦 Recepción N° {recepcionId} — {Dia(fecha)}");
+        sb.AppendLine($"Proveedor: {proveedor}");
+        if (!string.IsNullOrWhiteSpace(nroFactura)) sb.AppendLine($"Factura: {nroFactura}");
+        foreach (var a in porAlmacen) sb.AppendLine($"{a.Almacen}: {a.Unidades} u");
         sb.AppendLine($"Total: {porAlmacen.Sum(a => a.Unidades)} u");
         sb.AppendLine($"Registró: {usuario}");
+        AgregarProductos(sb, productos);
         return Cerrar(sb);
     }
 
@@ -144,12 +163,12 @@ public static class MensajesAvisosNav
         string usuario, IEnumerable<LineaAviso> productos, int totalUnidades)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"📦 Enviaron al {almacen} {totalUnidades} u — {Dia(fecha)}");
-        sb.Append("Recepción N° ").Append(recepcionId).Append(" · Proveedor: ").Append(proveedor);
-        if (!string.IsNullOrWhiteSpace(nroFactura)) sb.Append(" · Factura ").Append(nroFactura);
-        sb.AppendLine();
-        AgregarProductos(sb, productos);
+        Encabezado(sb, $"📦 Enviaron al {almacen} {totalUnidades} u — {Dia(fecha)}");
+        sb.AppendLine($"Recepción N°: {recepcionId}");
+        sb.AppendLine($"Proveedor: {proveedor}");
+        if (!string.IsNullOrWhiteSpace(nroFactura)) sb.AppendLine($"Factura: {nroFactura}");
         sb.AppendLine($"Registró: {usuario}");
+        AgregarProductos(sb, productos);
         return Cerrar(sb);
     }
 
@@ -158,9 +177,11 @@ public static class MensajesAvisosNav
     public static string CargaVendedor(int salidaId, DateTime fecha, IEnumerable<LineaAviso> productos, int totalCarga, int enPoder)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"🚚 Carga registrada — salida N° {salidaId} · {Fecha(fecha)}");
+        Encabezado(sb, $"🚚 Carga registrada — salida N° {salidaId}");
+        sb.AppendLine($"Fecha: {Fecha(fecha)}");
+        sb.AppendLine($"Total de esta carga: {totalCarga} u");
+        sb.AppendLine($"Tenés en tu poder: {enPoder} u");
         AgregarProductos(sb, productos);
-        sb.AppendLine($"Total de esta carga: {totalCarga} u · Tenés en tu poder: {enPoder} u");
         return Cerrar(sb);
     }
 
@@ -168,11 +189,13 @@ public static class MensajesAvisosNav
         IReadOnlyList<(string Almacen, int Unidades)> porAlmacen, IEnumerable<LineaAviso> productos, int totalCarga, int enPoder)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"🚚 Carga a ruta — {vendedor} (salida N° {salidaId})");
-        sb.AppendLine($"{Fecha(fecha)} · Registró: {usuario}");
-        sb.AppendLine("Desde " + string.Join(" · ", porAlmacen.Select(a => $"{a.Almacen}: {a.Unidades} u")));
+        Encabezado(sb, $"🚚 Carga a ruta — {vendedor} (salida N° {salidaId})");
+        sb.AppendLine($"Fecha: {Fecha(fecha)}");
+        sb.AppendLine($"Registró: {usuario}");
+        foreach (var a in porAlmacen) sb.AppendLine($"Desde {a.Almacen}: {a.Unidades} u");
+        sb.AppendLine($"Total de esta carga: {totalCarga} u");
+        sb.AppendLine($"En poder de {vendedor}: {enPoder} u");
         AgregarProductos(sb, productos);
-        sb.AppendLine($"Total de esta carga: {totalCarga} u · En poder de {vendedor}: {enPoder} u");
         return Cerrar(sb);
     }
 
@@ -180,18 +203,20 @@ public static class MensajesAvisosNav
         IEnumerable<LineaAviso> productos, int unidadesDelAlmacen)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"📤 Salieron {unidadesDelAlmacen} u del {almacen} — carga a ruta de {vendedor} (salida N° {salidaId})");
-        AgregarProductos(sb, productos);
+        Encabezado(sb, $"📤 Salieron {unidadesDelAlmacen} u del {almacen} — carga a ruta de {vendedor} (salida N° {salidaId})");
         sb.AppendLine($"Registró: {usuario}");
+        AgregarProductos(sb, productos);
         return Cerrar(sb);
     }
 
     public static string DevolucionVendedor(int salidaId, DateTime fecha, IEnumerable<LineaAviso> productos, int totalDevuelto, int enPoder)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"↩️ Devolución registrada — salida N° {salidaId} · {Fecha(fecha)}");
+        Encabezado(sb, $"↩️ Devolución registrada — salida N° {salidaId}");
+        sb.AppendLine($"Fecha: {Fecha(fecha)}");
+        sb.AppendLine($"Total devuelto: {totalDevuelto} u");
+        sb.AppendLine($"Te quedan en tu poder: {enPoder} u");
         AgregarProductos(sb, productos);
-        sb.AppendLine($"Total devuelto: {totalDevuelto} u · Te quedan en tu poder: {enPoder} u");
         return Cerrar(sb);
     }
 
@@ -199,11 +224,13 @@ public static class MensajesAvisosNav
         IReadOnlyList<(string Almacen, int Unidades)> porAlmacen, IEnumerable<LineaAviso> productos, int totalDevuelto, int enPoder)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"↩️ Devolución de ruta — {vendedor} (salida N° {salidaId})");
-        sb.AppendLine($"{Fecha(fecha)} · Registró: {usuario}");
-        sb.AppendLine("Devolvió a " + string.Join(" · ", porAlmacen.Select(a => $"{a.Almacen}: {a.Unidades} u")));
+        Encabezado(sb, $"↩️ Devolución de ruta — {vendedor} (salida N° {salidaId})");
+        sb.AppendLine($"Fecha: {Fecha(fecha)}");
+        sb.AppendLine($"Registró: {usuario}");
+        foreach (var a in porAlmacen) sb.AppendLine($"Devolvió a {a.Almacen}: {a.Unidades} u");
+        sb.AppendLine($"Total devuelto: {totalDevuelto} u");
+        sb.AppendLine($"En poder de {vendedor}: {enPoder} u");
         AgregarProductos(sb, productos);
-        sb.AppendLine($"Total devuelto: {totalDevuelto} u · En poder de {vendedor}: {enPoder} u");
         return Cerrar(sb);
     }
 
@@ -211,9 +238,9 @@ public static class MensajesAvisosNav
         IEnumerable<LineaAviso> productos, int unidadesDelAlmacen)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"📥 Entraron {unidadesDelAlmacen} u al {almacen} — devolución de ruta de {vendedor} (salida N° {salidaId})");
-        AgregarProductos(sb, productos);
+        Encabezado(sb, $"📥 Entraron {unidadesDelAlmacen} u al {almacen} — devolución de ruta de {vendedor} (salida N° {salidaId})");
         sb.AppendLine($"Registró: {usuario}");
+        AgregarProductos(sb, productos);
         return Cerrar(sb);
     }
 
@@ -221,16 +248,19 @@ public static class MensajesAvisosNav
         int? nroVenta, decimal montoNeto, decimal descuento, decimal entregado, string? medio, decimal falta, string usuario)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"✅ Salida N° {salidaId} cerrada — {vendedor}");
-        sb.AppendLine($"Cargado {cargado} u · Devuelto {devuelto} u · Vendido {vendido} u");
+        Encabezado(sb, $"✅ Salida N° {salidaId} cerrada — {vendedor}");
+        sb.AppendLine($"Cargado: {cargado} u");
+        sb.AppendLine($"Devuelto: {devuelto} u");
+        sb.AppendLine($"Vendido: {vendido} u");
         if (nroVenta.HasValue)
         {
-            sb.Append($"Venta de ruta N° {nroVenta}: {Bs(montoNeto)}");
-            if (descuento > 0) sb.Append($" (desc. {Bs(descuento)})");
-            sb.AppendLine();
+            sb.AppendLine($"Venta de ruta N°: {nroVenta}");
+            sb.AppendLine($"Monto: {Bs(montoNeto)}");
+            if (descuento > 0) sb.AppendLine($"Descuento: {Bs(descuento)}");
             sb.Append($"Entregó: {Bs(entregado)}");
             if (entregado > 0 && !string.IsNullOrEmpty(medio)) sb.Append($" ({Medio(medio)})");
-            sb.AppendLine($" · Debe: {Bs(falta)}");
+            sb.AppendLine();
+            sb.AppendLine($"Debe: {Bs(falta)}");
         }
         else
             sb.AppendLine("Devolvió todo: se cerró sin venta");
@@ -242,15 +272,16 @@ public static class MensajesAvisosNav
         decimal entregado, string? medio, decimal falta)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"🧾 Salida N° {salidaId} cerrada");
+        Encabezado(sb, $"🧾 Salida N° {salidaId} cerrada");
         if (nroVenta.HasValue)
         {
-            sb.Append($"Vendiste {vendido} u por {Bs(montoNeto)}");
-            if (descuento > 0) sb.Append($" (desc. {Bs(descuento)})");
-            sb.AppendLine();
+            sb.AppendLine($"Vendiste: {vendido} u");
+            sb.AppendLine($"Monto: {Bs(montoNeto)}");
+            if (descuento > 0) sb.AppendLine($"Descuento: {Bs(descuento)}");
             sb.Append($"Entregaste: {Bs(entregado)}");
             if (entregado > 0 && !string.IsNullOrEmpty(medio)) sb.Append($" ({Medio(medio)})");
-            sb.AppendLine(falta > 0 ? $" · *Te falta rendir: {Bs(falta)}*" : " · No te falta rendir nada");
+            sb.AppendLine();
+            sb.AppendLine(falta > 0 ? $"*Te falta rendir: {Bs(falta)}*" : "No te falta rendir nada");
         }
         else
             sb.AppendLine("Devolviste todo: la salida se cerró sin venta");
@@ -260,11 +291,12 @@ public static class MensajesAvisosNav
     public static string AbonoVendedor(decimal monto, decimal descuento, string? medio, decimal saldo)
     {
         var sb = new StringBuilder();
-        sb.Append("💵 Abono registrado: ").Append(Bs(monto));
+        Encabezado(sb, "💵 Abono registrado");
+        sb.Append("Monto: ").Append(Bs(monto));
         if (monto > 0 && !string.IsNullOrEmpty(medio)) sb.Append($" ({Medio(medio)})");
-        if (descuento > 0) sb.Append($" · Descuento: {Bs(descuento)}");
         sb.AppendLine();
-        sb.AppendLine(saldo > 0 ? $"Saldo que te falta rendir: {Bs(saldo)}" : "Saldo: Bs 0,00 · ¡No te falta rendir nada!");
+        if (descuento > 0) sb.AppendLine($"Descuento: {Bs(descuento)}");
+        sb.AppendLine(saldo > 0 ? $"Saldo que te falta rendir: {Bs(saldo)}" : "Saldo: Bs 0,00 (¡No te falta rendir nada!)");
         return Cerrar(sb);
     }
 
@@ -274,11 +306,13 @@ public static class MensajesAvisosNav
         string? motivo, IEnumerable<LineaAviso> productos, int totalUnidades)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"🔁 Traslado N° {trasladoId} — {Dia(fecha)}");
-        sb.AppendLine($"{origen} → {destino} · Registró: {usuario}");
-        AgregarProductos(sb, productos);
+        Encabezado(sb, $"🔁 Traslado N° {trasladoId} — {Dia(fecha)}");
+        sb.AppendLine($"Origen: {origen}");
+        sb.AppendLine($"Destino: {destino}");
+        sb.AppendLine($"Registró: {usuario}");
         sb.AppendLine($"Total: {totalUnidades} u");
         if (!string.IsNullOrWhiteSpace(motivo)) sb.AppendLine($"Motivo: {motivo}");
+        AgregarProductos(sb, productos);
         return Cerrar(sb);
     }
 
@@ -287,10 +321,11 @@ public static class MensajesAvisosNav
     public static string Anulacion(string tipo, string referencia, string? detalle, string usuario, DateTime fecha)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"⚠️ Anulación — {tipo}");
+        Encabezado(sb, $"⚠️ Anulación — {tipo}");
         sb.AppendLine(referencia);
         if (!string.IsNullOrWhiteSpace(detalle)) sb.AppendLine(detalle);
-        sb.AppendLine($"Anuló: {usuario} · {Fecha(fecha)}");
+        sb.AppendLine($"Anuló: {usuario}");
+        sb.AppendLine($"Fecha: {Fecha(fecha)}");
         return Cerrar(sb);
     }
 }
