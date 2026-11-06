@@ -28,6 +28,7 @@ public class PagoVendedorNavService : IPagoVendedorNavService
     private readonly ITemporadaActualService _temporadaActual;
     private readonly INavidadUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
+    private readonly IAvisosInternosNav _avisos;
     private readonly ILogger<PagoVendedorNavService> _logger;
 
     public PagoVendedorNavService(
@@ -40,6 +41,7 @@ public class PagoVendedorNavService : IPagoVendedorNavService
         ITemporadaActualService temporadaActual,
         INavidadUnitOfWork uow,
         ICurrentUserService currentUser,
+        IAvisosInternosNav avisos,
         ILogger<PagoVendedorNavService> logger)
     {
         _ventas = ventas;
@@ -51,6 +53,7 @@ public class PagoVendedorNavService : IPagoVendedorNavService
         _temporadaActual = temporadaActual;
         _uow = uow;
         _currentUser = currentUser;
+        _avisos = avisos;
         _logger = logger;
     }
 
@@ -528,7 +531,20 @@ public class PagoVendedorNavService : IPagoVendedorNavService
 
             pago.Anulado = true;
             Tocar(pago, _currentUser.ObtenerUsuarioIdRequerido(), DateTime.UtcNow);
-            await _uow.SaveChangesAsync();
+            // Anulacion y aviso de WhatsApp en la misma transaccion
+            await _uow.BeginTransactionAsync();
+            try
+            {
+                await _uow.SaveChangesAsync();
+                await _avisos.AnulacionAsync(new AnulacionAviso(pago.TemporadaId, "Pago a vendedor", $"N° {pago.Id}", $"pago-vendedor:{pago.Id}",
+                    $"{MensajesAvisosNav.Bs(pago.Monto)} ({pago.Tipo})", pago.VendedorId));
+                await _uow.CommitAsync();
+            }
+            catch
+            {
+                await _uow.RollbackAsync();
+                throw;
+            }
 
             _logger.LogInformation("Pago a vendedor {Id} anulado", id);
             return await ObtenerPagoAsync(id) ?? throw new EntidadNoEncontradaException("Pago a vendedor", id);

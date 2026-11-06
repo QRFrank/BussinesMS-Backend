@@ -30,6 +30,7 @@ public class TrasladoNavService : ITrasladoNavService
     private readonly INavidadUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
     private readonly IAlmacenAccesoNavService _acceso;
+    private readonly IAvisosInternosNav _avisos;
     private readonly ILogger<TrasladoNavService> _logger;
 
     public TrasladoNavService(
@@ -42,6 +43,7 @@ public class TrasladoNavService : ITrasladoNavService
         INavidadUnitOfWork uow,
         ICurrentUserService currentUser,
         IAlmacenAccesoNavService acceso,
+        IAvisosInternosNav avisos,
         ILogger<TrasladoNavService> logger)
     {
         _repo = repo;
@@ -53,6 +55,7 @@ public class TrasladoNavService : ITrasladoNavService
         _uow = uow;
         _currentUser = currentUser;
         _acceso = acceso;
+        _avisos = avisos;
         _logger = logger;
     }
 
@@ -309,6 +312,9 @@ public class TrasladoNavService : ITrasladoNavService
                     ?? throw new EntidadNoEncontradaException("Traslado", id);
                 entidad.Anulado = true;
                 await _repo.ActualizarAsync(entidad);
+
+                await _avisos.AnulacionAsync(new AnulacionAviso(traslado.TemporadaId, "Traslado", $"N° {traslado.Id}", $"traslado:{traslado.Id}",
+                    $"{traslado.Detalles.Sum(d => d.CantidadUnidades)} u de {nombresAlmacen.GetValueOrDefault(traslado.AlmacenOrigenId, $"#{traslado.AlmacenOrigenId}")} a {almacenDestino}"));
 
                 await _uow.CommitAsync();
             }

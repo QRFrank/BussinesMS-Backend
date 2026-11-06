@@ -18,6 +18,8 @@ public class PagoInversorService : IPagoInversorService
     private readonly IAporteCapitalRepository _aporteRepo;
     private readonly ITemporadaActualService _temporadaActual;
     private readonly IMapper _mapper;
+    private readonly INavidadUnitOfWork _uow;
+    private readonly IAvisosInternosNav _avisos;
     private readonly ILogger<PagoInversorService> _logger;
 
     public PagoInversorService(
@@ -25,12 +27,16 @@ public class PagoInversorService : IPagoInversorService
         IAporteCapitalRepository aporteRepo,
         ITemporadaActualService temporadaActual,
         IMapper mapper,
+        INavidadUnitOfWork uow,
+        IAvisosInternosNav avisos,
         ILogger<PagoInversorService> logger)
     {
         _repo = repo;
         _aporteRepo = aporteRepo;
         _temporadaActual = temporadaActual;
         _mapper = mapper;
+        _uow = uow;
+        _avisos = avisos;
         _logger = logger;
     }
 
@@ -162,7 +168,20 @@ public class PagoInversorService : IPagoInversorService
 
             await _temporadaActual.VerificarEditableAsync(pago.TemporadaId);
 
-            await _repo.EliminarAsync(id);
+            // Anulacion y aviso de WhatsApp en la misma transaccion
+            await _uow.BeginTransactionAsync();
+            try
+            {
+                await _repo.EliminarAsync(id);
+                await _avisos.AnulacionAsync(new AnulacionAviso(pago.TemporadaId, "Pago a inversor", $"N° {pago.Id}", $"pago-inversor:{pago.Id}",
+                    $"{MensajesAvisosNav.Bs(pago.Monto)} · {pago.Fecha:dd/MM/yyyy}"));
+                await _uow.CommitAsync();
+            }
+            catch
+            {
+                await _uow.RollbackAsync();
+                throw;
+            }
             _logger.LogInformation("Pago a inversor anulado: {Id}", id);
         }
         catch (Exception ex)

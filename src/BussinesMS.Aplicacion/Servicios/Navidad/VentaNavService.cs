@@ -40,6 +40,7 @@ public class VentaNavService : IVentaNavService
     private readonly ICurrentUserService _currentUser;
     private readonly IAlmacenAccesoNavService _acceso;
     private readonly IPrecioCompraAccesoService _precioAcceso;
+    private readonly IAvisosInternosNav _avisos;
     private readonly ILogger<VentaNavService> _logger;
 
     public VentaNavService(
@@ -60,6 +61,7 @@ public class VentaNavService : IVentaNavService
         ICurrentUserService currentUser,
         IAlmacenAccesoNavService acceso,
         IPrecioCompraAccesoService precioAcceso,
+        IAvisosInternosNav avisos,
         ILogger<VentaNavService> logger)
     {
         _repo = repo;
@@ -79,6 +81,7 @@ public class VentaNavService : IVentaNavService
         _currentUser = currentUser;
         _acceso = acceso;
         _precioAcceso = precioAcceso;
+        _avisos = avisos;
         _logger = logger;
     }
 
@@ -709,6 +712,8 @@ public class VentaNavService : IVentaNavService
                 RecalcularEntrega(venta);
                 Tocar(venta, usuarioId, ahora);
                 await _uow.SaveChangesAsync();
+                await _avisos.AnulacionAsync(new AnulacionAviso(venta.TemporadaId, "Entrega de reserva", $"Reserva N° {venta.NroVenta}",
+                    $"entrega:{entregaId}", $"{entrega.Detalles.Sum(x => x.Unidades)} u vuelven al almacén"));
                 await _uow.CommitAsync();
             }
             catch
@@ -833,6 +838,8 @@ public class VentaNavService : IVentaNavService
                 RecalcularPago(venta);
                 Tocar(venta, usuarioId, ahora);
                 await _uow.SaveChangesAsync();
+                await _avisos.AnulacionAsync(new AnulacionAviso(venta.TemporadaId, "Cobro de venta", $"{(venta.Tipo == TipoVentaNav.Reserva ? "Reserva" : "Venta")} N° {venta.NroVenta}",
+                    $"cobro:{cobroId}", $"{MensajesAvisosNav.Bs(cobro.Monto)} ({cobro.Medio.ToString().ToLowerInvariant()}) · saldo ahora {MensajesAvisosNav.Bs(venta.MontoSaldo)}"));
                 await _uow.CommitAsync();
             }
             catch
@@ -902,6 +909,8 @@ public class VentaNavService : IVentaNavService
                 venta.EstadoPago = EstadoPagoVentaNav.Pendiente;
                 Tocar(venta, usuarioId, ahora);
                 await _uow.SaveChangesAsync();
+                await _avisos.AnulacionAsync(new AnulacionAviso(venta.TemporadaId, venta.Tipo == TipoVentaNav.Reserva ? "Reserva" : "Venta",
+                    $"N° {venta.NroVenta}", $"venta:{venta.Id}", $"Total {MensajesAvisosNav.Bs(venta.MontoNeto)}"));
                 await _uow.CommitAsync();
             }
             catch

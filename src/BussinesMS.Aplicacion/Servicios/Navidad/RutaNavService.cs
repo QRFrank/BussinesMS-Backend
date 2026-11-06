@@ -35,6 +35,7 @@ public class RutaNavService : IRutaNavService
     private readonly ICurrentUserService _currentUser;
     private readonly IAlmacenAccesoNavService _acceso;
     private readonly IPrecioCompraAccesoService _precioAcceso;
+    private readonly IAvisosInternosNav _avisos;
     private readonly ILogger<RutaNavService> _logger;
 
     public RutaNavService(
@@ -51,6 +52,7 @@ public class RutaNavService : IRutaNavService
         ICurrentUserService currentUser,
         IAlmacenAccesoNavService acceso,
         IPrecioCompraAccesoService precioAcceso,
+        IAvisosInternosNav avisos,
         ILogger<RutaNavService> logger)
     {
         _ventas = ventas;
@@ -66,6 +68,7 @@ public class RutaNavService : IRutaNavService
         _currentUser = currentUser;
         _acceso = acceso;
         _precioAcceso = precioAcceso;
+        _avisos = avisos;
         _logger = logger;
     }
 
@@ -392,6 +395,9 @@ public class RutaNavService : IRutaNavService
                     await _stock.RegistrarSalidaAsync(temporada.Id, l.AlmacenOrigenId, l.ProductoId, l.Unidades,
                         TipoMovimientoNav.SalidaRuta, ReferenciaSalida, salida.Id);
 
+                // Avisos por WhatsApp: vendedor, admins y encargados de origen (misma transaccion; no falla la operacion)
+                await _avisos.CargaRutaAsync(salida, carga);
+
                 await _uow.CommitAsync();
             }
             catch
@@ -510,6 +516,9 @@ public class RutaNavService : IRutaNavService
                     await _stock.RegistrarEntradaAsync(salida.TemporadaId, l.AlmacenDestinoId, l.ProductoId, l.Unidades,
                         TipoMovimientoNav.DevolucionRuta, ReferenciaSalida, salida.Id);
 
+                // Avisos por WhatsApp: vendedor, admins y encargados de destino (misma transaccion; no falla la operacion)
+                await _avisos.DevolucionRutaAsync(salida, devolucion);
+
                 await _uow.CommitAsync();
             }
             catch
@@ -587,6 +596,7 @@ public class RutaNavService : IRutaNavService
                 try
                 {
                     await _uow.SaveChangesAsync();
+                    await _avisos.CierreSalidaAsync(salida, null, 0, null);
                     await _uow.CommitAsync();
                 }
                 catch
@@ -672,6 +682,9 @@ public class RutaNavService : IRutaNavService
                 Tocar(salida, usuarioId, ahora);
                 await _uow.SaveChangesAsync();
 
+                // Avisos por WhatsApp: admins y vendedor (misma transaccion; no falla la operacion)
+                await _avisos.CierreSalidaAsync(salida, creada, dinero, dto.Medio);
+
                 await _uow.CommitAsync();
             }
             catch
@@ -739,6 +752,8 @@ public class RutaNavService : IRutaNavService
                 Tocar(carga, usuarioId, ahora);
                 Tocar(salida, usuarioId, ahora);
                 await _uow.SaveChangesAsync();
+                await _avisos.AnulacionAsync(new AnulacionAviso(salida.TemporadaId, "Carga de ruta", $"Salida N° {salida.Id}",
+                    $"carga-ruta:{carga.Id}", $"{carga.Detalles.Sum(d => d.Unidades)} u devueltas a los almacenes", salida.VendedorId));
                 await _uow.CommitAsync();
             }
             catch
@@ -795,6 +810,8 @@ public class RutaNavService : IRutaNavService
                 Tocar(devolucion, usuarioId, ahora);
                 Tocar(salida, usuarioId, ahora);
                 await _uow.SaveChangesAsync();
+                await _avisos.AnulacionAsync(new AnulacionAviso(salida.TemporadaId, "Devolución de ruta", $"Salida N° {salida.Id}",
+                    $"devolucion-ruta:{devolucion.Id}", $"{devolucion.Detalles.Sum(d => d.Unidades)} u vuelven a quedar en poder del vendedor", salida.VendedorId));
                 await _uow.CommitAsync();
             }
             catch
@@ -863,6 +880,10 @@ public class RutaNavService : IRutaNavService
                 salida.VentaId = null;
                 Tocar(salida, usuarioId, ahora);
                 await _uow.SaveChangesAsync();
+                await _avisos.AnulacionAsync(new AnulacionAviso(salida.TemporadaId, "Cierre de salida de ruta", $"Salida N° {salida.Id}",
+                    $"cierre-salida:{salida.Id}:{ahora:yyyyMMddHHmmss}",
+                    venta != null ? $"Se anuló la venta de ruta N° {venta.NroVenta}; la salida vuelve a estar abierta" : "La salida vuelve a estar abierta",
+                    salida.VendedorId));
                 await _uow.CommitAsync();
             }
             catch
@@ -914,6 +935,9 @@ public class RutaNavService : IRutaNavService
                 salida.Estado = EstadoSalidaRuta.Anulada;
                 Tocar(salida, usuarioId, ahora);
                 await _uow.SaveChangesAsync();
+                await _avisos.AnulacionAsync(new AnulacionAviso(salida.TemporadaId, "Salida de ruta", $"Salida N° {salida.Id}",
+                    $"salida-ruta:{salida.Id}", $"{cargas.SelectMany(c => c.Detalles).Sum(d => d.Unidades)} u devueltas a los almacenes",
+                    salida.VendedorId));
                 await _uow.CommitAsync();
             }
             catch
@@ -1218,6 +1242,10 @@ public class RutaNavService : IRutaNavService
                 }
 
                 await _abonoRepo.CrearAsync(abono);
+
+                // Aviso por WhatsApp al vendedor con su saldo (misma transaccion; no falla la operacion)
+                await _avisos.AbonoVendedorAsync(abono);
+
                 await _uow.CommitAsync();
             }
             catch
@@ -1281,6 +1309,9 @@ public class RutaNavService : IRutaNavService
                 abono.Anulado = true;
                 Tocar(abono, usuarioId, ahora);
                 await _uow.SaveChangesAsync();
+                await _avisos.AnulacionAsync(new AnulacionAviso(abono.TemporadaId, "Abono de vendedor", $"Abono N° {abono.Id}",
+                    $"abono:{abono.Id}", $"{MensajesAvisosNav.Bs(abono.Monto)}" + (abono.Descuento > 0 ? $" + desc. {MensajesAvisosNav.Bs(abono.Descuento)}" : ""),
+                    abono.VendedorId));
                 await _uow.CommitAsync();
             }
             catch

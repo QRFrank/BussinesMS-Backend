@@ -21,6 +21,8 @@ public class PagoProveedorNavService : IPagoProveedorNavService
     private readonly ICompraNavRepository _compraRepo;
     private readonly ITemporadaActualService _temporadaActual;
     private readonly IAbastecimientoNavService _abastecimiento;
+    private readonly INavidadUnitOfWork _uow;
+    private readonly IAvisosInternosNav _avisos;
     private readonly ILogger<PagoProveedorNavService> _logger;
 
     public PagoProveedorNavService(
@@ -30,6 +32,8 @@ public class PagoProveedorNavService : IPagoProveedorNavService
         ICompraNavRepository compraRepo,
         ITemporadaActualService temporadaActual,
         IAbastecimientoNavService abastecimiento,
+        INavidadUnitOfWork uow,
+        IAvisosInternosNav avisos,
         ILogger<PagoProveedorNavService> logger)
     {
         _repo = repo;
@@ -38,6 +42,8 @@ public class PagoProveedorNavService : IPagoProveedorNavService
         _compraRepo = compraRepo;
         _temporadaActual = temporadaActual;
         _abastecimiento = abastecimiento;
+        _uow = uow;
+        _avisos = avisos;
         _logger = logger;
     }
 
@@ -255,7 +261,20 @@ public class PagoProveedorNavService : IPagoProveedorNavService
 
             await _temporadaActual.VerificarEditableAsync(pago.TemporadaId);
 
-            await _repo.EliminarAsync(id);
+            // Anulacion y aviso de WhatsApp en la misma transaccion
+            await _uow.BeginTransactionAsync();
+            try
+            {
+                await _repo.EliminarAsync(id);
+                await _avisos.AnulacionAsync(new AnulacionAviso(pago.TemporadaId, "Pago a proveedor", $"N° {pago.Id}", $"pago-proveedor:{pago.Id}",
+                    $"{MensajesAvisosNav.Bs(pago.Monto)} ({pago.Medio.ToString().ToLowerInvariant()}) · {pago.Fecha:dd/MM/yyyy}"));
+                await _uow.CommitAsync();
+            }
+            catch
+            {
+                await _uow.RollbackAsync();
+                throw;
+            }
             _logger.LogInformation("Pago a proveedor anulado: {Id}", id);
         }
         catch (Exception ex)

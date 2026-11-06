@@ -34,6 +34,7 @@ public class CompraNavService : ICompraNavService
     private readonly ICurrentUserService _currentUser;
     private readonly IAlmacenAccesoNavService _acceso;
     private readonly IPrecioCompraAccesoService _precioAcceso;
+    private readonly IAvisosInternosNav _avisos;
     private readonly ILogger<CompraNavService> _logger;
 
     public CompraNavService(
@@ -48,6 +49,7 @@ public class CompraNavService : ICompraNavService
         ICurrentUserService currentUser,
         IAlmacenAccesoNavService acceso,
         IPrecioCompraAccesoService precioAcceso,
+        IAvisosInternosNav avisos,
         ILogger<CompraNavService> logger)
     {
         _repo = repo;
@@ -61,6 +63,7 @@ public class CompraNavService : ICompraNavService
         _currentUser = currentUser;
         _acceso = acceso;
         _precioAcceso = precioAcceso;
+        _avisos = avisos;
         _logger = logger;
     }
 
@@ -358,6 +361,10 @@ public class CompraNavService : ICompraNavService
                 // Todos los pagos vinculados que sigan activos se anulan. El precio del producto no se revierte.
                 foreach (var p in compra.Pagos.Where(p => p.IsActive))
                     await _pagoRepo.EliminarAsync(p.Id);
+
+                await _avisos.AnulacionAsync(new AnulacionAviso(compra.TemporadaId, "Compra", $"N° {compra.Id}", $"compra:{compra.Id}",
+                    $"Fecha {compra.Fecha:dd/MM/yyyy}" + (compra.NroNota != null ? $" · Nota {compra.NroNota}" : "")
+                    + $" · {compra.Detalles.Sum(d => d.CantidadUnidades)} u"));
 
                 await _uow.CommitAsync();
             }

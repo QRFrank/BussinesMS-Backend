@@ -346,6 +346,7 @@ builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.INotificacio
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.INotificacionEnvioNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.NotificacionEnvioNavRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IConfigAvisoNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.ConfigAvisoNavRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.INotificadorNav, BussinesMS.Aplicacion.Servicios.Navidad.NotificadorNav>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IAvisosInternosNav, BussinesMS.Aplicacion.Servicios.Navidad.AvisosInternosNav>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IBandejaNotificacionNavService, BussinesMS.Aplicacion.Servicios.Navidad.BandejaNotificacionNavService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IMonitorWhatsAppService, BussinesMS.Aplicacion.Servicios.Navidad.MonitorWhatsAppService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IWhatsAppBandejaAdminService, BussinesMS.Aplicacion.Servicios.Navidad.WhatsAppBandejaAdminService>();

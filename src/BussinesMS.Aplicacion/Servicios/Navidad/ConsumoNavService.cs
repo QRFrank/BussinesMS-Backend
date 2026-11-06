@@ -31,6 +31,7 @@ public class ConsumoNavService : IConsumoNavService
     private readonly INavidadUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
     private readonly IAlmacenAccesoNavService _acceso;
+    private readonly IAvisosInternosNav _avisos;
     private readonly ILogger<ConsumoNavService> _logger;
 
     public ConsumoNavService(
@@ -44,6 +45,7 @@ public class ConsumoNavService : IConsumoNavService
         INavidadUnitOfWork uow,
         ICurrentUserService currentUser,
         IAlmacenAccesoNavService acceso,
+        IAvisosInternosNav avisos,
         ILogger<ConsumoNavService> logger)
     {
         _repo = repo;
@@ -56,6 +58,7 @@ public class ConsumoNavService : IConsumoNavService
         _uow = uow;
         _currentUser = currentUser;
         _acceso = acceso;
+        _avisos = avisos;
         _logger = logger;
     }
 
@@ -276,6 +279,9 @@ public class ConsumoNavService : IConsumoNavService
                     ?? throw new EntidadNoEncontradaException("Consumo", id);
                 entidad.Anulado = true;
                 await _repo.ActualizarAsync(entidad);
+
+                await _avisos.AnulacionAsync(new AnulacionAviso(consumo.TemporadaId, "Consumo", $"N° {consumo.Id}", $"consumo:{consumo.Id}",
+                    $"{consumo.Detalles.Sum(d => d.Unidades)} u · motivo {consumo.Motivo}"));
 
                 await _uow.CommitAsync();
             }

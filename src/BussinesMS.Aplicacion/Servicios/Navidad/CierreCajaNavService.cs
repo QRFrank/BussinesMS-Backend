@@ -28,6 +28,8 @@ public class CierreCajaNavService : ICierreCajaNavService
     private readonly ITemporadaActualService _temporadaActual;
     private readonly ICurrentUserService _currentUser;
     private readonly IAlmacenAccesoNavService _acceso;
+    private readonly INavidadUnitOfWork _uow;
+    private readonly IAvisosInternosNav _avisos;
     private readonly ILogger<CierreCajaNavService> _logger;
 
     public CierreCajaNavService(
@@ -40,6 +42,8 @@ public class CierreCajaNavService : ICierreCajaNavService
         ITemporadaActualService temporadaActual,
         ICurrentUserService currentUser,
         IAlmacenAccesoNavService acceso,
+        INavidadUnitOfWork uow,
+        IAvisosInternosNav avisos,
         ILogger<CierreCajaNavService> logger)
     {
         _repo = repo;
@@ -51,6 +55,8 @@ public class CierreCajaNavService : ICierreCajaNavService
         _temporadaActual = temporadaActual;
         _currentUser = currentUser;
         _acceso = acceso;
+        _uow = uow;
+        _avisos = avisos;
         _logger = logger;
     }
 
@@ -154,7 +160,20 @@ public class CierreCajaNavService : ICierreCajaNavService
                 UsuarioId = usuarioId
             };
 
-            var creado = await _repo.CrearAsync(entidad);
+            // Cierre y aviso de WhatsApp en la misma transaccion
+            await _uow.BeginTransactionAsync();
+            CierreCajaTienda creado;
+            try
+            {
+                creado = await _repo.CrearAsync(entidad);
+                await _avisos.CierreCajaAsync(creado);
+                await _uow.CommitAsync();
+            }
+            catch
+            {
+                await _uow.RollbackAsync();
+                throw;
+            }
 
             _logger.LogInformation("Cierre de caja registrado: {Id} (tienda {AlmacenId}, esperado {Esperado}, entregado {Entregado})",
                 creado.Id, dto.AlmacenId, resumen.EfectivoEsperado, entregado);

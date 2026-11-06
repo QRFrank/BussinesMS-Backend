@@ -34,6 +34,7 @@ public class ConteoNavService : IConteoNavService
     private readonly IAlmacenAccesoNavService _acceso;
     private readonly ICierreCajaNavRepository _cajaRepo;
     private readonly IServiceProvider _services;
+    private readonly IAvisosInternosNav _avisos;
     private readonly ILogger<ConteoNavService> _logger;
 
     public ConteoNavService(
@@ -49,6 +50,7 @@ public class ConteoNavService : IConteoNavService
         IAlmacenAccesoNavService acceso,
         ICierreCajaNavRepository cajaRepo,
         IServiceProvider services,
+        IAvisosInternosNav avisos,
         ILogger<ConteoNavService> logger)
     {
         _repo = repo;
@@ -63,6 +65,7 @@ public class ConteoNavService : IConteoNavService
         _acceso = acceso;
         _cajaRepo = cajaRepo;
         _services = services;
+        _avisos = avisos;
         _logger = logger;
     }
 
@@ -457,6 +460,9 @@ public class ConteoNavService : IConteoNavService
                         await _stock.RegistrarSalidaAsync(temporada.Id, creado.AlmacenId, d.ProductoId, -d.Diferencia,
                             TipoMovimientoNav.AjusteConteo, ReferenciaConteo, creado.Id, d.Observacion, respetarBloqueo: false);
                 }
+
+                // Aviso por WhatsApp (misma transaccion; no falla la operacion)
+                await _avisos.TiendaAsync(creado);
 
                 await _uow.CommitAsync();
             }

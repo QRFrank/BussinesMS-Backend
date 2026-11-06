@@ -33,6 +33,7 @@ public class RecepcionNavService : IRecepcionNavService
     private readonly INavidadUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
     private readonly IAlmacenAccesoNavService _acceso;
+    private readonly IAvisosInternosNav _avisos;
     private readonly ILogger<RecepcionNavService> _logger;
 
     public RecepcionNavService(
@@ -48,6 +49,7 @@ public class RecepcionNavService : IRecepcionNavService
         INavidadUnitOfWork uow,
         ICurrentUserService currentUser,
         IAlmacenAccesoNavService acceso,
+        IAvisosInternosNav avisos,
         ILogger<RecepcionNavService> logger)
     {
         _repo = repo;
@@ -62,6 +64,7 @@ public class RecepcionNavService : IRecepcionNavService
         _uow = uow;
         _currentUser = currentUser;
         _acceso = acceso;
+        _avisos = avisos;
         _logger = logger;
     }
 
@@ -246,6 +249,9 @@ public class RecepcionNavService : IRecepcionNavService
                 await _reservas.BloquearPorRecepcionAsync(temporada.Id, creada.Id,
                     creada.Detalles.SelectMany(d => d.Distribuciones.Select(x => (x.AlmacenId, d.ProductoId, x.CantidadUnidades))));
 
+                // Avisos por WhatsApp a admins y encargados (misma transaccion; no falla la operacion)
+                await _avisos.RecepcionAsync(creada, proveedor.Nombre);
+
                 await _uow.CommitAsync();
             }
             catch
@@ -317,6 +323,11 @@ public class RecepcionNavService : IRecepcionNavService
                     ?? throw new EntidadNoEncontradaException("Recepción", id);
                 entidad.Anulada = true;
                 await _repo.ActualizarAsync(entidad);
+
+                await _avisos.AnulacionAsync(new AnulacionAviso(recepcion.TemporadaId, "Recepción", $"N° {recepcion.Id}",
+                    $"recepcion:{recepcion.Id}",
+                    $"Fecha {recepcion.Fecha:dd/MM/yyyy}" + (recepcion.NroFactura != null ? $" · Factura {recepcion.NroFactura}" : "")
+                    + $" · {recepcion.Detalles.Sum(d => d.CantidadUnidades)} u"));
 
                 await _uow.CommitAsync();
             }
