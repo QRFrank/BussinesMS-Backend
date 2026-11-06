@@ -82,6 +82,7 @@ Table WhatsAppInstancia {
   UltimoEstado nvarchar(30)
   UltimoEstadoEn datetime2
   NumeroEnmascarado nvarchar(30)
+  Numero nvarchar(20) [null, note: 'Número vinculado completo (+591...), para mostrarlo en Números y QR. Migración 20261106002152_AgregarNumeroWhatsAppInstancia']
   NombrePerfil nvarchar(100)
   note: 'Más campos de EntidadBase. Un solo número vigente por temporada'
 }
