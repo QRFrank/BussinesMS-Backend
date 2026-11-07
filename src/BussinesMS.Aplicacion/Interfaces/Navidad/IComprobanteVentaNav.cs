@@ -10,6 +10,8 @@ public class ComprobanteVentaDatos
     public int VentaId { get; set; }
     public int NroVenta { get; set; }
     public bool EsReserva { get; set; }
+    /// <summary>C7: venta de "Mis ventas" del vendedor de ruta (el vendedor se rotula "Vendedor:" y la fecha es solo el día).</summary>
+    public bool EsVentaRuta { get; set; }
     public bool Anulada { get; set; }
     public string Tienda { get; set; } = string.Empty;
     public DateTime FechaLocal { get; set; }
@@ -26,6 +28,13 @@ public class ComprobanteVentaDatos
 
 /// <summary>Arma los datos del comprobante desde la venta, sin depender del usuario logueado (lo usa la bandeja en segundo plano).</summary>
 public interface IComprobanteVentaDatosService
+{
+    /// <summary>Null si la venta no existe o está dada de baja.</summary>
+    Task<ComprobanteVentaDatos?> ObtenerAsync(int ventaId);
+}
+
+/// <summary>C7: arma los datos del comprobante desde una venta de "Mis ventas" (VentaClienteRuta), sin depender del usuario logueado.</summary>
+public interface IComprobanteMisVentasDatosService
 {
     /// <summary>Null si la venta no existe o está dada de baja.</summary>
     Task<ComprobanteVentaDatos?> ObtenerAsync(int ventaId);

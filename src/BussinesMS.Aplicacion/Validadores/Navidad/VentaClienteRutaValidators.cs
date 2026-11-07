@@ -22,6 +22,7 @@ public class RegistrarVentaClienteRutaDtoValidator : AbstractValidator<Registrar
         RuleFor(x => x.PagadoAhora).GreaterThanOrEqualTo(0).WithMessage("Lo pagado no puede ser negativo");
         RuleFor(x => x.Medio).IsInEnum().When(x => x.Medio.HasValue).WithMessage("El medio de pago es inválido");
         RuleFor(x => x.Medio).NotNull().When(x => x.PagadoAhora > 0).WithMessage("El medio de pago es obligatorio si hay un pago");
+        RuleFor(x => x.TelefonoComprobante).MaximumLength(30).WithMessage("El número de WhatsApp no puede superar 30 caracteres");
         RuleFor(x => x.Detalles).NotEmpty().WithMessage("Debe registrar al menos un producto");
         RuleForEach(x => x.Detalles).SetValidator(new VentaClienteRutaLineaDtoValidator());
     }

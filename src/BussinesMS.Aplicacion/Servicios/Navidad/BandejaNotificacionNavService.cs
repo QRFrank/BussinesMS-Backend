@@ -37,6 +37,7 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
     private readonly IWhatsAppInstanciaRepository _instancias;
     private readonly IEvolutionApiClient _evolution;
     private readonly IComprobanteVentaDatosService _comprobantes;
+    private readonly IComprobanteMisVentasDatosService _comprobantesRuta;
     private readonly IComprobantePdfService _pdf;
     private readonly INavidadUnitOfWork _uow;
     private readonly IOptions<WhatsAppOpciones> _opciones;
@@ -53,6 +54,7 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
         IWhatsAppInstanciaRepository instancias,
         IEvolutionApiClient evolution,
         IComprobanteVentaDatosService comprobantes,
+        IComprobanteMisVentasDatosService comprobantesRuta,
         IComprobantePdfService pdf,
         INavidadUnitOfWork uow,
         IOptions<WhatsAppOpciones> opciones,
@@ -68,6 +70,7 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
         _instancias = instancias;
         _evolution = evolution;
         _comprobantes = comprobantes;
+        _comprobantesRuta = comprobantesRuta;
         _pdf = pdf;
         _uow = uow;
         _opciones = opciones;
@@ -310,9 +313,12 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
             {
                 try
                 {
-                    comprobante = envio.Notificacion!.ReferenciaId.HasValue
-                        ? await _comprobantes.ObtenerAsync(envio.Notificacion.ReferenciaId.Value)
-                        : null;
+                    var refId = envio.Notificacion!.ReferenciaId;
+                    comprobante = !refId.HasValue
+                        ? null
+                        : envio.Notificacion.AdjuntoTipo == MensajesAvisosNav.AdjuntoComprobanteMisVentasPdf
+                            ? await _comprobantesRuta.ObtenerAsync(refId.Value)
+                            : await _comprobantes.ObtenerAsync(refId.Value);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -384,7 +390,8 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
     }
 
     private static bool EsComprobantePdf(NotificacionNav? n) =>
-        n?.AdjuntoTipo == MensajesAvisosNav.AdjuntoComprobanteVentaPdf;
+        n?.AdjuntoTipo == MensajesAvisosNav.AdjuntoComprobanteVentaPdf
+        || n?.AdjuntoTipo == MensajesAvisosNav.AdjuntoComprobanteMisVentasPdf;
 
     // TEMPORAL: quitar antes de producción (MostrarDestinatario)
     private static string TextoDestinatarioDebug(NotificacionEnvioNav envio, string telefono, Dictionary<int, Usuario> usuarios)

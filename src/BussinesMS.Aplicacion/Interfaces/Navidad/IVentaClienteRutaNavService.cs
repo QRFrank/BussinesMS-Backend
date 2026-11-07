@@ -13,6 +13,8 @@ public interface IVentaClienteRutaNavService
     Task<VentaClienteRutaDto> RegistrarCobroAsync(int id, RegistrarCobroClienteRutaDto dto);
     Task<VentaClienteRutaDto> AnularCobroAsync(int id, int cobroId);
     Task<VentaClienteRutaDto> AnularAsync(int id);
+    // C7: encola un comprobante PDF nuevo por WhatsApp (solo el vendedor dueño; 400 sin/inválido, 404, 409 si está anulada)
+    Task<ComprobanteEncoladoDto> ReenviarComprobanteAsync(int id, string? telefono);
     Task<MisVentasMeDebenDto> ObtenerMeDebenAsync(int? temporadaId);
     Task<MisVentasTotalSalidaDto> ObtenerTotalRegistradoSalidaAsync(int salidaId);
 }

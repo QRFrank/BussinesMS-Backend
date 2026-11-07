@@ -24,6 +24,7 @@ public class VentaClienteRutaNavRepository : NavidadRepositorioBase<VentaCliente
             .AsNoTracking()
             .AsSplitQuery()
             .Include(v => v.Cliente)
+            .Include(v => v.Vendedor)
             .Include(v => v.Detalles)
                 .ThenInclude(d => d.Producto)
             .Include(v => v.Cobros)

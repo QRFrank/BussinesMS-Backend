@@ -392,6 +392,8 @@ public static class MensajesAvisosNav
     // ---------- Comprobante de venta al cliente (C1): pie del PDF ----------
 
     public const string AdjuntoComprobanteVentaPdf = "ComprobanteVentaPdf";
+    // C7: comprobante de una venta de "Mis ventas" del vendedor de ruta (ReferenciaId = VentaClienteRuta.Id)
+    public const string AdjuntoComprobanteMisVentasPdf = "ComprobanteMisVentasPdf";
 
     public static string CaptionComprobante(int nroVenta, decimal total)
         => $"🧾 Comprobante de venta N° {nroVenta}\nTotal: {Bs(total)}\n— {Firma}";

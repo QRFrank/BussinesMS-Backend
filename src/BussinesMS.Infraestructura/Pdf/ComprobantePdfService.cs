@@ -41,7 +41,7 @@ public class ComprobantePdfService : IComprobantePdfService
                     col.Item().AlignCenter().Text($"{titulo} N° {d.NroVenta}").Bold();
                     if (!string.IsNullOrWhiteSpace(d.Tienda))
                         col.Item().AlignCenter().Text(d.Tienda);
-                    col.Item().AlignCenter().Text(MensajesAvisosNav.Fecha(d.FechaLocal));
+                    col.Item().AlignCenter().Text(d.EsVentaRuta ? MensajesAvisosNav.Dia(d.FechaLocal) : MensajesAvisosNav.Fecha(d.FechaLocal));
                     if (!string.IsNullOrWhiteSpace(d.Cliente))
                         col.Item().AlignCenter().Text($"Cliente: {d.Cliente}");
 
@@ -61,10 +61,10 @@ public class ComprobantePdfService : IComprobantePdfService
 
                     Fila(col, "Total", "Bs " + N(d.Total));
                     if (d.Descuento > 0) Fila(col, "Descuento", "- Bs " + N(d.Descuento));
-                    Fila(col, "A pagar", "Bs " + N(d.Neto), negrita: true);
+                    if (d.Descuento > 0 || !d.EsVentaRuta) Fila(col, "A pagar", "Bs " + N(d.Neto), negrita: true);
 
                     foreach (var p in d.Pagos)
-                        Fila(col, $"Pagado ({p.Medio.ToLowerInvariant()})", "Bs " + N(p.Monto));
+                        Fila(col, string.IsNullOrEmpty(p.Medio) ? "Pagado" : $"Pagado ({p.Medio.ToLowerInvariant()})", "Bs " + N(p.Monto));
                     if (d.Pagos.Count == 0 && d.Cobrado > 0)
                         Fila(col, "Pagado", "Bs " + N(d.Cobrado));
                     Fila(col, "Saldo", "Bs " + N(d.Saldo), negrita: d.Saldo > 0);
@@ -72,7 +72,7 @@ public class ComprobantePdfService : IComprobantePdfService
                     Separador(col);
 
                     if (!string.IsNullOrWhiteSpace(d.Vendedor))
-                        col.Item().AlignCenter().Text($"Te atendió: {d.Vendedor}");
+                        col.Item().AlignCenter().Text($"{(d.EsVentaRuta ? "Vendedor" : "Te atendió")}: {d.Vendedor}");
                     col.Item().AlignCenter().Text("¡Gracias por tu compra y feliz Navidad!");
                     col.Item().AlignCenter().Text(firma).FontSize(7.5f);
                 });

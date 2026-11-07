@@ -508,7 +508,7 @@ public class VentaNavService : IVentaNavService
 
     // ================= Comprobante por WhatsApp (C1 / S4) =================
 
-    private static string NormalizarTelefonoComprobante(string? telefono)
+    internal static string NormalizarTelefonoComprobante(string? telefono)
     {
         if (string.IsNullOrWhiteSpace(telefono))
             throw new ExcepcionDominio("Indicá el número de WhatsApp al que se envía el comprobante", 400, "TELEFONO_REQUERIDO");

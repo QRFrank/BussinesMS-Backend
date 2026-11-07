@@ -52,6 +52,11 @@ public class MisVentasRutaNavController : BaseController
     public async Task<IActionResult> AnularCobro(int id, int cobroId)
         => RespuestaOk(await _servicio.AnularCobroAsync(id, cobroId), "Cobro anulado");
 
+    // Reenviar el comprobante: mismo permiso que ver el detalle (solo el vendedor dueño)
+    [HttpPost("{id:int}/comprobante")]
+    public async Task<IActionResult> ReenviarComprobante(int id, [FromBody] ReenviarComprobanteVentaDto dto)
+        => RespuestaOk(await _servicio.ReenviarComprobanteAsync(id, dto?.Telefono), "Comprobante en cola de envío");
+
     [HttpPost("{id:int}/anular")]
     public async Task<IActionResult> Anular(int id)
         => RespuestaOk(await _servicio.AnularAsync(id), "Venta anulada");

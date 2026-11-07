@@ -52,6 +52,8 @@ public class VentaClienteRutaDto
     public List<VentaClienteRutaCobroDto> Cobros { get; set; } = new();
     // Solo al registrar: productos cuyo total registrado en la salida abierta supera lo que tiene en poder (nunca bloquea)
     public List<string> Avisos { get; set; } = new();
+    // Solo al registrar con enviarComprobante=true: true = quedó en la bandeja; false = no se pudo encolar (WhatsApp sin configurar, aviso apagado o error). Null = no se pidió
+    public bool? ComprobanteEncolado { get; set; }
 }
 
 public class VentaClienteRutaLineaDetalleDto
@@ -92,6 +94,10 @@ public class RegistrarVentaClienteRutaDto
     public decimal PagadoAhora { get; set; }
     // Obligatorio si PagadoAhora > 0
     public MedioPagoNav? Medio { get; set; }
+    // Opcional (false por defecto). Si es true, telefonoComprobante es obligatorio y se encola el comprobante PDF por WhatsApp a ese número
+    public bool EnviarComprobante { get; set; }
+    // Celular al que se envía el comprobante (solo para este envío; no se guarda en el cliente)
+    public string? TelefonoComprobante { get; set; }
     public List<VentaClienteRutaLineaDto> Detalles { get; set; } = new();
 }
 

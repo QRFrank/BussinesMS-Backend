@@ -28,6 +28,7 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
     private readonly INavidadUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
     private readonly IAlmacenAccesoNavService _acceso;
+    private readonly INotificadorNav _notificador;
     private readonly ILogger<VentaClienteRutaNavService> _logger;
 
     public VentaClienteRutaNavService(
@@ -40,6 +41,7 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
         INavidadUnitOfWork uow,
         ICurrentUserService currentUser,
         IAlmacenAccesoNavService acceso,
+        INotificadorNav notificador,
         ILogger<VentaClienteRutaNavService> logger)
     {
         _ventas = ventas;
@@ -51,6 +53,7 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
         _uow = uow;
         _currentUser = currentUser;
         _acceso = acceso;
+        _notificador = notificador;
         _logger = logger;
     }
 
@@ -254,6 +257,10 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
             var vendedor = await ObtenerVendedorAsync(temporada.Id);
 
             ValidarEstructura(dto);
+            // Comprobante por WhatsApp: el número se valida antes de crear nada (la regla de celular de Bolivia la valida el front)
+            string? telefonoComprobante = dto.EnviarComprobante
+                ? VentaNavService.NormalizarTelefonoComprobante(dto.TelefonoComprobante)
+                : null;
             await _ventas.ValidarClienteAsync(dto.ClienteId);
 
             var productos = await _ventas.CargarProductosAsync(temporada.Id, dto.Detalles.Select(d => d.ProductoId));
@@ -307,10 +314,14 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
                     CreatedAt = ahora
                 });
 
+            bool? comprobanteEncolado = null;
             await _uow.BeginTransactionAsync();
             try
             {
                 await _repo.CrearAsync(venta);
+                // El comprobante queda en la bandeja dentro de la misma transacción; si WhatsApp falla después, no afecta a la venta
+                if (telefonoComprobante != null)
+                    comprobanteEncolado = await EncolarComprobanteSeguroAsync(venta, telefonoComprobante, $"comprobante-misventas:{venta.Id}");
                 await _uow.CommitAsync();
             }
             catch
@@ -320,6 +331,7 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
             }
 
             var resultado = await ObtenerPorIdAsync(venta.Id);
+            resultado.ComprobanteEncolado = comprobanteEncolado;
             resultado.Avisos = salida != null && salida.Estado == EstadoSalidaRuta.Abierta
                 ? await CalcularAvisosAsync(salida.Id, vendedor.Id, dto.Detalles.Select(d => d.ProductoId).ToList(), productos)
                 : new List<string>();
@@ -330,6 +342,78 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al registrar venta a cliente de ruta");
+            throw;
+        }
+    }
+
+    // ================= Comprobante por WhatsApp (C7) =================
+
+    private Task<NotificacionNav?> EncolarComprobanteAsync(VentaClienteRuta venta, string telefono, string clave)
+        => _notificador.EncolarAsync(new NuevaNotificacionNav
+        {
+            TemporadaId = venta.TemporadaId,
+            Evento = EventoNotificacionNav.ComprobanteMisVentas,
+            Prioridad = 1,
+            Mensaje = MensajesAvisosNav.CaptionComprobante(venta.Id, venta.Total),
+            Audiencia = AudienciaNotificacionNav.TelefonoDirecto,
+            TelefonoDirecto = telefono,
+            AdjuntoTipo = MensajesAvisosNav.AdjuntoComprobanteMisVentasPdf,
+            ReferenciaId = venta.Id,
+            ClaveUnica = clave
+        });
+
+    // En la venta nueva: nunca lanza (un error de WhatsApp no puede romper la venta)
+    private async Task<bool> EncolarComprobanteSeguroAsync(VentaClienteRuta venta, string telefono, string clave)
+    {
+        try
+        {
+            return await EncolarComprobanteAsync(venta, telefono, clave) != null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudo encolar el comprobante de la venta de ruta {Id}", venta.Id);
+            return false;
+        }
+    }
+
+    // Reenviar el comprobante: mismo permiso que ver el detalle (solo el vendedor dueño); siempre encola uno nuevo
+    public async Task<ComprobanteEncoladoDto> ReenviarComprobanteAsync(int id, string? telefono)
+    {
+        try
+        {
+            var normalizado = VentaNavService.NormalizarTelefonoComprobante(telefono);
+
+            var venta = await _repo.ObtenerConDetallesAsync(id);
+            if (venta == null || !venta.IsActive)
+                throw new EntidadNoEncontradaException("Venta a cliente", id);
+            await ExigirDuenoAsync(venta);
+            if (venta.Anulada)
+                throw new ExcepcionDominio("La venta está anulada: no se puede enviar el comprobante", 409, "VENTA_ANULADA");
+
+            NotificacionNav? notificacion;
+            await _uow.BeginTransactionAsync();
+            try
+            {
+                notificacion = await EncolarComprobanteAsync(venta, normalizado, $"comprobante-misventas:{venta.Id}:reenvio:{Guid.NewGuid():N}");
+                if (notificacion == null)
+                    throw new ExcepcionDominio("No se pudo encolar el comprobante: WhatsApp no está configurado o el aviso está desactivado", 409, "WHATSAPP_NO_CONFIGURADO");
+                await _uow.CommitAsync();
+            }
+            catch
+            {
+                await _uow.RollbackAsync();
+                throw;
+            }
+
+            return new ComprobanteEncoladoDto
+            {
+                NotificacionId = notificacion.Id,
+                DestinoEnmascarado = EnmascaradorTelefono.Enmascarar(normalizado)
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al reenviar comprobante de la venta de ruta {Id}", id);
             throw;
         }
     }

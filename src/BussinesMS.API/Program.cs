@@ -349,6 +349,7 @@ builder.Services.AddSingleton<BussinesMS.Aplicacion.Interfaces.Navidad.IBandejaS
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.INotificadorNav, BussinesMS.Aplicacion.Servicios.Navidad.NotificadorNav>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IAvisosInternosNav, BussinesMS.Aplicacion.Servicios.Navidad.AvisosInternosNav>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IComprobanteVentaDatosService, BussinesMS.Aplicacion.Servicios.Navidad.ComprobanteVentaDatosService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IComprobanteMisVentasDatosService, BussinesMS.Aplicacion.Servicios.Navidad.ComprobanteMisVentasDatosService>();
 builder.Services.AddSingleton<BussinesMS.Aplicacion.Interfaces.Navidad.IComprobantePdfService, BussinesMS.Infraestructura.Pdf.ComprobantePdfService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IBandejaNotificacionNavService, BussinesMS.Aplicacion.Servicios.Navidad.BandejaNotificacionNavService>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IMonitorWhatsAppService, BussinesMS.Aplicacion.Servicios.Navidad.MonitorWhatsAppService>();
