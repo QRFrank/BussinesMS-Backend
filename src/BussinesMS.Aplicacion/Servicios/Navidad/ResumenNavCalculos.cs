@@ -1090,7 +1090,7 @@ public class ResumenNavCalculos
             "El aporte de un inversor es deuda (se devuelve con comisión): entra al efectivo y se resta como deuda con inversores, no suma al capital propio.",
             "Deuda con proveedores incluye lo pedido que aún no llegó; esa mercadería se suma aparte (mercaderiaPorRecibir) para no restar una deuda sin su producto.",
             "Los adelantos de reservas son dinero de clientes por mercadería que todavía no se entregó: se restan como deuda.",
-            "El esperado usa la ganancia neta (ganancia − devengados): los sueldos de tienda y la comisión de inversores pendientes ya se restan como deuda en la posición real."
+            "El esperado usa la ganancia neta (ganancia − pendiente de pagar): los sueldos de tienda y la comisión de inversores pendientes ya se restan como deuda en la posición real."
         };
 
         var lineas = new List<DashboardConciliacionLineaNavDto>
