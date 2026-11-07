@@ -854,6 +854,7 @@ public class RutaNavService : IRutaNavService
             if (salida.VentaId.HasValue)
             {
                 venta = await _ventas.ObtenerVentaParaEdicionAsync(salida.VentaId.Value);
+                VerificarSinIncobrable(venta);
                 if (!venta.Anulada)
                 {
                     var conAbonos = await _abonoRepo.AsQueryable().AsNoTracking()
@@ -958,16 +959,16 @@ public class RutaNavService : IRutaNavService
 
     // ================= Deuda y abonos =================
 
-    public async Task<List<DeudaVendedorRutaDto>> ObtenerDeudasAsync(int? vendedorId)
+    public async Task<List<DeudaVendedorRutaDto>> ObtenerDeudasAsync(int? vendedorId, int? temporadaId = null)
     {
         try
         {
-            var temporada = await _temporadaActual.ObtenerAbiertaAsync();
-            var forzado = await RestriccionLecturaAsync(temporada.Id);
+            var tId = await _temporadaActual.ResolverTemporadaIdAsync(temporadaId);
+            var forzado = await RestriccionLecturaAsync(tId);
             var filtro = forzado ?? vendedorId;
 
             var vendedorQuery = _vendedorRepo.AsQueryable().AsNoTracking()
-                .Where(v => v.TemporadaId == temporada.Id && v.IsActive && v.Tipo == TipoVendedor.Ruta);
+                .Where(v => v.TemporadaId == tId && v.IsActive && v.Tipo == TipoVendedor.Ruta);
             if (filtro.HasValue)
                 vendedorQuery = vendedorQuery.Where(v => v.Id == filtro.Value);
             var vendedores = await vendedorQuery.ToListAsync();
@@ -975,7 +976,7 @@ public class RutaNavService : IRutaNavService
             var nombres = await _ventas.ObtenerNombresUsuarioAsync(vendedores.Select(v => v.UsuarioId));
 
             var ventas = await _ventaRepo.AsQueryable().AsNoTracking()
-                .Where(v => v.IsActive && !v.Anulada && v.Canal == CanalVentaNav.Ruta && v.TemporadaId == temporada.Id && vendedorIds.Contains(v.VendedorId))
+                .Where(v => v.IsActive && !v.Anulada && v.Canal == CanalVentaNav.Ruta && v.TemporadaId == tId && vendedorIds.Contains(v.VendedorId))
                 .Select(v => new
                 {
                     v.VendedorId,
@@ -983,12 +984,13 @@ public class RutaNavService : IRutaNavService
                     v.Descuento,
                     v.MontoCobrado,
                     v.MontoSaldo,
+                    v.MontoIncobrable,
                     Unidades = v.Detalles.Sum(d => d.Unidades)
                 })
                 .ToListAsync();
 
             var abiertas = await _repo.AsQueryable().AsNoTracking()
-                .Where(s => s.IsActive && s.TemporadaId == temporada.Id && s.Estado == EstadoSalidaRuta.Abierta && vendedorIds.Contains(s.VendedorId))
+                .Where(s => s.IsActive && s.TemporadaId == tId && s.Estado == EstadoSalidaRuta.Abierta && vendedorIds.Contains(s.VendedorId))
                 .Select(s => new { s.Id, s.VendedorId })
                 .ToListAsync();
             var unidades = await ObtenerUnidadesAsync(abiertas.Select(s => s.Id).ToList());
@@ -1012,6 +1014,7 @@ public class RutaNavService : IRutaNavService
                         MontoVendido = suyas.Sum(x => x.MontoTotal),
                         Descuentos = suyas.Sum(x => x.Descuento),
                         MontoCobrado = suyas.Sum(x => x.MontoCobrado),
+                        MontoIncobrable = suyas.Sum(x => x.MontoIncobrable),
                         Saldo = suyas.Sum(x => x.MontoSaldo)
                     };
                 })
@@ -1384,6 +1387,7 @@ public class RutaNavService : IRutaNavService
             var (total, descuento, neto) = CalcularTotales(lineas, dto.Descuento ?? venta.Descuento);
             // R4: el editor es siempre admin, que puede vender por debajo de la compra (ValidarPrecios no restringe)
 
+            VerificarSinIncobrable(venta);
             if (neto < venta.MontoCobrado)
                 throw new ExcepcionDominio(
                     $"El nuevo neto ({neto}) es menor a lo ya cobrado ({venta.MontoCobrado}): primero anule un cobro",
@@ -1473,6 +1477,7 @@ public class RutaNavService : IRutaNavService
             if (venta.Descuento > nuevoTotal)
                 throw new ValidacionException($"El descuento ({venta.Descuento}) superaría el nuevo total ({nuevoTotal})");
             var nuevoNeto = nuevoTotal - venta.Descuento;
+            VerificarSinIncobrable(venta);
             if (nuevoNeto < venta.MontoCobrado)
                 throw new ExcepcionDominio(
                     $"El nuevo neto ({nuevoNeto}) es menor a lo ya cobrado ({venta.MontoCobrado}): primero anule un cobro",

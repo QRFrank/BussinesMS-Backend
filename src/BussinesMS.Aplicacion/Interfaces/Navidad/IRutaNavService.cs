@@ -22,7 +22,8 @@ public interface IRutaNavService
     Task<SalidaRutaDto> AnularSalidaAsync(int salidaId);
 
     // Abonos y deuda
-    Task<List<DeudaVendedorRutaDto>> ObtenerDeudasAsync(int? vendedorId);
+    // temporadaId null = la abierta (con id: también temporadas cerradas, solo lectura)
+    Task<List<DeudaVendedorRutaDto>> ObtenerDeudasAsync(int? vendedorId, int? temporadaId = null);
     Task<PagedResultDto<AbonoVendedorDto>> ObtenerAbonosAsync(AbonoVendedorFiltroDto query);
     Task<AbonoVendedorDto?> ObtenerAbonoAsync(int id);
     Task<AbonoVendedorDto> RegistrarAbonoAsync(CrearAbonoVendedorDto dto);

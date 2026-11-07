@@ -74,11 +74,11 @@ public class ReportesNavService : IReportesNavService
 
     // ================= Comunes =================
 
-    private async Task<BussinesMS.Dominio.Entidades.Navidad.Temporada> ExigirAdminYTemporadaAsync()
+    private async Task<BussinesMS.Dominio.Entidades.Navidad.Temporada> ExigirAdminYTemporadaAsync(int? temporadaId = null)
     {
         if (!await _acceso.EsAdminAsync())
             throw new ExcepcionDominio("Solo el admin puede ver los reportes", 403, "SIN_PERMISO");
-        return await _temporadaActual.ObtenerAbiertaAsync();
+        return await _temporadaActual.ObtenerParaLecturaAsync(temporadaId);
     }
 
     private static DashboardTemporadaNavDto MapearTemporada(BussinesMS.Dominio.Entidades.Navidad.Temporada t) => new()
@@ -86,7 +86,9 @@ public class ReportesNavService : IReportesNavService
         Id = t.Id,
         Nombre = t.Nombre,
         Anio = t.Anio,
-        FechaInicio = t.FechaInicio
+        FechaInicio = t.FechaInicio,
+        Estado = (int)t.Estado,
+        FechaCierre = t.FechaCierre
     };
 
     private static void ValidarFechas(DateTime? desde, DateTime? hasta)
@@ -148,11 +150,11 @@ public class ReportesNavService : IReportesNavService
 
     // ================= Resultado =================
 
-    public async Task<ReporteResultadoNavDto> ObtenerResultadoAsync(DateTime? desde, DateTime? hasta)
+    public async Task<ReporteResultadoNavDto> ObtenerResultadoAsync(DateTime? desde, DateTime? hasta, int? temporadaId = null)
     {
         try
         {
-            var temporada = await ExigirAdminYTemporadaAsync();
+            var temporada = await ExigirAdminYTemporadaAsync(temporadaId);
             ValidarFechas(desde, hasta);
             var t = temporada.Id;
 
@@ -185,7 +187,7 @@ public class ReportesNavService : IReportesNavService
     {
         try
         {
-            var temporada = await ExigirAdminYTemporadaAsync();
+            var temporada = await ExigirAdminYTemporadaAsync(filtros.TemporadaId);
             ValidarFechas(filtros.Desde, filtros.Hasta);
             if (filtros.Canal.HasValue && !Enum.IsDefined(typeof(CanalVentaNav), filtros.Canal.Value))
                 throw new ValidacionException("El canal es inválido (1 Tienda, 2 Ruta)");
@@ -256,6 +258,7 @@ public class ReportesNavService : IReportesNavService
             // Por vendedor: el reporte del módulo 8, igual que tablas.ventasPorVendedor del dashboard
             var reporteVendedores = await _pagosVendedores.ObtenerReporteAsync(new ReporteVentasVendedorFiltroDto
             {
+                TemporadaId = t,
                 VendedorId = filtros.VendedorId,
                 Canal = filtros.Canal,
                 Desde = filtros.Desde,
@@ -328,11 +331,11 @@ public class ReportesNavService : IReportesNavService
 
     // ================= Stock =================
 
-    public async Task<ReporteStockNavDto> ObtenerStockAsync(int? almacenId, int? proveedorId, bool incluirSinStock)
+    public async Task<ReporteStockNavDto> ObtenerStockAsync(int? almacenId, int? proveedorId, bool incluirSinStock, int? temporadaId = null)
     {
         try
         {
-            var temporada = await ExigirAdminYTemporadaAsync();
+            var temporada = await ExigirAdminYTemporadaAsync(temporadaId);
             var t = temporada.Id;
 
             var query = _stockRepo.AsQueryable().AsNoTracking().Where(s => s.IsActive && s.TemporadaId == t);
@@ -407,13 +410,14 @@ public class ReportesNavService : IReportesNavService
 
     // ================= Faltantes =================
 
-    public async Task<ReporteFaltantesNavDto> ObtenerFaltantesAsync(int? proveedorId, int? codigoClienteId)
+    public async Task<ReporteFaltantesNavDto> ObtenerFaltantesAsync(int? proveedorId, int? codigoClienteId, int? temporadaId = null)
     {
         try
         {
-            var temporada = await ExigirAdminYTemporadaAsync();
+            var temporada = await ExigirAdminYTemporadaAsync(temporadaId);
             var faltantes = await _abastecimiento.ObtenerFaltantesAsync(new AbastecimientoNavFiltroDto
             {
+                TemporadaId = temporada.Id,
                 ProveedorId = proveedorId,
                 CodigoClienteId = codigoClienteId
             });
@@ -453,11 +457,11 @@ public class ReportesNavService : IReportesNavService
 
     // ================= Recepciones por código =================
 
-    public async Task<ReporteRecepcionesCodigoNavDto> ObtenerRecepcionesCodigoAsync(int proveedorId, int? codigoClienteId, DateTime? desde, DateTime? hasta)
+    public async Task<ReporteRecepcionesCodigoNavDto> ObtenerRecepcionesCodigoAsync(int proveedorId, int? codigoClienteId, DateTime? desde, DateTime? hasta, int? temporadaId = null)
     {
         try
         {
-            var temporada = await ExigirAdminYTemporadaAsync();
+            var temporada = await ExigirAdminYTemporadaAsync(temporadaId);
             ValidarFechas(desde, hasta);
             var t = temporada.Id;
 
@@ -557,11 +561,11 @@ public class ReportesNavService : IReportesNavService
 
     // ================= Entradas de un producto =================
 
-    public async Task<ReporteEntradasProductoNavDto> ObtenerEntradasProductoAsync(int productoId, int? almacenId, DateTime? desde, DateTime? hasta)
+    public async Task<ReporteEntradasProductoNavDto> ObtenerEntradasProductoAsync(int productoId, int? almacenId, DateTime? desde, DateTime? hasta, int? temporadaId = null)
     {
         try
         {
-            var temporada = await ExigirAdminYTemporadaAsync();
+            var temporada = await ExigirAdminYTemporadaAsync(temporadaId);
             ValidarFechas(desde, hasta);
             var t = temporada.Id;
 
@@ -693,18 +697,18 @@ public class ReportesNavService : IReportesNavService
 
     // ================= Deudas =================
 
-    public async Task<ReporteDeudasNavDto> ObtenerDeudasAsync()
+    public async Task<ReporteDeudasNavDto> ObtenerDeudasAsync(int? temporadaId = null)
     {
         try
         {
-            var temporada = await ExigirAdminYTemporadaAsync();
+            var temporada = await ExigirAdminYTemporadaAsync(temporadaId);
             var t = temporada.Id;
 
-            var deudasProveedor = await _abastecimiento.ObtenerDeudasAsync(new AbastecimientoNavFiltroDto());
-            var deudasRuta = await _ruta.ObtenerDeudasAsync(null);
-            var sueldos = await _pagosVendedores.ObtenerResumenSueldosAsync(null, null);
-            var reporte = await _pagosVendedores.ObtenerReporteAsync(new ReporteVentasVendedorFiltroDto());
-            var capital = await _capital.ObtenerResumenAsync(null);
+            var deudasProveedor = await _abastecimiento.ObtenerDeudasAsync(new AbastecimientoNavFiltroDto { TemporadaId = t });
+            var deudasRuta = await _ruta.ObtenerDeudasAsync(null, t);
+            var sueldos = await _pagosVendedores.ObtenerResumenSueldosAsync(t, null);
+            var reporte = await _pagosVendedores.ObtenerReporteAsync(new ReporteVentasVendedorFiltroDto { TemporadaId = t });
+            var capital = await _capital.ObtenerResumenAsync(t);
 
             var ventasConSaldo = await _calc.ObtenerVentasTiendaConSaldoAsync(t);
 
@@ -753,11 +757,11 @@ public class ReportesNavService : IReportesNavService
 
     // ================= Gastos =================
 
-    public async Task<ReporteGastosNavDto> ObtenerGastosAsync(DateTime? desde, DateTime? hasta, int? categoriaId)
+    public async Task<ReporteGastosNavDto> ObtenerGastosAsync(DateTime? desde, DateTime? hasta, int? categoriaId, int? temporadaId = null)
     {
         try
         {
-            var temporada = await ExigirAdminYTemporadaAsync();
+            var temporada = await ExigirAdminYTemporadaAsync(temporadaId);
             ValidarFechas(desde, hasta);
             var t = temporada.Id;
 
@@ -800,15 +804,16 @@ public class ReportesNavService : IReportesNavService
 
     // ================= Pagos a proveedores =================
 
-    public async Task<ReportePagosProveedoresNavDto> ObtenerPagosProveedoresAsync(DateTime? desde, DateTime? hasta, int? proveedorId, int? codigoClienteId)
+    public async Task<ReportePagosProveedoresNavDto> ObtenerPagosProveedoresAsync(DateTime? desde, DateTime? hasta, int? proveedorId, int? codigoClienteId, int? temporadaId = null)
     {
         try
         {
-            var temporada = await ExigirAdminYTemporadaAsync();
+            var temporada = await ExigirAdminYTemporadaAsync(temporadaId);
             ValidarFechas(desde, hasta);
 
             var deudas = await _abastecimiento.ObtenerDeudasAsync(new AbastecimientoNavFiltroDto
             {
+                TemporadaId = temporada.Id,
                 ProveedorId = proveedorId,
                 CodigoClienteId = codigoClienteId
             });

@@ -300,7 +300,12 @@ builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ISalidaRutaN
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ISalidaRutaCargaNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.SalidaRutaCargaNavRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IDevolucionRutaNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.DevolucionRutaNavRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IAbonoVendedorNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.AbonoVendedorNavRepository>();
+// Cierre de temporada
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IIncobrableNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.IncobrableNavRepository>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICierreTemporadaNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.CierreTemporadaNavRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IRutaNavService, BussinesMS.Aplicacion.Servicios.Navidad.RutaNavService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IIncobrableNavService, BussinesMS.Aplicacion.Servicios.Navidad.IncobrableNavService>();
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.ICierreTemporadaNavService, BussinesMS.Aplicacion.Servicios.Navidad.CierreTemporadaNavService>();
 // Registro personal de ventas del vendedor de ruta a sus clientes
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IVentaClienteRutaNavRepository, BussinesMS.Infraestructura.Repositorios.Navidad.VentaClienteRutaNavRepository>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IVentaClienteRutaNavService, BussinesMS.Aplicacion.Servicios.Navidad.VentaClienteRutaNavService>();

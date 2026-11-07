@@ -289,6 +289,8 @@ public class DeudaVendedorRutaDto
     public decimal MontoVendido { get; set; }
     public decimal Descuentos { get; set; }
     public decimal MontoCobrado { get; set; }
+    // Dado por incobrable (cierre de temporada, vigente). Saldo = vendido − descuentos − cobrado − incobrable
+    public decimal MontoIncobrable { get; set; }
     public decimal Saldo { get; set; }
 }
 

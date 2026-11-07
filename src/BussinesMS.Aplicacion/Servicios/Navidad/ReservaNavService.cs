@@ -347,6 +347,7 @@ public class ReservaNavService : IReservaNavService
             var (total, descuento, neto) = CalcularTotales(lineas, dto.Descuento);
             ValidarPrecios(lineas, productos, neto, esAdmin, await _precioAcceso.PuedeVerPreciosCompraAsync());
 
+            VerificarSinIncobrable(venta);
             if (neto < venta.MontoCobrado)
                 throw new ExcepcionDominio(
                     $"El nuevo neto ({neto}) es menor a lo ya cobrado ({venta.MontoCobrado}): primero anule un cobro",

@@ -11,6 +11,9 @@ public class DashboardTemporadaNavDto
     public string Nombre { get; set; } = string.Empty;
     public int Anio { get; set; }
     public DateTime FechaInicio { get; set; }
+    // Cierre de temporada (2026-11-07): 1 Abierta / 2 Cerrada, y la fecha de cierre (null si está abierta)
+    public int Estado { get; set; } = 1;
+    public DateTime? FechaCierre { get; set; }
 }
 
 public class DashboardAvisoNavDto
@@ -155,6 +158,8 @@ public class DashboardDeudaVendedorRutaNavDto
     public decimal MontoVendido { get; set; }
     public decimal Descuentos { get; set; }
     public decimal MontoCobrado { get; set; }
+    // Dado por incobrable (vigente)
+    public decimal MontoIncobrable { get; set; }
     public decimal Saldo { get; set; }
 }
 

@@ -83,9 +83,12 @@ public class ResumenNavCalculos
     private readonly IRutaNavService _ruta;
     private readonly IPagoVendedorNavService _pagosVendedores;
     private readonly IAporteCapitalService _capital;
+    private readonly IIncobrableNavRepository _incobrableRepo;
+    private readonly IMovimientoNavRepository _movimientoRepo;
 
     private readonly Dictionary<int, List<VentaResumen>> _ventasCache = new();
     private Snapshot? _snapshot;
+    private int? _snapshotTemporadaId;
 
     public ResumenNavCalculos(
         IVentaNavRepository ventaRepo,
@@ -106,8 +109,12 @@ public class ResumenNavCalculos
         IAbastecimientoNavService abastecimiento,
         IRutaNavService ruta,
         IPagoVendedorNavService pagosVendedores,
-        IAporteCapitalService capital)
+        IAporteCapitalService capital,
+        IIncobrableNavRepository incobrableRepo,
+        IMovimientoNavRepository movimientoRepo)
     {
+        _incobrableRepo = incobrableRepo;
+        _movimientoRepo = movimientoRepo;
         _ventaRepo = ventaRepo;
         _gastoRepo = gastoRepo;
         _pagoProveedorRepo = pagoProveedorRepo;
@@ -374,6 +381,7 @@ public class ResumenNavCalculos
                     MontoVendido = d.MontoVendido,
                     Descuentos = d.Descuentos,
                     MontoCobrado = d.MontoCobrado,
+                    MontoIncobrable = d.MontoIncobrable,
                     Saldo = d.Saldo
                 })
                 .ToList()
@@ -666,16 +674,93 @@ public class ResumenNavCalculos
             Linea("gastos", "Gastos", -1, gastos, "Σ gastos activos; igual a tablas.gastos.total del dashboard"),
             Linea("sueldosPagados", "Sueldos pagados", -1, sueldos, "Σ pagos de sueldo vigentes; igual a deudas.sueldos.totalPagado del dashboard"),
             Linea("comisionesRutaPagadas", "Comisiones de ruta pagadas", -1, comisionesRuta, "Σ pagos de comisión de vendedores vigentes; igual a deudas.comisiones.totalPagado del dashboard"),
-            Linea("comisionesInversoresPagadas", "Comisiones de inversores pagadas", -1, comisionesInversores, "Σ pagos de tipo comisión a inversores. Lo que aún no se pagó está en capital.comisionPorPagar")
+            Linea("comisionesInversoresPagadas", "Comisiones de inversores pagadas", -1, comisionesInversores, "Σ pagos de tipo comisión a inversores. Lo que aún no se pagó está en capital.comisionPorPagar"),
+            // Cierre de temporada (2026-11-07)
+            Linea("deudasIncobrables", "Deudas incobrables", -1, perdidas.DeudasIncobrables.Monto, "Σ deudas de clientes y de vendedores de ruta dadas por incobrables (vigentes); igual a perdidas.deudasIncobrables.monto"),
+            Linea("stockSobranteCierre", "Stock sobrante al cierre", -1, perdidas.StockSobranteCierre.Monto, "Stock dado de baja al cerrar la temporada × costo promedio; igual a perdidas.stockSobranteCierre.monto")
         };
 
+        var ganancia = lineas.Sum(l => l.Signo * l.Monto);
+        var devengados = await ObtenerDevengadosAsync(temporadaId);
         return new DashboardResultadoNavDto
         {
             CriterioCosto = CriterioCostoTexto,
             Lineas = lineas,
-            Ganancia = lineas.Sum(l => l.Signo * l.Monto),
-            Advertencias = advertencias
+            Ganancia = ganancia,
+            Advertencias = advertencias,
+            Devengados = devengados,
+            GananciaNeta = ganancia - devengados.Total
         };
+    }
+
+    // Lo que se debe y todavía no se pagó (al momento actual): sueldos de tienda y comisión de inversores. Las comisiones de ruta se deciden al pagar
+    public async Task<DashboardDevengadosNavDto> ObtenerDevengadosAsync(int temporadaId)
+    {
+        var s = await ObtenerSnapshotAsync(temporadaId);
+        var d = new DashboardDevengadosNavDto
+        {
+            SueldosTienda = s.Sueldos.TotalDebe,
+            ComisionInversores = s.Capital.ComisionPorPagar,
+            ComisionesRuta = null
+        };
+        d.Total = d.SueldosTienda + d.ComisionInversores;
+        return d;
+    }
+
+    // ================= Cierre de temporada: incobrables y stock dado de baja =================
+
+    // Incobrables vigentes de la temporada (con fechas, solo los del rango)
+    private async Task<DashboardPerdidaIncobrablesNavDto> ObtenerIncobrablesAsync(int temporadaId, DateTime? desde, DateTime? hasta)
+    {
+        var filas = await FiltrarFecha(
+                _incobrableRepo.AsQueryable().AsNoTracking().Where(i => i.IsActive && !i.Anulado && i.TemporadaId == temporadaId),
+                desde, hasta, i => i.Fecha)
+            .GroupBy(i => i.Tipo)
+            .Select(g => new { Tipo = g.Key, Cantidad = g.Count(), Monto = g.Sum(i => i.Monto) })
+            .ToListAsync();
+        var clientes = filas.Where(f => f.Tipo == TipoIncobrableNav.Cliente).Sum(f => f.Monto);
+        var ruta = filas.Where(f => f.Tipo == TipoIncobrableNav.VendedorRuta).Sum(f => f.Monto);
+        return new DashboardPerdidaIncobrablesNavDto
+        {
+            Cantidad = filas.Sum(f => f.Cantidad),
+            Clientes = clientes,
+            VendedoresRuta = ruta,
+            Monto = clientes + ruta
+        };
+    }
+
+    // Movimientos "Cierre de temporada" (stock sobrante dado de baja), valorizados a costo promedio con la misma fórmula que el stock valorizado
+    // (Σ unidades por producto × costo, sin redondear cada fila), así la pérdida coincide al centavo con el stock que había al cerrar
+    private async Task<DashboardPerdidaStockCierreNavDto> ObtenerStockCierreAsync(int temporadaId, DateTime? desde, DateTime? hasta, Dictionary<int, decimal> costos)
+    {
+        var query = _movimientoRepo.AsQueryable().AsNoTracking()
+            .Where(m => m.IsActive && m.TemporadaId == temporadaId && m.Tipo == TipoMovimientoNav.CierreTemporada);
+        // La fecha del movimiento es UTC: se compara con el día de Bolivia (UTC−4)
+        if (desde.HasValue)
+        {
+            var d = desde.Value.Date.AddHours(4);
+            query = query.Where(m => m.Fecha >= d);
+        }
+        if (hasta.HasValue)
+        {
+            var h = hasta.Value.Date.AddDays(1).AddHours(4);
+            query = query.Where(m => m.Fecha < h);
+        }
+        var filas = await query.GroupBy(m => m.ProductoId)
+            .Select(g => new { ProductoId = g.Key, Unidades = -g.Sum(m => m.Cantidad) })
+            .ToListAsync();
+        return new DashboardPerdidaStockCierreNavDto
+        {
+            Unidades = filas.Sum(f => f.Unidades),
+            Monto = Redondear(filas.Sum(f => f.Unidades * costos.GetValueOrDefault(f.ProductoId)))
+        };
+    }
+
+    // True si la temporada está abierta (los estados "de hoy" —conteos, cajas— solo tienen sentido en la abierta)
+    public async Task<bool> EsAbiertaAsync(int temporadaId)
+    {
+        var t = await _temporadaRepo.ObtenerPorIdAsync(temporadaId);
+        return t != null && t.Estado == EstadoTemporada.Abierta;
     }
 
     // ================= Pérdidas =================
@@ -730,13 +815,17 @@ public class ResumenNavCalculos
             motivosConteo.Add(Motivo(m.ToString(), conteos.Where(x => x.MotivoDiferencia == m).Select(x => (x.ProductoId, x.Unidades))));
         motivosConteo.Add(Motivo("SinMotivo", conteos.Where(x => x.MotivoDiferencia == null).Select(x => (x.ProductoId, x.Unidades))));
         var porConteo = Grupo(motivosConteo);
+        var incobrables = await ObtenerIncobrablesAsync(temporadaId, desde, hasta);
+        var stockCierre = await ObtenerStockCierreAsync(temporadaId, desde, hasta, costos);
 
         return new DashboardPerdidasNavDto
         {
             Consumos = porConsumo,
             DiferenciasConteo = porConteo,
-            TotalUnidades = porConsumo.Unidades + porConteo.Unidades,
-            TotalMonto = porConsumo.Monto + porConteo.Monto
+            DeudasIncobrables = incobrables,
+            StockSobranteCierre = stockCierre,
+            TotalUnidades = porConsumo.Unidades + porConteo.Unidades + stockCierre.Unidades,
+            TotalMonto = porConsumo.Monto + porConteo.Monto + incobrables.Monto + stockCierre.Monto
         };
     }
 
@@ -859,6 +948,8 @@ public class ResumenNavCalculos
     // Tiendas cuyo último conteo es un cierre sin entrega de efectivo: su efectivo esperado (informativo, no cambia el total)
     private async Task<DashboardCajasSinEntregarNavDto> ObtenerCajasSinEntregarAsync(int temporadaId)
     {
+        // El estado de caja es el de hoy en la temporada abierta: una temporada cerrada no tiene cajas pendientes
+        if (!await EsAbiertaAsync(temporadaId)) return new DashboardCajasSinEntregarNavDto();
         var tiendas = (await _temporadaRepo.ObtenerAlmacenesConteoAsync(new[] { temporadaId })).Select(a => a.AlmacenId).Distinct().ToList();
         var lista = new List<DashboardCajaSinEntregarNavDto>();
         foreach (var id in tiendas)
@@ -888,14 +979,15 @@ public class ResumenNavCalculos
 
     private async Task<Snapshot> ObtenerSnapshotAsync(int temporadaId)
     {
-        if (_snapshot != null) return _snapshot;
+        if (_snapshot != null && _snapshotTemporadaId == temporadaId) return _snapshot;
 
+        // Todo con la temporada pedida (no la abierta), para que una temporada cerrada no tome datos de otra
         var s = new Snapshot
         {
-            Capital = await _capital.ObtenerResumenAsync(null),
-            DeudasProveedor = await _abastecimiento.ObtenerDeudasAsync(new AbastecimientoNavFiltroDto()),
-            DeudasRuta = await _ruta.ObtenerDeudasAsync(null),
-            Sueldos = ConstruirSueldos(await _pagosVendedores.ObtenerResumenSueldosAsync(null, null)),
+            Capital = await _capital.ObtenerResumenAsync(temporadaId),
+            DeudasProveedor = await _abastecimiento.ObtenerDeudasAsync(new AbastecimientoNavFiltroDto { TemporadaId = temporadaId }),
+            DeudasRuta = await _ruta.ObtenerDeudasAsync(null, temporadaId),
+            Sueldos = ConstruirSueldos(await _pagosVendedores.ObtenerResumenSueldosAsync(temporadaId, null)),
             Clientes = await ObtenerDeudaClientesAsync(temporadaId),
             Reservas = await ObtenerReservasPendientesAsync(temporadaId),
             Stock = await ObtenerStockValorizadoAsync(temporadaId)
@@ -903,7 +995,7 @@ public class ResumenNavCalculos
 
         // Mercadería pedida y aún no recibida: el pedido genera deuda con el proveedor desde que se hace, pero el stock solo cuenta lo recibido.
         // Se valora con el precio medio de los pedidos del producto (no considera ajustes manuales del monto total del proveedor)
-        var faltantes = (await _abastecimiento.ObtenerFaltantesAsync(new AbastecimientoNavFiltroDto()))
+        var faltantes = (await _abastecimiento.ObtenerFaltantesAsync(new AbastecimientoNavFiltroDto { TemporadaId = temporadaId }))
             .Where(f => f.Faltante > 0)
             .GroupBy(f => f.ProductoId)
             .ToDictionary(g => g.Key, g => g.Sum(x => x.Faltante));
@@ -920,6 +1012,7 @@ public class ResumenNavCalculos
         }
 
         _snapshot = s;
+        _snapshotTemporadaId = temporadaId;
         return s;
     }
 
@@ -996,7 +1089,8 @@ public class ResumenNavCalculos
             "Comisiones de ruta pendientes: la comisión se decide al pagar, no se puede calcular antes; se toman como 0.",
             "El aporte de un inversor es deuda (se devuelve con comisión): entra al efectivo y se resta como deuda con inversores, no suma al capital propio.",
             "Deuda con proveedores incluye lo pedido que aún no llegó; esa mercadería se suma aparte (mercaderiaPorRecibir) para no restar una deuda sin su producto.",
-            "Los adelantos de reservas son dinero de clientes por mercadería que todavía no se entregó: se restan como deuda."
+            "Los adelantos de reservas son dinero de clientes por mercadería que todavía no se entregó: se restan como deuda.",
+            "El esperado usa la ganancia neta (ganancia − devengados): los sueldos de tienda y la comisión de inversores pendientes ya se restan como deuda en la posición real."
         };
 
         var lineas = new List<DashboardConciliacionLineaNavDto>
@@ -1018,9 +1112,13 @@ public class ResumenNavCalculos
         {
             CapitalPropio = s.Capital.CapitalPropio,
             Ganancia = resultado.Ganancia,
+            Devengados = resultado.Devengados.Total,
+            GananciaNeta = resultado.GananciaNeta,
             Retiros = 0m
         };
-        esperado.Total = esperado.CapitalPropio + esperado.Ganancia - esperado.Retiros;
+        // Corrección 2026-11-07: la ganancia solo resta lo pagado, pero la posición real ya resta sueldos y comisión de inversores pendientes
+        // como deuda; por eso el esperado usa la ganancia neta (ganancia − devengados)
+        esperado.Total = esperado.CapitalPropio + esperado.GananciaNeta - esperado.Retiros;
 
         var costos = await _stock.ObtenerCostosPromedioAsync(temporadaId);
         var (_, sobrantes) = await ObtenerAjustesConteoAsync(temporadaId, null, null, costos);

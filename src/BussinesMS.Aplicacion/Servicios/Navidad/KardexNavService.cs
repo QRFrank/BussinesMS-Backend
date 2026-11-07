@@ -224,6 +224,7 @@ public class KardexNavService : IKardexNavService
                 + (facturas.TryGetValue(referenciaId, out var f) && !string.IsNullOrWhiteSpace(f) ? $" · Factura {f}" : string.Empty),
             "Compra" => $"Compra #{referenciaId}" + SufijoNota(notas, referenciaId),
             "Traslado" => $"Traslado #{referenciaId}",
+            "CierreTemporada" => "Cierre de temporada: stock sobrante a pérdida",
             "ConteoInventario" => conteos.TryGetValue(referenciaId, out var c)
                 ? $"{(c.Tipo == TipoConteoInventario.Apertura ? "Apertura" : "Cierre")} #{referenciaId} · {c.Fecha:dd/MM/yyyy}"
                 : $"Conteo #{referenciaId}",
@@ -254,6 +255,7 @@ public class KardexNavService : IKardexNavService
         TipoMovimientoNav.AnulacionConsumo => "Anulación de consumo",
         TipoMovimientoNav.AnulacionSalidaRuta => "Anulación de salida a ruta",
         TipoMovimientoNav.AnulacionDevolucionRuta => "Anulación de devolución de ruta",
+        TipoMovimientoNav.CierreTemporada => "Cierre de temporada",
         _ => tipo.ToString()
     };
 

@@ -25,6 +25,8 @@ public class VentaNav : EntidadBase
     public decimal MontoNeto { get; set; }
     public decimal MontoCobrado { get; set; }
     public decimal MontoSaldo { get; set; }
+    // Saldo dado por incobrable (Σ aplicaciones de IncobrableNav vigentes). MontoSaldo = MontoNeto − MontoCobrado − MontoIncobrable
+    public decimal MontoIncobrable { get; set; }
     public EstadoPagoVentaNav EstadoPago { get; set; }
     public EstadoEntregaVentaNav EstadoEntrega { get; set; }
     public bool Anulada { get; set; }

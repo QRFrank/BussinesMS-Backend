@@ -37,6 +37,15 @@ public class TemporadaActualService : ITemporadaActualService
         return abierta.Id;
     }
 
+    public async Task<Temporada> ObtenerParaLecturaAsync(int? temporadaId)
+    {
+        if (!temporadaId.HasValue) return await ObtenerAbiertaAsync();
+        var temporada = await _repo.ObtenerPorIdAsync(temporadaId.Value);
+        if (temporada == null || !temporada.IsActive)
+            throw new EntidadNoEncontradaException("Temporada", temporadaId.Value);
+        return temporada;
+    }
+
     public async Task<Temporada> VerificarEditableAsync(int temporadaId)
     {
         var temporada = await _repo.ObtenerPorIdAsync(temporadaId);

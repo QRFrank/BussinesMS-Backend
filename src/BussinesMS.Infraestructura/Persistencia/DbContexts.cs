@@ -661,6 +661,9 @@ public class NavidadDbContext : DbContext
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.PagoVendedorDetalle> PagosVendedorDetalle => Set<BussinesMS.Dominio.Entidades.Navidad.PagoVendedorDetalle>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.CierreCajaTienda> CierresCajaTienda => Set<BussinesMS.Dominio.Entidades.Navidad.CierreCajaTienda>();
     public DbSet<BussinesMS.Dominio.Entidades.Navidad.TemporadaAlmacenEncargado> TemporadaAlmacenEncargados => Set<BussinesMS.Dominio.Entidades.Navidad.TemporadaAlmacenEncargado>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.IncobrableNav> IncobrablesNav => Set<BussinesMS.Dominio.Entidades.Navidad.IncobrableNav>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.IncobrableNavAplicacion> IncobrablesNavAplicaciones => Set<BussinesMS.Dominio.Entidades.Navidad.IncobrableNavAplicacion>();
+    public DbSet<BussinesMS.Dominio.Entidades.Navidad.CierreTemporadaNav> CierresTemporadaNav => Set<BussinesMS.Dominio.Entidades.Navidad.CierreTemporadaNav>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -1283,6 +1286,7 @@ public class NavidadDbContext : DbContext
             entity.Property(e => e.MontoNeto).HasColumnType("decimal(18,2)");
             entity.Property(e => e.MontoCobrado).HasColumnType("decimal(18,2)");
             entity.Property(e => e.MontoSaldo).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.MontoIncobrable).HasColumnType("decimal(18,2)");
             entity.Property(e => e.Observacion).HasMaxLength(500);
             entity.HasOne(e => e.Temporada)
                 .WithMany()
@@ -1692,6 +1696,77 @@ public class NavidadDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(e => new { e.PagoVendedorId, e.ProductoId }).IsUnique();
             entity.HasIndex(e => e.ProductoId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.IncobrableNav>(entity =>
+        {
+            entity.ToTable("IncobrableNav");
+            entity.HasKey(e => e.Id);
+            // UsuarioId y UsuarioAnulacionId sin FK: viven en AuthDB
+            entity.Property(e => e.Tipo).HasConversion<int>();
+            entity.Property(e => e.Monto).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Motivo).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.Fecha).HasColumnType("date");
+            entity.Property(e => e.MotivoAnulacion).HasMaxLength(500);
+            entity.HasOne(e => e.Temporada)
+                .WithMany()
+                .HasForeignKey(e => e.TemporadaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Venta)
+                .WithMany()
+                .HasForeignKey(e => e.VentaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Vendedor)
+                .WithMany()
+                .HasForeignKey(e => e.VendedorId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.TemporadaId);
+            entity.HasIndex(e => e.VentaId);
+            entity.HasIndex(e => e.VendedorId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.IncobrableNavAplicacion>(entity =>
+        {
+            entity.ToTable("IncobrableNavAplicacion");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Monto).HasColumnType("decimal(18,2)");
+            entity.HasOne(e => e.Incobrable)
+                .WithMany(i => i.Aplicaciones)
+                .HasForeignKey(e => e.IncobrableId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Venta)
+                .WithMany()
+                .HasForeignKey(e => e.VentaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.IncobrableId);
+            entity.HasIndex(e => e.VentaId);
+        });
+
+        modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.CierreTemporadaNav>(entity =>
+        {
+            entity.ToTable("CierreTemporadaNav");
+            entity.HasKey(e => e.Id);
+            // UsuarioId sin FK: vive en AuthDB
+            entity.Property(e => e.FechaCierre).HasColumnType("date");
+            entity.Property(e => e.Ganancia).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Devengados).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.GananciaNeta).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.DeudasIncobrables).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.StockSobranteMonto).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.EfectivoNeto).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.NosDeben).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Debemos).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.TeQueda).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.CapitalPropio).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.ResumenJson).IsRequired().HasColumnType("nvarchar(max)");
+            entity.HasOne(e => e.Temporada)
+                .WithMany()
+                .HasForeignKey(e => e.TemporadaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            // Un solo cierre vigente por temporada
+            entity.HasIndex(e => e.TemporadaId)
+                .IsUnique()
+                .HasFilter("[IsActive] = 1");
         });
     }
 }

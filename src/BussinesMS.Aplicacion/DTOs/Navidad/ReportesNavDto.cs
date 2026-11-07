@@ -33,6 +33,8 @@ public class ReporteResultadoNavDto
 
 public class ReporteVentasNavFiltrosDto
 {
+    // null = la abierta; con id, también una temporada cerrada (solo lectura)
+    public int? TemporadaId { get; set; }
     public DateTime? Desde { get; set; }
     public DateTime? Hasta { get; set; }
     public int? AlmacenId { get; set; }

@@ -23,9 +23,10 @@ public class DashboardNavController : BaseController
         => RespuestaOk(await _servicio.ObtenerPerfilAsync());
 
     // Solo Admin (403 para cualquier otro rol)
+    // temporadaId opcional: sin él, la abierta; con él, también una cerrada (solo lectura)
     [HttpGet("admin")]
-    public async Task<IActionResult> ObtenerAdmin()
-        => RespuestaOk(await _servicio.ObtenerAdminAsync());
+    public async Task<IActionResult> ObtenerAdmin([FromQuery] int? temporadaId)
+        => RespuestaOk(await _servicio.ObtenerAdminAsync(temporadaId));
 
     // Vendedor vinculado al usuario actual; almacenId = tienda de sesión (avisos de conteo y caja)
     [HttpGet("vendedor")]

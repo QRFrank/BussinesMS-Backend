@@ -5,7 +5,7 @@ using BussinesMS.API.Autorizacion;
 
 namespace BussinesMS.API.Controllers.Navidad;
 
-// Reportes del sistema navideño (módulo 9). Solo Admin (403 SIN_PERMISO para el resto), solo lectura, temporada abierta
+// Reportes del sistema navideño (módulo 9). Solo Admin (403 SIN_PERMISO para el resto), solo lectura. temporadaId opcional en todos: sin él, la abierta; con él, también una cerrada
 [ApiController]
 [Route("api/Navidad/Reportes")]
 [Produces("application/json")]
@@ -21,8 +21,8 @@ public class ReportesNavController : BaseController
 
     // Ganancia de la temporada (ventas netas menos costos, pérdidas, gastos y pagos) y capital
     [HttpGet("resultado")]
-    public async Task<IActionResult> Resultado([FromQuery] DateTime? desde, [FromQuery] DateTime? hasta)
-        => RespuestaOk(await _servicio.ObtenerResultadoAsync(desde, hasta));
+    public async Task<IActionResult> Resultado([FromQuery] DateTime? desde, [FromQuery] DateTime? hasta, [FromQuery] int? temporadaId)
+        => RespuestaOk(await _servicio.ObtenerResultadoAsync(desde, hasta, temporadaId));
 
     // Totales, por día, por vendedor, por almacén y por producto (canal: 1 Tienda, 2 Ruta; tipo: 1 Directa, 2 Reserva)
     [HttpGet("ventas")]
@@ -31,37 +31,37 @@ public class ReportesNavController : BaseController
 
     // Matriz producto x almacén en unidades, con el valorizado
     [HttpGet("stock")]
-    public async Task<IActionResult> Stock([FromQuery] int? almacenId, [FromQuery] int? proveedorId, [FromQuery] bool incluirSinStock = false)
-        => RespuestaOk(await _servicio.ObtenerStockAsync(almacenId, proveedorId, incluirSinStock));
+    public async Task<IActionResult> Stock([FromQuery] int? almacenId, [FromQuery] int? proveedorId, [FromQuery] bool incluirSinStock = false, [FromQuery] int? temporadaId = null)
+        => RespuestaOk(await _servicio.ObtenerStockAsync(almacenId, proveedorId, incluirSinStock, temporadaId));
 
     // Lo pedido contra lo recibido por código de cliente y producto
     [HttpGet("faltantes")]
-    public async Task<IActionResult> Faltantes([FromQuery] int? proveedorId, [FromQuery] int? codigoClienteId)
-        => RespuestaOk(await _servicio.ObtenerFaltantesAsync(proveedorId, codigoClienteId));
+    public async Task<IActionResult> Faltantes([FromQuery] int? proveedorId, [FromQuery] int? codigoClienteId, [FromQuery] int? temporadaId)
+        => RespuestaOk(await _servicio.ObtenerFaltantesAsync(proveedorId, codigoClienteId, temporadaId));
 
     // Recepciones de un proveedor y código (o sin código) con a qué almacenes fue cada producto, tenga o no faltantes
     [HttpGet("recepciones-codigo")]
     public async Task<IActionResult> RecepcionesCodigo(
-        [FromQuery] int proveedorId, [FromQuery] int? codigoClienteId, [FromQuery] DateTime? desde, [FromQuery] DateTime? hasta)
-        => RespuestaOk(await _servicio.ObtenerRecepcionesCodigoAsync(proveedorId, codigoClienteId, desde, hasta));
+        [FromQuery] int proveedorId, [FromQuery] int? codigoClienteId, [FromQuery] DateTime? desde, [FromQuery] DateTime? hasta, [FromQuery] int? temporadaId)
+        => RespuestaOk(await _servicio.ObtenerRecepcionesCodigoAsync(proveedorId, codigoClienteId, desde, hasta, temporadaId));
 
     // Todas las entradas (recepciones y compras) de un producto, con a qué almacenes fue cada una
     [HttpGet("entradas-producto")]
     public async Task<IActionResult> EntradasProducto(
-        [FromQuery] int productoId, [FromQuery] int? almacenId, [FromQuery] DateTime? desde, [FromQuery] DateTime? hasta)
-        => RespuestaOk(await _servicio.ObtenerEntradasProductoAsync(productoId, almacenId, desde, hasta));
+        [FromQuery] int productoId, [FromQuery] int? almacenId, [FromQuery] DateTime? desde, [FromQuery] DateTime? hasta, [FromQuery] int? temporadaId)
+        => RespuestaOk(await _servicio.ObtenerEntradasProductoAsync(productoId, almacenId, desde, hasta, temporadaId));
 
     // Con proveedores, de clientes, de vendedores de ruta, con inversores, sueldos y comisiones
     [HttpGet("deudas")]
-    public async Task<IActionResult> Deudas()
-        => RespuestaOk(await _servicio.ObtenerDeudasAsync());
+    public async Task<IActionResult> Deudas([FromQuery] int? temporadaId)
+        => RespuestaOk(await _servicio.ObtenerDeudasAsync(temporadaId));
 
     [HttpGet("gastos")]
-    public async Task<IActionResult> Gastos([FromQuery] DateTime? desde, [FromQuery] DateTime? hasta, [FromQuery] int? categoriaId)
-        => RespuestaOk(await _servicio.ObtenerGastosAsync(desde, hasta, categoriaId));
+    public async Task<IActionResult> Gastos([FromQuery] DateTime? desde, [FromQuery] DateTime? hasta, [FromQuery] int? categoriaId, [FromQuery] int? temporadaId)
+        => RespuestaOk(await _servicio.ObtenerGastosAsync(desde, hasta, categoriaId, temporadaId));
 
     [HttpGet("pagos-proveedores")]
     public async Task<IActionResult> PagosProveedores(
-        [FromQuery] DateTime? desde, [FromQuery] DateTime? hasta, [FromQuery] int? proveedorId, [FromQuery] int? codigoClienteId)
-        => RespuestaOk(await _servicio.ObtenerPagosProveedoresAsync(desde, hasta, proveedorId, codigoClienteId));
+        [FromQuery] DateTime? desde, [FromQuery] DateTime? hasta, [FromQuery] int? proveedorId, [FromQuery] int? codigoClienteId, [FromQuery] int? temporadaId)
+        => RespuestaOk(await _servicio.ObtenerPagosProveedoresAsync(desde, hasta, proveedorId, codigoClienteId, temporadaId));
 }

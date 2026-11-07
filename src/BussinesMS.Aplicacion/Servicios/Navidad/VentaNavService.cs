@@ -623,6 +623,7 @@ public class VentaNavService : IVentaNavService
             var (total, descuento, neto) = CalcularTotales(dto.Detalles, dto.Descuento);
             ValidarPrecios(dto.Detalles, productos, neto, esAdmin, await _precioAcceso.PuedeVerPreciosCompraAsync());
 
+            VerificarSinIncobrable(venta);
             if (neto < venta.MontoCobrado)
                 throw new ExcepcionDominio(
                     $"El nuevo neto ({neto}) es menor a lo ya cobrado ({venta.MontoCobrado}): primero anule un cobro",
@@ -964,6 +965,7 @@ public class VentaNavService : IVentaNavService
                 throw new ValidacionException("La venta ya está anulada");
             if (venta.Canal != CanalVentaNav.Tienda)
                 throw new ValidacionException("Solo se pueden anular ventas de tienda; las de ruta se gestionan desde el módulo de ruta");
+            VerificarSinIncobrable(venta);
             if (venta.AlmacenId.HasValue)
                 await _acceso.VerificarAlmacenAsync(venta.TemporadaId, venta.AlmacenId.Value);
 
@@ -1225,11 +1227,21 @@ public class VentaNavService : IVentaNavService
         => neto - cobrado <= 0 ? EstadoPagoVentaNav.Pagado
             : cobrado > 0 ? EstadoPagoVentaNav.Parcial : EstadoPagoVentaNav.Pendiente;
 
+    // Una venta con saldo dado por incobrable no se edita ni se anula: primero hay que anular el incobrable
+    internal static void VerificarSinIncobrable(VentaNav venta)
+    {
+        if (venta.MontoIncobrable > 0)
+            throw new ExcepcionDominio(
+                $"La venta tiene Bs {venta.MontoIncobrable:0.00} dados por incobrable: anule primero el incobrable",
+                409, "VENTA_CON_INCOBRABLE");
+    }
+
     internal static void RecalcularPago(VentaNav venta)
     {
         venta.MontoCobrado = Redondear(venta.Cobros.Where(c => !c.Anulado).Sum(c => c.Monto));
-        venta.MontoSaldo = venta.MontoNeto - venta.MontoCobrado;
-        venta.EstadoPago = EstadoPagoDe(venta.MontoNeto, venta.MontoCobrado);
+        // Lo dado por incobrable (cierre de temporada) deja de ser saldo: la venta queda saldada por esa parte
+        venta.MontoSaldo = venta.MontoNeto - venta.MontoCobrado - venta.MontoIncobrable;
+        venta.EstadoPago = EstadoPagoDe(venta.MontoNeto - venta.MontoIncobrable, venta.MontoCobrado);
     }
 
     // Estado de cada línea y de la cabecera (solo cuentan las líneas con unidades)
@@ -1331,6 +1343,7 @@ public class VentaNavService : IVentaNavService
             MontoNeto = e.MontoNeto,
             MontoCobrado = e.MontoCobrado,
             MontoSaldo = e.MontoSaldo,
+            MontoIncobrable = e.MontoIncobrable,
             EstadoPago = (int)e.EstadoPago,
             EstadoPagoNombre = NombreEstadoPago(e.EstadoPago),
             EstadoEntrega = (int)e.EstadoEntrega,

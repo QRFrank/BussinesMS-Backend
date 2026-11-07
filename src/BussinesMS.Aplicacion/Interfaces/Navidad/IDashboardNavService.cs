@@ -8,7 +8,8 @@ public interface IDashboardNavService
     Task<DashboardPerfilNavDto> ObtenerPerfilAsync();
 
     // Solo rol Admin (403 SIN_PERMISO si no)
-    Task<DashboardAdminNavDto> ObtenerAdminAsync();
+    // temporadaId null = la abierta; con id también temporadas cerradas (solo lectura)
+    Task<DashboardAdminNavDto> ObtenerAdminAsync(int? temporadaId = null);
 
     // Datos del vendedor vinculado al usuario actual; almacenId = tienda de sesión (avisos de conteo y caja)
     Task<DashboardVendedorNavDto> ObtenerVendedorAsync(int? almacenId);

@@ -101,7 +101,9 @@ public class DashboardNavService : IDashboardNavService
         Id = t.Id,
         Nombre = t.Nombre,
         Anio = t.Anio,
-        FechaInicio = t.FechaInicio
+        FechaInicio = t.FechaInicio,
+        Estado = (int)t.Estado,
+        FechaCierre = t.FechaCierre
     };
 
     // ================= Perfil =================
@@ -162,24 +164,25 @@ public class DashboardNavService : IDashboardNavService
 
     // ================= Admin =================
 
-    public async Task<DashboardAdminNavDto> ObtenerAdminAsync()
+    public async Task<DashboardAdminNavDto> ObtenerAdminAsync(int? temporadaId = null)
     {
         try
         {
             if (!await _acceso.EsAdminAsync())
                 throw SinPermiso("Solo el admin puede ver el resumen del negocio");
 
-            var temporada = await _temporadaActual.ObtenerAbiertaAsync();
+            var temporada = await _temporadaActual.ObtenerParaLecturaAsync(temporadaId);
             var t = temporada.Id;
-            var filtro = new AbastecimientoNavFiltroDto();
+            // Todo con la temporada pedida (también una cerrada), nunca con la abierta por defecto
+            var filtro = new AbastecimientoNavFiltroDto { TemporadaId = t };
 
             // Reutilizados de los servicios existentes
             var deudasProveedor = await _abastecimiento.ObtenerDeudasAsync(filtro);
             var faltantes = await _abastecimiento.ObtenerFaltantesAsync(filtro);
-            var deudasRuta = await _ruta.ObtenerDeudasAsync(null);
-            var sueldos = await _pagosVendedores.ObtenerResumenSueldosAsync(null, null);
-            var reporte = await _pagosVendedores.ObtenerReporteAsync(new ReporteVentasVendedorFiltroDto());
-            var capital = await _capital.ObtenerResumenAsync(null);
+            var deudasRuta = await _ruta.ObtenerDeudasAsync(null, t);
+            var sueldos = await _pagosVendedores.ObtenerResumenSueldosAsync(t, null);
+            var reporte = await _pagosVendedores.ObtenerReporteAsync(new ReporteVentasVendedorFiltroDto { TemporadaId = t });
+            var capital = await _capital.ObtenerResumenAsync(t);
 
             var gastos = await _calc.ObtenerGastosAsync(t, MaxFilasLista);
 
@@ -331,8 +334,9 @@ public class DashboardNavService : IDashboardNavService
     {
         var alertas = new DashboardAlertasNavDto();
 
-        // Tiendas con conteo: estado de hoy y caja pendiente (mismo cálculo que GET /Conteos/estado)
-        var tiendas = (await _temporadaRepo.ObtenerAlmacenesConteoAsync(new[] { temporadaId })).Select(a => a.AlmacenId).Distinct().ToList();
+        // Tiendas con conteo: estado de hoy y caja pendiente (mismo cálculo que GET /Conteos/estado). Solo en la temporada abierta:
+        // en una cerrada no hay turnos ni cajas pendientes
+        var tiendas = !await _calc.EsAbiertaAsync(temporadaId) ? new List<int>() : (await _temporadaRepo.ObtenerAlmacenesConteoAsync(new[] { temporadaId })).Select(a => a.AlmacenId).Distinct().ToList();
         var estados = await ObtenerEstadosConteoAsync(tiendas);
         alertas.Conteos = estados.Where(e => e.Estado != "cerrada").ToList();
         alertas.CajasSinEntregar = estados.Where(e => e.CajaPendiente).ToList();

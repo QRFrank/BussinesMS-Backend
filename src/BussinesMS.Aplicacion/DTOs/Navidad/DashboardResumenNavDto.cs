@@ -18,7 +18,7 @@ public class DashboardReservasPendientesNavDto
 
 public class DashboardResultadoLineaNavDto
 {
-    // ventasNetas | costoVendido | perdidaConsumo | ajustesNegativosConteo | gastos | sueldosPagados | comisionesRutaPagadas | comisionesInversoresPagadas
+    // ventasNetas | costoVendido | perdidaConsumo | ajustesNegativosConteo | gastos | sueldosPagados | comisionesRutaPagadas | comisionesInversoresPagadas | deudasIncobrables | stockSobranteCierre
     public string Clave { get; set; } = string.Empty;
     public string Nombre { get; set; } = string.Empty;
     // +1 suma, −1 resta. El monto siempre es positivo
@@ -34,6 +34,22 @@ public class DashboardResultadoNavDto
     // Σ signo × monto
     public decimal Ganancia { get; set; }
     public List<string> Advertencias { get; set; } = new();
+    // Cierre de temporada (2026-11-07, aditivo): lo que se debe y todavía no se pagó (al momento actual, no usa el rango de fechas)
+    public DashboardDevengadosNavDto Devengados { get; set; } = new();
+    // Ganancia − devengados.total
+    public decimal GananciaNeta { get; set; }
+}
+
+// Pendientes sin pagar que la ganancia (criterio de caja) todavía no resta
+public class DashboardDevengadosNavDto
+{
+    // Sueldos de tienda pendientes (= capital.sueldosPendientes)
+    public decimal SueldosTienda { get; set; }
+    // Comisión de inversores por pagar (= capital.comisionPorPagar)
+    public decimal ComisionInversores { get; set; }
+    // Las comisiones de ruta se deciden al pagar: siempre null ("a definir")
+    public decimal? ComisionesRuta { get; set; }
+    public decimal Total { get; set; }
 }
 
 public class DashboardCapitalNavDto
@@ -212,11 +228,29 @@ public class DashboardPerdidaGrupoNavDto
     public List<DashboardPerdidaMotivoNavDto> PorMotivo { get; set; } = new();
 }
 
+public class DashboardPerdidaIncobrablesNavDto
+{
+    public int Cantidad { get; set; }
+    public decimal Monto { get; set; }
+    public decimal Clientes { get; set; }
+    public decimal VendedoresRuta { get; set; }
+}
+
+public class DashboardPerdidaStockCierreNavDto
+{
+    public int Unidades { get; set; }
+    public decimal Monto { get; set; }
+}
+
 public class DashboardPerdidasNavDto
 {
     public DashboardPerdidaGrupoNavDto Consumos { get; set; } = new();
     // Solo diferencias negativas. Monto = línea ajustesNegativosConteo del resultado
     public DashboardPerdidaGrupoNavDto DiferenciasConteo { get; set; } = new();
+    // Cierre de temporada (2026-11-07): deudas dadas por incobrables (vigentes). Monto = línea deudasIncobrables del resultado
+    public DashboardPerdidaIncobrablesNavDto DeudasIncobrables { get; set; } = new();
+    // Stock dado de baja al cerrar la temporada (movimientos "Cierre de temporada"). Monto = línea stockSobranteCierre del resultado
+    public DashboardPerdidaStockCierreNavDto StockSobranteCierre { get; set; } = new();
     public int TotalUnidades { get; set; }
     public decimal TotalMonto { get; set; }
 }
@@ -235,6 +269,10 @@ public class DashboardPatrimonioEsperadoNavDto
 {
     public decimal CapitalPropio { get; set; }
     public decimal Ganancia { get; set; }
+    // Cierre de temporada (2026-11-07, aditivo): devengados (sueldos de tienda y comisión de inversores pendientes) y ganancia − devengados.
+    // El total usa la ganancia neta: la posición real ya resta esos pendientes como deuda
+    public decimal Devengados { get; set; }
+    public decimal GananciaNeta { get; set; }
     // No hay tabla de retiros del dueño: 0
     public decimal Retiros { get; set; }
     public decimal Total { get; set; }
