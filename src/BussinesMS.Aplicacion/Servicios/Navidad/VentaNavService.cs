@@ -41,6 +41,7 @@ public class VentaNavService : IVentaNavService
     private readonly IAlmacenAccesoNavService _acceso;
     private readonly IPrecioCompraAccesoService _precioAcceso;
     private readonly IAvisosInternosNav _avisos;
+    private readonly INotificadorNav _notificador;
     private readonly ILogger<VentaNavService> _logger;
 
     public VentaNavService(
@@ -62,6 +63,7 @@ public class VentaNavService : IVentaNavService
         IAlmacenAccesoNavService acceso,
         IPrecioCompraAccesoService precioAcceso,
         IAvisosInternosNav avisos,
+        INotificadorNav notificador,
         ILogger<VentaNavService> logger)
     {
         _repo = repo;
@@ -82,6 +84,7 @@ public class VentaNavService : IVentaNavService
         _acceso = acceso;
         _precioAcceso = precioAcceso;
         _avisos = avisos;
+        _notificador = notificador;
         _logger = logger;
     }
 
@@ -354,6 +357,11 @@ public class VentaNavService : IVentaNavService
         {
             ValidarEstructuraCrear(dto);
 
+            // Comprobante por WhatsApp: el número se valida antes de crear nada (la regla de celular de Bolivia la valida el front)
+            string? telefonoComprobante = null;
+            if (dto.EnviarComprobante && !desdeCierre)
+                telefonoComprobante = NormalizarTelefonoComprobante(dto.TelefonoComprobante);
+
             var tipo = (TipoVentaNav)dto.Tipo;
             var condicion = (CondicionPagoVentaNav)dto.CondicionPago;
 
@@ -459,16 +467,21 @@ public class VentaNavService : IVentaNavService
             }
             RecalcularEntrega(venta);
 
+            bool? comprobanteEncolado = null;
             if (!desdeCierre) await _uow.BeginTransactionAsync();
             try
             {
-                venta.NroVenta = await _repo.ObtenerSiguienteNroAsync(temporada.Id);
+                venta.NroVenta =await _repo.ObtenerSiguienteNroAsync(temporada.Id);
                 var creada = await _repo.CrearAsync(venta);
 
                 if (tipo == TipoVentaNav.Directa)
                     foreach (var d in creada.Detalles)
                         await _stock.RegistrarSalidaAsync(temporada.Id, dto.AlmacenId, d.ProductoId, d.Unidades,
                             TipoMovimientoNav.Venta, ReferenciaVenta, creada.Id);
+
+                // El comprobante queda en la bandeja dentro de la misma transacción; si WhatsApp falla después, no afecta a la venta
+                if (telefonoComprobante != null)
+                    comprobanteEncolado = await EncolarComprobanteSeguroAsync(creada, telefonoComprobante, $"comprobante-venta:{creada.Id}");
 
                 if (!desdeCierre) await _uow.CommitAsync();
             }
@@ -481,12 +494,94 @@ public class VentaNavService : IVentaNavService
 
             _logger.LogInformation("Venta creada: {Id} #{Nro} ({Tipo}, temporada {TemporadaId})", venta.Id, venta.NroVenta, tipo, temporada.Id);
 
-            return await ObtenerPorIdAsync(venta.Id)
+            var resultado = await ObtenerPorIdAsync(venta.Id)
                 ?? throw new EntidadNoEncontradaException("Venta", venta.Id);
+            resultado.ComprobanteEncolado = comprobanteEncolado;
+            return resultado;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al crear venta");
+            throw;
+        }
+    }
+
+    // ================= Comprobante por WhatsApp (C1 / S4) =================
+
+    private static string NormalizarTelefonoComprobante(string? telefono)
+    {
+        if (string.IsNullOrWhiteSpace(telefono))
+            throw new ExcepcionDominio("Indicá el número de WhatsApp al que se envía el comprobante", 400, "TELEFONO_REQUERIDO");
+        if (!NormalizadorTelefono.TryNormalizar(telefono, out var normalizado))
+            throw new ExcepcionDominio("El número de WhatsApp no es válido", 400, "TELEFONO_INVALIDO");
+        return normalizado;
+    }
+
+    private Task<NotificacionNav?> EncolarComprobanteAsync(VentaNav venta, string telefono, string clave)
+        => _notificador.EncolarAsync(new NuevaNotificacionNav
+        {
+            TemporadaId = venta.TemporadaId,
+            Evento = EventoNotificacionNav.ComprobanteVenta,
+            Prioridad = 1,
+            Mensaje = MensajesAvisosNav.CaptionComprobante(venta.NroVenta, venta.MontoNeto),
+            Audiencia = AudienciaNotificacionNav.TelefonoDirecto,
+            TelefonoDirecto = telefono,
+            AdjuntoTipo = MensajesAvisosNav.AdjuntoComprobanteVentaPdf,
+            ReferenciaId = venta.Id,
+            ClaveUnica = clave
+        });
+
+    // En la venta nueva: nunca lanza (un error de WhatsApp no puede romper la venta)
+    private async Task<bool> EncolarComprobanteSeguroAsync(VentaNav venta, string telefono, string clave)
+    {
+        try
+        {
+            return await EncolarComprobanteAsync(venta, telefono, clave) != null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudo encolar el comprobante de la venta {Id}", venta.Id);
+            return false;
+        }
+    }
+
+    // S4: reenviar el comprobante (siempre encola uno nuevo; la ClaveUnica lleva un sufijo para permitir el reenvío a propósito)
+    public async Task<ComprobanteEncoladoDto> ReenviarComprobanteAsync(int id, string? telefono)
+    {
+        try
+        {
+            var normalizado = NormalizarTelefonoComprobante(telefono);
+
+            var venta = await ObtenerVentaParaEdicionAsync(id);
+            if (venta.AlmacenId.HasValue)
+                await _acceso.VerificarAlmacenAsync(venta.TemporadaId, venta.AlmacenId.Value);
+            if (venta.Anulada)
+                throw new ExcepcionDominio("La venta está anulada: no se puede enviar el comprobante", 409, "VENTA_ANULADA");
+
+            NotificacionNav? notificacion;
+            await _uow.BeginTransactionAsync();
+            try
+            {
+                notificacion = await EncolarComprobanteAsync(venta, normalizado, $"comprobante-venta:{venta.Id}:reenvio:{Guid.NewGuid():N}");
+                if (notificacion == null)
+                    throw new ExcepcionDominio("No se pudo encolar el comprobante: WhatsApp no está configurado o el aviso está desactivado", 409, "WHATSAPP_NO_CONFIGURADO");
+                await _uow.CommitAsync();
+            }
+            catch
+            {
+                await _uow.RollbackAsync();
+                throw;
+            }
+
+            return new ComprobanteEncoladoDto
+            {
+                NotificacionId = notificacion.Id,
+                DestinoEnmascarado = EnmascaradorTelefono.Enmascarar(normalizado)
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al reenviar comprobante de la venta {Id}", id);
             throw;
         }
     }

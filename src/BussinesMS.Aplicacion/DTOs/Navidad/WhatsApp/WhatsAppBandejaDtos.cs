@@ -32,6 +32,8 @@ public class WhatsAppEnvioDto
     public DateTime? EnviadoEn { get; set; }
     public DateTime? ProximoIntentoEn { get; set; }
     public string? InstanciaUsada { get; set; }
+    /// <summary>Tipo de adjunto: null = texto; "ComprobanteVentaPdf" = PDF del comprobante (el campo mensaje es el pie del documento).</summary>
+    public string? AdjuntoTipo { get; set; }
     /// <summary>Primeros ~80 caracteres del mensaje (en el listado).</summary>
     public string MensajeResumen { get; set; } = string.Empty;
     /// <summary>Mensaje completo. Solo en GET envios/{id} (en el listado es null).</summary>

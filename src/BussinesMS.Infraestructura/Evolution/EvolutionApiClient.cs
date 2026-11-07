@@ -208,6 +208,32 @@ public class EvolutionApiClient : IEvolutionApiClient
         }
     }
 
+    public async Task EnviarDocumentoAsync(string instancia, string numeroNormalizado, byte[] contenido, string mimetype,
+        string nombreArchivo, string? caption, CancellationToken ct = default)
+    {
+        AsegurarConfigurado();
+        // Evolution v2: cuerpo plano; media = base64 puro (sin prefijo data:)
+        var body = new
+        {
+            number = numeroNormalizado.TrimStart('+'),
+            mediatype = "document",
+            mimetype,
+            caption = caption ?? string.Empty,
+            media = Convert.ToBase64String(contenido),
+            fileName = nombreArchivo
+        };
+        var (status, _) = await EnviarAsync(HttpMethod.Post, $"message/sendMedia/{Uri.EscapeDataString(instancia)}",
+            body, TimeSpan.FromSeconds(Math.Max(1, Cfg.Evolution.TimeoutSegundos)), ct);
+
+        ValidarErroresGenerales(status);
+        if (!((int)status is >= 200 and < 300))
+        {
+            _logger.LogWarning("Evolution rechazó un envío de documento a {Destino}: HTTP {Status}",
+                EnmascaradorTelefono.Enmascarar(numeroNormalizado), (int)status);
+            throw new ExcepcionDominio($"Evolution no pudo enviar el documento (HTTP {(int)status})", 502, "EVOLUTION_ERROR");
+        }
+    }
+
     // ---------- helpers ----------
 
     private static string? LeerEstado(string cuerpo)

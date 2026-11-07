@@ -356,4 +356,11 @@ public static class MensajesAvisosNav
         sb.AppendLine($"Fecha: {Fecha(fecha)}");
         return Cerrar(sb);
     }
+
+    // ---------- Comprobante de venta al cliente (C1): pie del PDF ----------
+
+    public const string AdjuntoComprobanteVentaPdf = "ComprobanteVentaPdf";
+
+    public static string CaptionComprobante(int nroVenta, decimal total)
+        => $"🧾 Comprobante de venta N° {nroVenta}\nTotal: {Bs(total)}\n— {Firma}";
 }

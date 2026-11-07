@@ -36,6 +36,8 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
     private readonly ITemporadaRepository _temporadas;
     private readonly IWhatsAppInstanciaRepository _instancias;
     private readonly IEvolutionApiClient _evolution;
+    private readonly IComprobanteVentaDatosService _comprobantes;
+    private readonly IComprobantePdfService _pdf;
     private readonly INavidadUnitOfWork _uow;
     private readonly IOptions<WhatsAppOpciones> _opciones;
     private readonly ILogger<BandejaNotificacionNavService> _logger;
@@ -50,6 +52,8 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
         ITemporadaRepository temporadas,
         IWhatsAppInstanciaRepository instancias,
         IEvolutionApiClient evolution,
+        IComprobanteVentaDatosService comprobantes,
+        IComprobantePdfService pdf,
         INavidadUnitOfWork uow,
         IOptions<WhatsAppOpciones> opciones,
         ILogger<BandejaNotificacionNavService> logger)
@@ -63,6 +67,8 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
         _temporadas = temporadas;
         _instancias = instancias;
         _evolution = evolution;
+        _comprobantes = comprobantes;
+        _pdf = pdf;
         _uow = uow;
         _opciones = opciones;
         _logger = logger;
@@ -298,6 +304,34 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
                 continue;
             }
 
+            // Comprobante PDF: se arma al enviar desde los datos actuales de la venta; si está anulada no se manda
+            ComprobanteVentaDatos? comprobante = null;
+            if (EsComprobantePdf(envio.Notificacion))
+            {
+                try
+                {
+                    comprobante = envio.Notificacion!.ReferenciaId.HasValue
+                        ? await _comprobantes.ObtenerAsync(envio.Notificacion.ReferenciaId.Value)
+                        : null;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    await RegistrarFalloAsync(envio, telefono, fila.NombreInstancia, "Error al leer la venta del comprobante (" + ex.GetType().Name + ")");
+                    if (envio.Estado == EstadoEnvioNotificacionNav.Fallido) resultado.Fallidos++;
+                    continue;
+                }
+
+                if (comprobante == null || comprobante.Anulada)
+                {
+                    envio.Estado = EstadoEnvioNotificacionNav.Omitido;
+                    envio.UltimoError = comprobante == null ? "La venta ya no existe: no se envía el comprobante" : "La venta está anulada: no se envía el comprobante";
+                    envio.ProximoIntentoEn = null;
+                    await _envios.ActualizarAsync(envio);
+                    resultado.Omitidos++;
+                    continue;
+                }
+            }
+
             if (cupo <= 0) break;
 
             try
@@ -306,7 +340,14 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
                 // TEMPORAL: quitar antes de producción (MostrarDestinatario)
                 if (_opciones.Value.MostrarDestinatario)
                     texto += TextoDestinatarioDebug(envio, telefono, usuarios);
-                await _evolution.EnviarTextoAsync(fila.NombreInstancia, telefono, texto, ct);
+                if (comprobante != null)
+                {
+                    var pdf = _pdf.Generar(comprobante, MensajesAvisosNav.Firma);
+                    await _evolution.EnviarDocumentoAsync(fila.NombreInstancia, telefono, pdf, "application/pdf",
+                        $"comprobante-{comprobante.NroVenta}.pdf", texto, ct);
+                }
+                else
+                    await _evolution.EnviarTextoAsync(fila.NombreInstancia, telefono, texto, ct);
 
                 envio.Intentos++;
                 envio.Estado = EstadoEnvioNotificacionNav.Enviado;
@@ -341,6 +382,9 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
                 await Task.Delay(TimeSpan.FromSeconds(pausa) + TimeSpan.FromMilliseconds(Random.Shared.Next(0, 1000)), ct);
         }
     }
+
+    private static bool EsComprobantePdf(NotificacionNav? n) =>
+        n?.AdjuntoTipo == MensajesAvisosNav.AdjuntoComprobanteVentaPdf;
 
     // TEMPORAL: quitar antes de producción (MostrarDestinatario)
     private static string TextoDestinatarioDebug(NotificacionEnvioNav envio, string telefono, Dictionary<int, Usuario> usuarios)

@@ -41,6 +41,8 @@ public class CrearVentaNavDtoValidator : AbstractValidator<CrearVentaNavDto>
         RuleFor(x => x.Cobro!.Comprobante)
             .MaximumLength(100).WithMessage("El comprobante no puede superar 100 caracteres")
             .When(x => x.Cobro != null);
+        RuleFor(x => x.TelefonoComprobante)
+            .MaximumLength(30).WithMessage("El número de WhatsApp no puede superar 30 caracteres");
     }
 }
 
@@ -113,5 +115,14 @@ public class CrearConsumoNavDtoValidator : AbstractValidator<CrearConsumoNavDto>
             l.RuleFor(i => i.ProductoId).GreaterThan(0).WithMessage("El producto es obligatorio");
             l.RuleFor(i => i.Unidades).GreaterThan(0).WithMessage("Las unidades deben ser mayores a 0");
         });
+    }
+}
+
+public class ReenviarComprobanteVentaDtoValidator : AbstractValidator<ReenviarComprobanteVentaDto>
+{
+    public ReenviarComprobanteVentaDtoValidator()
+    {
+        RuleFor(x => x.Telefono)
+            .MaximumLength(30).WithMessage("El número de WhatsApp no puede superar 30 caracteres");
     }
 }

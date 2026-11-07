@@ -25,4 +25,6 @@ public interface IVentaNavService
     Task<VentaNavDto> RegistrarCobroAsync(int ventaId, RegistrarCobroVentaDto dto);
     Task<VentaNavDto> AnularCobroAsync(int cobroId);
     Task AnularAsync(int id);
+    // S4: encola un comprobante PDF nuevo por WhatsApp al teléfono indicado (400 sin/inválido, 404, 409 si está anulada)
+    Task<ComprobanteEncoladoDto> ReenviarComprobanteAsync(int id, string? telefono);
 }

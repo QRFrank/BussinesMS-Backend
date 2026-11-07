@@ -80,6 +80,8 @@ public class VentaNavDto
     // Según el usuario logueado: venta de tienda vigente y (admin o vendedor dueño)
     public bool PuedeEditar { get; set; }
     public bool PuedeAnular { get; set; }
+    // Solo en la respuesta de crear con enviarComprobante=true: true si el comprobante quedó en la bandeja; false si no se pudo encolar (WhatsApp sin configurar o aviso apagado). Null en el resto
+    public bool? ComprobanteEncolado { get; set; }
     // Obsoleto: ya no se llena (las reservas sin cobertura se rechazan con 409 SIN_COBERTURA_PEDIDO)
     public List<string> Advertencias { get; set; } = new();
     // Vacíos en la lista
@@ -184,6 +186,10 @@ public class CrearVentaNavDto
     public string? Observacion { get; set; }
     // Contado: obligatorio (monto = neto o sin monto); Crédito: pago inicial opcional (> 0 y < neto)
     public CobroInicialVentaDto? Cobro { get; set; }
+    // Opcional (false por defecto). Si es true, telefonoComprobante es obligatorio y se encola el comprobante PDF por WhatsApp a ese número
+    public bool EnviarComprobante { get; set; }
+    // Celular al que se envía el comprobante (solo para este envío; no se guarda en el cliente)
+    public string? TelefonoComprobante { get; set; }
     public List<VentaLineaDto> Detalles { get; set; } = new();
 }
 
@@ -269,4 +275,16 @@ public class VentaProductoNavDto
     public int Bloqueado { get; set; }
     // Stock − Bloqueado (mínimo 0)
     public int Disponible { get; set; }
+}
+
+// POST api/Navidad/Ventas/{id}/comprobante
+public class ReenviarComprobanteVentaDto
+{
+    public string? Telefono { get; set; }
+}
+
+public class ComprobanteEncoladoDto
+{
+    public int NotificacionId { get; set; }
+    public string DestinoEnmascarado { get; set; } = string.Empty;
 }

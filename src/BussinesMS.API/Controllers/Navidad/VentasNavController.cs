@@ -95,6 +95,15 @@ public class VentasNavController : BaseController
         return RespuestaOk(resultado, "Entrega anulada");
     }
 
+    // Reenviar el comprobante: lo puede hacer quien puede ver la venta (flag Leer en los mismos menús que GET {id}) y respeta la restricción por almacén
+    [Menu(151, 152, 154, 143, Flag = FlagMenu.Leer)]
+    [HttpPost("{id:int}/comprobante")]
+    public async Task<IActionResult> ReenviarComprobante(int id, [FromBody] ReenviarComprobanteVentaDto dto)
+    {
+        var resultado = await _servicio.ReenviarComprobanteAsync(id, dto?.Telefono);
+        return RespuestaOk(resultado, "Comprobante en cola de envío");
+    }
+
     [HttpPost("{id:int}/cobros")]
     public async Task<IActionResult> RegistrarCobro(int id, [FromBody] RegistrarCobroVentaDto dto)
     {

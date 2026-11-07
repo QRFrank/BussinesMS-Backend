@@ -257,6 +257,7 @@ public class WhatsAppBandejaAdminService : IWhatsAppBandejaAdminService
             EnviadoEn = EnUtc(e.EnviadoEn),
             ProximoIntentoEn = EnUtc(e.ProximoIntentoEn),
             InstanciaUsada = e.InstanciaUsada,
+            AdjuntoTipo = n.AdjuntoTipo,
             MensajeResumen = resumen.Replace("\n", " "),
             Mensaje = incluirMensaje ? n.Mensaje : null
         };

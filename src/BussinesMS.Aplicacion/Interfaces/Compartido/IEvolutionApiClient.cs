@@ -35,4 +35,7 @@ public interface IEvolutionApiClient
     Task BorrarInstanciaAsync(string instancia, CancellationToken ct = default);
     /// <param name="numeroNormalizado">Formato +591XXXXXXXX (se envía sin '+').</param>
     Task EnviarTextoAsync(string instancia, string numeroNormalizado, string texto, CancellationToken ct = default);
+    /// <summary>Envía un documento (PDF) por POST message/sendMedia (Evolution v2: mediatype "document", media en base64).</summary>
+    /// <param name="numeroNormalizado">Formato +591XXXXXXXX (se envía sin '+').</param>
+    Task EnviarDocumentoAsync(string instancia, string numeroNormalizado, byte[] contenido, string mimetype, string nombreArchivo, string? caption, CancellationToken ct = default);
 }
