@@ -157,6 +157,53 @@ public class AvisosInternosNav : IAvisosInternosNav
         }
     });
 
+    // ================= Compras =================
+
+    public Task CompraAsync(Compra compra, string proveedorNombre) => SeguroAsync("compra", async () =>
+    {
+        var autorId = _currentUser.GetUsuarioId();
+        var dists = compra.Detalles
+            .SelectMany(d => d.Distribuciones.Select(x => (x.AlmacenId, d.ProductoId, Unidades: x.CantidadUnidades)))
+            .Where(x => x.Unidades > 0)
+            .ToList();
+        if (dists.Count == 0) return;
+
+        var almacenes = await NombresAlmacenAsync(dists.Select(x => x.AlmacenId));
+        var productos = await ProductosAsync(dists.Select(x => x.ProductoId));
+        var usuario = autorId.HasValue ? await NombreUsuarioAsync(autorId.Value) : "-";
+        var fecha = compra.Fecha;
+
+        // Admins (sin montos)
+        var porAlmacen = PorAlmacen(dists, almacenes);
+        var lineasTotal = dists.GroupBy(x => x.ProductoId).Select(g => Linea(productos, g.Key, g.Sum(x => x.Unidades))).ToList();
+        await _notificador.EncolarAsync(new NuevaNotificacionNav
+        {
+            TemporadaId = compra.TemporadaId,
+            Evento = EventoNotificacionNav.CompraAdmin,
+            Mensaje = MensajesAvisosNav.CompraAdmin(compra.Id, fecha, proveedorNombre, compra.NroNota, usuario, porAlmacen, lineasTotal),
+            Audiencia = AudienciaNotificacionNav.Admins,
+            ExcluirUsuarioId = autorId,
+            ClaveUnica = $"compra:{compra.Id}:admins"
+        });
+
+        // Un aviso por almacen de destino a su encargado
+        foreach (var g in dists.GroupBy(x => x.AlmacenId))
+        {
+            var lineas = g.GroupBy(x => x.ProductoId).Select(p => Linea(productos, p.Key, p.Sum(x => x.Unidades))).ToList();
+            await _notificador.EncolarAsync(new NuevaNotificacionNav
+            {
+                TemporadaId = compra.TemporadaId,
+                Evento = EventoNotificacionNav.CompraAlmacen,
+                Mensaje = MensajesAvisosNav.CompraAlmacen(compra.Id, fecha, almacenes.GetValueOrDefault(g.Key, $"#{g.Key}"),
+                    proveedorNombre, compra.NroNota, usuario, lineas, g.Sum(x => x.Unidades)),
+                Audiencia = AudienciaNotificacionNav.EncargadosAlmacen,
+                AudienciaId = g.Key,
+                ExcluirUsuarioId = autorId,
+                ClaveUnica = $"compra:{compra.Id}:almacen:{g.Key}"
+            });
+        }
+    });
+
     // ================= Ruta =================
 
     public Task CargaRutaAsync(SalidaRuta salida, SalidaRutaCarga carga) => SeguroAsync("carga de ruta", async () =>

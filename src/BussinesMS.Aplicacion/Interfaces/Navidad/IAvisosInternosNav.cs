@@ -35,6 +35,9 @@ public interface IAvisosInternosNav
     /// <summary>A3 a admins y E1 a los encargados de cada almacén de destino.</summary>
     Task RecepcionAsync(Recepcion recepcion, string proveedorNombre);
 
+    /// <summary>Admins y encargados de cada almacén de destino de una compra (mismo patrón que la recepción, sin montos).</summary>
+    Task CompraAsync(Compra compra, string proveedorNombre);
+
     /// <summary>V1 al vendedor, A4 a admins y E2 a los encargados de cada almacén de origen.</summary>
     Task CargaRutaAsync(SalidaRuta salida, SalidaRutaCarga carga);
 

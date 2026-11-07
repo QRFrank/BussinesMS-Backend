@@ -289,6 +289,8 @@ public class CompraNavService : ICompraNavService
                 foreach (var producto in productosActualizados)
                     await _productoRepo.ActualizarAsync(producto);
 
+                await _avisos.CompraAsync(creada, proveedor.Nombre);
+
                 await _uow.CommitAsync();
             }
             catch

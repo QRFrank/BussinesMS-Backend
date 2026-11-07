@@ -172,6 +172,38 @@ public static class MensajesAvisosNav
         return Cerrar(sb);
     }
 
+    // ---------- Compras ----------
+
+    public static string CompraAdmin(int compraId, DateTime fecha, string proveedor, string? nroNota, string usuario,
+        IReadOnlyList<(string Almacen, int Unidades)> porAlmacen, IEnumerable<LineaAviso> productos)
+    {
+        var sb = new StringBuilder();
+        Encabezado(sb, $"🛒 Compra N° {compraId} — {Dia(fecha)}");
+        sb.AppendLine($"Proveedor: {proveedor}");
+        if (!string.IsNullOrWhiteSpace(nroNota)) sb.AppendLine($"Nota: {nroNota}");
+        sb.AppendLine($"Registró: {usuario}");
+        AgregarProductos(sb, productos);
+        sb.AppendLine();
+        foreach (var a in porAlmacen) sb.AppendLine($"{a.Almacen}: {a.Unidades} u");
+        sb.AppendLine($"Total: {porAlmacen.Sum(a => a.Unidades)} u");
+        return Cerrar(sb);
+    }
+
+    public static string CompraAlmacen(int compraId, DateTime fecha, string almacen, string proveedor, string? nroNota,
+        string usuario, IEnumerable<LineaAviso> productos, int totalUnidades)
+    {
+        var sb = new StringBuilder();
+        Encabezado(sb, $"🛒 Compra para el {almacen}: {totalUnidades} u — {Dia(fecha)}");
+        sb.AppendLine($"Compra N°: {compraId}");
+        sb.AppendLine($"Proveedor: {proveedor}");
+        if (!string.IsNullOrWhiteSpace(nroNota)) sb.AppendLine($"Nota: {nroNota}");
+        sb.AppendLine($"Registró: {usuario}");
+        AgregarProductos(sb, productos);
+        sb.AppendLine();
+        sb.AppendLine($"Total para tu almacén: {totalUnidades} u");
+        return Cerrar(sb);
+    }
+
     // ---------- Ruta ----------
 
     public static string CargaVendedor(int salidaId, DateTime fecha, IEnumerable<LineaAviso> productos, int totalCarga, int enPoder)

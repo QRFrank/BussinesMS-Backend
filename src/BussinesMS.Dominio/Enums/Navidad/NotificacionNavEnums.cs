@@ -25,7 +25,10 @@ public enum EventoNotificacionNav
     Traslado = 31,
     // Traslado: aviso a encargados del almacén de origen (sale) y de destino (entra)
     TrasladoSalidaAlmacen = 32,
-    TrasladoIngresoAlmacen = 33
+    TrasladoIngresoAlmacen = 33,
+    // Compra registrada: aviso a admins y a encargados de cada almacén de destino (igual que la recepción)
+    CompraAdmin = 34,
+    CompraAlmacen = 35
 }
 
 public enum AudienciaNotificacionNav
