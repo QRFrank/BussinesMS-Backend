@@ -87,6 +87,9 @@ public class ResumenNavCalculos
     private readonly IMovimientoNavRepository _movimientoRepo;
 
     private readonly Dictionary<int, List<VentaResumen>> _ventasCache = new();
+    // El cierre de temporada cuenta el mes en curso como sueldo adeudado (es el pago final); el resto de pantallas no
+    public bool IncluirMesEnCurso { get; set; }
+
     private Snapshot? _snapshot;
     private int? _snapshotTemporadaId;
 
@@ -987,7 +990,7 @@ public class ResumenNavCalculos
             Capital = await _capital.ObtenerResumenAsync(temporadaId),
             DeudasProveedor = await _abastecimiento.ObtenerDeudasAsync(new AbastecimientoNavFiltroDto { TemporadaId = temporadaId }),
             DeudasRuta = await _ruta.ObtenerDeudasAsync(null, temporadaId),
-            Sueldos = ConstruirSueldos(await _pagosVendedores.ObtenerResumenSueldosAsync(temporadaId, null)),
+            Sueldos = ConstruirSueldos(await _pagosVendedores.ObtenerResumenSueldosAsync(temporadaId, null, IncluirMesEnCurso)),
             Clientes = await ObtenerDeudaClientesAsync(temporadaId),
             Reservas = await ObtenerReservasPendientesAsync(temporadaId),
             Stock = await ObtenerStockValorizadoAsync(temporadaId)
@@ -1102,7 +1105,7 @@ public class ResumenNavCalculos
             L("mercaderiaPorRecibir", "Mercadería pedida por recibir", 1, s.MercaderiaPorRecibir, "Faltante de pedidos × precio medio del pedido (estimado)"),
             L("deudaProveedores", "Deuda con proveedores", -1, proveedores, "Pedidos + compras − pagos"),
             L("deudaInversores", "Deuda con inversores", -1, s.Capital.CapitalPorDevolver + s.Capital.ComisionPorPagar, "Capital por devolver + comisión por pagar"),
-            L("sueldosPendientes", "Sueldos pendientes", -1, s.Sueldos.TotalDebe, "Sueldo × meses − pagado"),
+            L("sueldosPendientes", "Sueldos pendientes", -1, s.Sueldos.TotalDebe, "Sueldo × meses completos − pagado"),
             L("comisionesRutaPendientes", "Comisiones de ruta pendientes", -1, 0m, "No calculable antes de pagar"),
             L("adelantosReservas", "Adelantos de reservas por entregar", -1, s.Reservas.Adelantos, "Dinero cobrado de reservas aún no entregadas")
         };

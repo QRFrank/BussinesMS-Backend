@@ -13,5 +13,5 @@ public interface IPagoVendedorNavService
     Task<PagoVendedorDto?> ObtenerPagoAsync(int id);
     Task<PagoVendedorDto> RegistrarAsync(RegistrarPagoVendedorDto dto);
     Task<PagoVendedorDto> AnularAsync(int id);
-    Task<List<SueldoVendedorResumenDto>> ObtenerResumenSueldosAsync(int? temporadaId, int? vendedorId);
+    Task<List<SueldoVendedorResumenDto>> ObtenerResumenSueldosAsync(int? temporadaId, int? vendedorId, bool incluirMesEnCurso = false);
 }

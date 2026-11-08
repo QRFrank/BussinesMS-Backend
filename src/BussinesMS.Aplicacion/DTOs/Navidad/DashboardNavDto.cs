@@ -174,7 +174,7 @@ public class DashboardDeudaInversoresNavDto
 
 public class DashboardSueldosNavDto
 {
-    // Σ de lo que se debe de sueldos (sueldo × meses − pagado, solo si es positivo)
+    // Σ de lo que se debe de sueldos (sueldo × meses completos − pagado, solo si es positivo)
     public decimal TotalDebe { get; set; }
     public decimal TotalPagado { get; set; }
     public List<DashboardSueldoVendedorNavDto> PorVendedor { get; set; } = new();

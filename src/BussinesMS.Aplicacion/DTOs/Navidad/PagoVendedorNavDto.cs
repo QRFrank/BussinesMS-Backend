@@ -172,7 +172,7 @@ public class SueldoVendedorResumenDto
     public string VendedorNombre { get; set; } = string.Empty;
     // Sugerido para el pago
     public decimal? SueldoMensual { get; set; }
-    // Meses desde el mes de inicio de la temporada hasta el mes actual (o el de cierre), ambos inclusive
+    // Meses completos desde el mes de inicio de la temporada (el mes en curso no cuenta hasta que termina; el mes de cierre sí)
     public int Meses { get; set; }
     public decimal TotalPagado { get; set; }
     // sueldoMensual × meses − totalPagado (null si el vendedor no tiene sueldo mensual)

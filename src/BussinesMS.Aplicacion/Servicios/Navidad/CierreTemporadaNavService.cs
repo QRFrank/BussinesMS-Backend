@@ -99,6 +99,7 @@ public class CierreTemporadaNavService : ICierreTemporadaNavService
     {
         var t = temporada.Id;
         var abierta = temporada.Estado == EstadoTemporada.Abierta;
+        _calc.IncluirMesEnCurso = true;
 
         var resultado = await _calc.ObtenerResultadoAsync(t, null, null);
         var capital = await _calc.ObtenerCapitalAsync(t);
@@ -250,7 +251,7 @@ public class CierreTemporadaNavService : ICierreTemporadaNavService
             }).ToList());
 
         // Sueldos de tienda pendientes
-        var sueldos = _calc.ConstruirSueldos(await _pagosVendedores.ObtenerResumenSueldosAsync(t, null));
+        var sueldos = _calc.ConstruirSueldos(await _pagosVendedores.ObtenerResumenSueldosAsync(t, null, true));
         Agregar(pendientes, "sueldosTienda", Alerta, "Sueldos de tienda pendientes", sueldos.TotalDebe, null,
             sueldos.PorVendedor.Select(s => new CierrePendienteDetalleNavDto
             {

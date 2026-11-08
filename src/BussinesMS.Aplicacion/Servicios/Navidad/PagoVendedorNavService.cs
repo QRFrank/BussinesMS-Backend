@@ -558,7 +558,7 @@ public class PagoVendedorNavService : IPagoVendedorNavService
 
     // ================= Sueldos: cuánto se le debe =================
 
-    public async Task<List<SueldoVendedorResumenDto>> ObtenerResumenSueldosAsync(int? temporadaId, int? vendedorId)
+    public async Task<List<SueldoVendedorResumenDto>> ObtenerResumenSueldosAsync(int? temporadaId, int? vendedorId, bool incluirMesEnCurso = false)
     {
         try
         {
@@ -569,9 +569,20 @@ public class PagoVendedorNavService : IPagoVendedorNavService
             var temporada = await _temporadaRepo.ObtenerPorIdAsync(tempId)
                 ?? throw new EntidadNoEncontradaException("Temporada", tempId);
             var hoy = BoliviaTimeZone.Now().Date;
-            var fin = temporada.FechaCierre.HasValue && temporada.FechaCierre.Value.Date < hoy ? temporada.FechaCierre.Value.Date : hoy;
             var inicio = temporada.FechaInicio.Date;
-            var meses = Math.Max(1, (fin.Year - inicio.Year) * 12 + fin.Month - inicio.Month + 1);
+            // Meses completos: el mes en curso no es deuda hasta que termina. Excepción: en el cierre (incluirMesEnCurso) o en una
+            // temporada ya cerrada el último mes cuenta, porque es el pago final
+            int meses;
+            if (temporada.FechaCierre.HasValue)
+            {
+                var fin = temporada.FechaCierre.Value.Date < hoy ? temporada.FechaCierre.Value.Date : hoy;
+                meses = Math.Max(0, (fin.Year - inicio.Year) * 12 + fin.Month - inicio.Month + 1);
+            }
+            else
+            {
+                var terminados = (hoy.Year - inicio.Year) * 12 + hoy.Month - inicio.Month;
+                meses = Math.Max(0, incluirMesEnCurso ? terminados + 1 : terminados);
+            }
 
             var query = _vendedorRepo.AsQueryable().AsNoTracking()
                 .Where(v => v.TemporadaId == tempId && v.IsActive && v.Tipo == TipoVendedor.Tienda);
