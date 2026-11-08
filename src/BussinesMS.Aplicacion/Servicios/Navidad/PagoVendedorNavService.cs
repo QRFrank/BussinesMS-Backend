@@ -330,7 +330,10 @@ public class PagoVendedorNavService : IPagoVendedorNavService
                 baseQuery = baseQuery.Where(p => p.VendedorId == query.VendedorId.Value);
             if (query.Tipo.HasValue)
                 baseQuery = baseQuery.Where(p => (int)p.Tipo == query.Tipo.Value);
-            if (!query.IncluirAnulados)
+            // EstadoRegistro: 1/null → vigentes; 2 → anulados; 3 → todos
+            if (query.EstadoRegistro == 2)
+                baseQuery = baseQuery.Where(p => p.Anulado);
+            else if (query.EstadoRegistro != 3)
                 baseQuery = baseQuery.Where(p => !p.Anulado);
             if (query.Desde.HasValue)
             {

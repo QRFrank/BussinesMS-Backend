@@ -94,8 +94,8 @@ public class PagoVendedorFiltroDto : GenericPaginationQueryDto
     public int? Tipo { get; set; }
     public DateTime? Desde { get; set; }
     public DateTime? Hasta { get; set; }
-    // Por defecto (false) solo vigentes
-    public bool IncluirAnulados { get; set; }
+    // 1 o null → solo vigentes; 2 → solo anulados; 3 → todos
+    public int? EstadoRegistro { get; set; }
 }
 
 public class PagoVendedorDto

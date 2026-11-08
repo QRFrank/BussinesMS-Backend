@@ -11,8 +11,8 @@ public class CompraNavFiltroDto : GenericPaginationQueryDto
     public int? ProveedorId { get; set; }
     public DateTime? FechaDesde { get; set; }
     public DateTime? FechaHasta { get; set; }
-    // null → todas; true → solo anuladas; false → solo vigentes
-    public bool? Anuladas { get; set; }
+    // 1 o null → solo vigentes; 2 → solo anulados; 3 → todos
+    public int? EstadoRegistro { get; set; }
     public bool? PagadaAlContado { get; set; }
     // 1 Contado | 2 Crédito | 3 Crédito + pago inicial (por la columna FormaPago)
     public int? FormaPago { get; set; }

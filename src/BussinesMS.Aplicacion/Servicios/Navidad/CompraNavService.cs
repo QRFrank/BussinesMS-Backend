@@ -95,8 +95,11 @@ public class CompraNavService : ICompraNavService
                 baseQuery = baseQuery.Where(x => x.Fecha < hastaExclusivo);
             }
 
-            if (query.Anuladas.HasValue)
-                baseQuery = baseQuery.Where(x => x.Anulada == query.Anuladas.Value);
+            // EstadoRegistro: 1/null → vigentes; 2 → anulados; 3 → todos
+            if (query.EstadoRegistro == 2)
+                baseQuery = baseQuery.Where(x => x.Anulada);
+            else if (query.EstadoRegistro != 3)
+                baseQuery = baseQuery.Where(x => !x.Anulada);
 
             if (query.PagadaAlContado.HasValue)
                 baseQuery = baseQuery.Where(x => x.PagadaAlContado == query.PagadaAlContado.Value);

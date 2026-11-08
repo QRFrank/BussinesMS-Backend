@@ -11,8 +11,8 @@ public class RecepcionNavFiltroDto : GenericPaginationQueryDto
     public int? CodigoClienteId { get; set; }
     public DateTime? FechaDesde { get; set; }
     public DateTime? FechaHasta { get; set; }
-    // null → todas; true → solo anuladas; false → solo vigentes
-    public bool? Anuladas { get; set; }
+    // 1 o null → solo vigentes; 2 → solo anulados; 3 → todos
+    public int? EstadoRegistro { get; set; }
 }
 
 public class RecepcionNavDto
@@ -59,6 +59,12 @@ public class RecepcionDistribucionNavDto
     public int AlmacenId { get; set; }
     public string AlmacenNombre { get; set; } = string.Empty;
     public int CantidadUnidades { get; set; }
+}
+
+public class EditarCabeceraRecepcionNavDto
+{
+    public string? NroFactura { get; set; }
+    public DateTime Fecha { get; set; }
 }
 
 public class CrearRecepcionNavDto

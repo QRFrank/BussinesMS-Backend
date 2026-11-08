@@ -51,9 +51,11 @@ public class PagoInversorService : IPagoInversorService
                     .ThenInclude(a => a!.Inversor)
                 .Where(x => x.TemporadaId == temporadaId);
 
-            // null/true → activos; false → solo anulados
-            var activos = query.IsActive ?? true;
-            baseQuery = baseQuery.Where(x => x.IsActive == activos);
+            // EstadoRegistro: 1/null → vigentes; 2 → anulados (IsActive false); 3 → todos
+            if (query.EstadoRegistro == 2)
+                baseQuery = baseQuery.Where(x => !x.IsActive);
+            else if (query.EstadoRegistro != 3)
+                baseQuery = baseQuery.Where(x => x.IsActive);
 
             if (query.AporteCapitalId.HasValue)
                 baseQuery = baseQuery.Where(x => x.AporteCapitalId == query.AporteCapitalId.Value);

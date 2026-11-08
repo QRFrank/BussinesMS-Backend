@@ -95,8 +95,11 @@ public class ConsumoNavService : IConsumoNavService
                 var hastaExclusivo = query.FechaHasta.Value.Date.AddDays(1);
                 baseQuery = baseQuery.Where(x => x.Fecha < hastaExclusivo);
             }
-            if (query.Anulados.HasValue)
-                baseQuery = baseQuery.Where(x => x.Anulado == query.Anulados.Value);
+            // EstadoRegistro: 1/null → vigentes; 2 → anulados; 3 → todos
+            if (query.EstadoRegistro == 2)
+                baseQuery = baseQuery.Where(x => x.Anulado);
+            else if (query.EstadoRegistro != 3)
+                baseQuery = baseQuery.Where(x => !x.Anulado);
 
             if (!string.IsNullOrWhiteSpace(query.Filter))
             {

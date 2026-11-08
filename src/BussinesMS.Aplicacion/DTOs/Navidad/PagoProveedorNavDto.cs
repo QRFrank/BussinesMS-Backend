@@ -11,8 +11,8 @@ public class PagoProveedorNavFiltroDto : GenericPaginationQueryDto
     public MedioPagoNav? Medio { get; set; }
     public DateTime? FechaDesde { get; set; }
     public DateTime? FechaHasta { get; set; }
-    // null/true → solo activos; false → solo anulados
-    public bool? IsActive { get; set; }
+    // 1 o null → solo vigentes; 2 → solo anulados; 3 → todos
+    public int? EstadoRegistro { get; set; }
 }
 
 public class PagoProveedorNavDto

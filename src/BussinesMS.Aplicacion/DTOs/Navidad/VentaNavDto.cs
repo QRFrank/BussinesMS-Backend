@@ -28,8 +28,8 @@ public class VentaNavFiltroDto : GenericPaginationQueryDto
     public int? NroVenta { get; set; }
     public DateTime? FechaDesde { get; set; }
     public DateTime? FechaHasta { get; set; }
-    // null → todas; true → solo anuladas; false → solo vigentes
-    public bool? Anuladas { get; set; }
+    // 1 o null → solo vigentes; 2 → solo anulados; 3 → todos
+    public int? EstadoRegistro { get; set; }
     // Solo ventas con al menos un detalle vigente (Unidades > 0) de este producto
     public int? ProductoId { get; set; }
 }

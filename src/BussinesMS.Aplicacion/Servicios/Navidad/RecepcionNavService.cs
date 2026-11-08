@@ -99,8 +99,11 @@ public class RecepcionNavService : IRecepcionNavService
                 baseQuery = baseQuery.Where(x => x.Fecha < hastaExclusivo);
             }
 
-            if (query.Anuladas.HasValue)
-                baseQuery = baseQuery.Where(x => x.Anulada == query.Anuladas.Value);
+            // EstadoRegistro: 1/null → vigentes; 2 → anulados; 3 → todos
+            if (query.EstadoRegistro == 2)
+                baseQuery = baseQuery.Where(x => x.Anulada);
+            else if (query.EstadoRegistro != 3)
+                baseQuery = baseQuery.Where(x => !x.Anulada);
 
             if (!string.IsNullOrWhiteSpace(query.Filter))
             {
@@ -268,6 +271,42 @@ public class RecepcionNavService : IRecepcionNavService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al crear recepción");
+            throw;
+        }
+    }
+
+    public async Task<RecepcionNavDto> EditarCabeceraAsync(int id, EditarCabeceraRecepcionNavDto dto)
+    {
+        try
+        {
+            if (dto.Fecha == default)
+                throw new ValidacionException("La fecha es obligatoria");
+
+            var recepcion = await _repo.ObtenerConDetallesAsync(id);
+            if (recepcion == null || !recepcion.IsActive)
+                throw new EntidadNoEncontradaException("Recepción", id);
+            if (recepcion.Anulada)
+                throw new ValidacionException("No se puede editar una recepción anulada");
+
+            await _temporadaActual.VerificarEditableAsync(recepcion.TemporadaId);
+            // EncargadoAlmacen: solo edita si toda la distribución fue a sus almacenes
+            await _acceso.VerificarAlmacenesAsync(recepcion.TemporadaId, recepcion.Detalles.SelectMany(d => d.Distribuciones).Select(x => x.AlmacenId));
+
+            // Cabecera con tracking (la consulta anterior es sin tracking).
+            var entidad = await _repo.ObtenerPorIdAsync(id)
+                ?? throw new EntidadNoEncontradaException("Recepción", id);
+            entidad.NroFactura = NormalizarTexto(dto.NroFactura);
+            entidad.Fecha = dto.Fecha.Date;
+            await _repo.ActualizarAsync(entidad);
+
+            _logger.LogInformation("Cabecera de recepción editada: {Id}", id);
+
+            return await ObtenerPorIdAsync(id)
+                ?? throw new EntidadNoEncontradaException("Recepción", id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al editar cabecera de recepción {Id}", id);
             throw;
         }
     }

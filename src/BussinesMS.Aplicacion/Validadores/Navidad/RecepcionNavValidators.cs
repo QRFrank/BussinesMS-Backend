@@ -25,6 +25,17 @@ public class CrearRecepcionNavDtoValidator : AbstractValidator<CrearRecepcionNav
     }
 }
 
+public class EditarCabeceraRecepcionNavDtoValidator : AbstractValidator<EditarCabeceraRecepcionNavDto>
+{
+    public EditarCabeceraRecepcionNavDtoValidator()
+    {
+        RuleFor(x => x.Fecha)
+            .NotEmpty().WithMessage("La fecha es obligatoria");
+        RuleFor(x => x.NroFactura)
+            .MaximumLength(50).WithMessage("El número de factura no puede superar 50 caracteres");
+    }
+}
+
 public class CrearRecepcionDetalleNavDtoValidator : AbstractValidator<CrearRecepcionDetalleNavDto>
 {
     public CrearRecepcionDetalleNavDtoValidator()

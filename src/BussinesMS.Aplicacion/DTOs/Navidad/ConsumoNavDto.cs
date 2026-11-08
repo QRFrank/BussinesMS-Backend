@@ -12,8 +12,8 @@ public class ConsumoNavFiltroDto : GenericPaginationQueryDto
     public int? Motivo { get; set; }
     public DateTime? FechaDesde { get; set; }
     public DateTime? FechaHasta { get; set; }
-    // null → todos; true → solo anulados; false → solo vigentes
-    public bool? Anulados { get; set; }
+    // 1 o null → solo vigentes; 2 → solo anulados; 3 → todos
+    public int? EstadoRegistro { get; set; }
 }
 
 public class ConsumoNavDto

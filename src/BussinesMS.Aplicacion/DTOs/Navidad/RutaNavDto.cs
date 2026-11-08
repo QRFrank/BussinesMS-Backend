@@ -35,7 +35,7 @@ public class SalidaRutaFiltroDto : GenericPaginationQueryDto
 {
     public int? TemporadaId { get; set; }
     public int? VendedorId { get; set; }
-    // 1 Abierta | 2 Cerrada | 3 Anulada
+    // 1 Abierta | 2 Cerrada | 3 Anulada | 4 Todas; null → Abierta + Cerrada (sin anuladas)
     public int? Estado { get; set; }
     // Por FechaApertura (solo la fecha)
     public DateTime? Desde { get; set; }

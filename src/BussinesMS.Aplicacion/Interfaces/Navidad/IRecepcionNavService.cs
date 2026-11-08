@@ -8,5 +8,6 @@ public interface IRecepcionNavService
     Task<PagedResultDto<RecepcionNavDto>> ObtenerTodosAsync(RecepcionNavFiltroDto query);
     Task<RecepcionNavDto?> ObtenerPorIdAsync(int id);
     Task<RecepcionNavDto> CrearAsync(CrearRecepcionNavDto dto);
+    Task<RecepcionNavDto> EditarCabeceraAsync(int id, EditarCabeceraRecepcionNavDto dto);
     Task AnularAsync(int id);
 }

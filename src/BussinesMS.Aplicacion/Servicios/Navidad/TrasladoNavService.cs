@@ -99,8 +99,11 @@ public class TrasladoNavService : ITrasladoNavService
                 baseQuery = baseQuery.Where(x => x.Fecha < hastaExclusivo);
             }
 
-            if (query.Anulados.HasValue)
-                baseQuery = baseQuery.Where(x => x.Anulado == query.Anulados.Value);
+            // EstadoRegistro: 1/null → vigentes; 2 → anulados; 3 → todos
+            if (query.EstadoRegistro == 2)
+                baseQuery = baseQuery.Where(x => x.Anulado);
+            else if (query.EstadoRegistro != 3)
+                baseQuery = baseQuery.Where(x => !x.Anulado);
 
             var sinOrden = string.IsNullOrWhiteSpace(query.SortBy);
             if (sinOrden)

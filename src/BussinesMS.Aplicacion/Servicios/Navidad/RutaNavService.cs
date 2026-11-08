@@ -172,7 +172,9 @@ public class RutaNavService : IRutaNavService
                 baseQuery = baseQuery.Where(s => s.VendedorId == forzado.Value);
             else if (query.VendedorId.HasValue)
                 baseQuery = baseQuery.Where(s => s.VendedorId == query.VendedorId.Value);
-            if (query.Estado.HasValue)
+            if (!query.Estado.HasValue)
+                baseQuery = baseQuery.Where(s => s.Estado != EstadoSalidaRuta.Anulada);
+            else if (query.Estado.Value != 4)
             {
                 var estado = (EstadoSalidaRuta)query.Estado.Value;
                 baseQuery = baseQuery.Where(s => s.Estado == estado);

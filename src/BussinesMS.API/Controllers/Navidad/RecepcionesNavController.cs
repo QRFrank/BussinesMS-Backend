@@ -41,6 +41,13 @@ public class RecepcionesNavController : BaseController
         return RespuestaCreado(resultado, "Recepción registrada");
     }
 
+    [HttpPut("{id:int}/cabecera")]
+    public async Task<IActionResult> EditarCabecera(int id, [FromBody] EditarCabeceraRecepcionNavDto dto)
+    {
+        var resultado = await _servicio.EditarCabeceraAsync(id, dto);
+        return RespuestaOk(resultado, "Recepción actualizada");
+    }
+
     [HttpPost("{id:int}/anular")]
     public async Task<IActionResult> Anular(int id)
     {

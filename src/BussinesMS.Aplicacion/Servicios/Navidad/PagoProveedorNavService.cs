@@ -53,14 +53,17 @@ public class PagoProveedorNavService : IPagoProveedorNavService
         {
             var temporadaId = await _temporadaActual.ResolverTemporadaIdAsync(query.TemporadaId);
 
-            // null/true → activos; false → solo anulados
-            var activos = query.IsActive ?? true;
-
             var baseQuery = _repo.AsQueryable()
                 .AsNoTracking()
                 .Include(x => x.Proveedor)
                 .Include(x => x.CodigoCliente)
-                .Where(x => x.TemporadaId == temporadaId && x.IsActive == activos);
+                .Where(x => x.TemporadaId == temporadaId);
+
+            // EstadoRegistro: 1/null → vigentes; 2 → anulados (IsActive false); 3 → todos
+            if (query.EstadoRegistro == 2)
+                baseQuery = baseQuery.Where(x => !x.IsActive);
+            else if (query.EstadoRegistro != 3)
+                baseQuery = baseQuery.Where(x => x.IsActive);
 
             if (query.ProveedorId.HasValue)
                 baseQuery = baseQuery.Where(x => x.ProveedorId == query.ProveedorId.Value);

@@ -9,8 +9,8 @@ public class PagoInversorFiltroDto : GenericPaginationQueryDto
     public int? AporteCapitalId { get; set; }
     public int? InversorId { get; set; }
     public TipoPagoInversor? Tipo { get; set; }
-    // null → solo activos; false → solo anulados; true → solo activos
-    public bool? IsActive { get; set; }
+    // 1 o null → solo vigentes; 2 → solo anulados; 3 → todos
+    public int? EstadoRegistro { get; set; }
 }
 
 public class PagoInversorDto
