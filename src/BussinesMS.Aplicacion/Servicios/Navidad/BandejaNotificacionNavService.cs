@@ -343,9 +343,6 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
             try
             {
                 var texto = envio.Notificacion!.Mensaje;
-                // TEMPORAL: quitar antes de producción (MostrarDestinatario)
-                if (_opciones.Value.MostrarDestinatario)
-                    texto += TextoDestinatarioDebug(envio, telefono, usuarios);
                 if (comprobante != null)
                 {
                     var pdf = _pdf.Generar(comprobante, MensajesAvisosNav.Firma);
@@ -392,17 +389,6 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
     private static bool EsComprobantePdf(NotificacionNav? n) =>
         n?.AdjuntoTipo == MensajesAvisosNav.AdjuntoComprobanteVentaPdf
         || n?.AdjuntoTipo == MensajesAvisosNav.AdjuntoComprobanteMisVentasPdf;
-
-    // TEMPORAL: quitar antes de producción (MostrarDestinatario)
-    private static string TextoDestinatarioDebug(NotificacionEnvioNav envio, string telefono, Dictionary<int, Usuario> usuarios)
-    {
-        if (envio.UsuarioId.HasValue && usuarios.TryGetValue(envio.UsuarioId.Value, out var u))
-            return $"\n\n🧪 Para: {NombreCompleto(u)} ({u.Username} · {u.Rol?.Nombre ?? "sin rol"})";
-        var enmascarado = EnmascaradorTelefono.Enmascarar(telefono);
-        return envio.ClienteId.HasValue
-            ? $"\n\n🧪 Para: {envio.DestinatarioDescripcion} ({enmascarado})"
-            : $"\n\n🧪 Para: sin usuario ({enmascarado})";
-    }
 
     private async Task RegistrarFalloAsync(NotificacionEnvioNav envio, string telefono, string instancia, string mensaje)
     {

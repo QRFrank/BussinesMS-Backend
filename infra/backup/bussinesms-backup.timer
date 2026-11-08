@@ -1,0 +1,13 @@
+# Dispara bussinesms-backup.service todos los dias a las 07:00 y a las 16:00 UTC
+# (03:00 y 12:00 de Bolivia, UTC-4).
+# Persistent=true: si el servidor estaba apagado a esa hora, corre apenas vuelva a encender.
+[Unit]
+Description=Backup de BussinesMS a las 07:00 y 16:00 UTC (03:00 y 12:00 Bolivia)
+
+[Timer]
+OnCalendar=*-*-* 07:00:00 UTC
+OnCalendar=*-*-* 16:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

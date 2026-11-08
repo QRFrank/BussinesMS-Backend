@@ -1,0 +1,12 @@
+# Ejecuta /usr/local/sbin/bussinesms-backup.sh (lo dispara bussinesms-backup.timer).
+# Instalar en el servidor:
+#   sudo install -m 644 ~/bussinesms-backup.service ~/bussinesms-backup.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now bussinesms-backup.timer
+[Unit]
+Description=Backup de BussinesMS (bases SQL Server, Evolution, sesion de WhatsApp) a R2 cifrado
+After=mssql-server.service docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/bussinesms-backup.sh

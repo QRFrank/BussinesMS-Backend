@@ -18,8 +18,14 @@ Console.WriteLine("=== INICIANDO BUSSINESMS API ===");
 var builder = WebApplication.CreateBuilder(args);
 
 Console.WriteLine("Configurando Logger...");
-Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Debug()
+// Development: Debug (como siempre). Fuera de Development: Information, con Microsoft y System en Warning
+var configLog = new LoggerConfiguration();
+configLog = builder.Environment.IsDevelopment()
+    ? configLog.MinimumLevel.Debug()
+    : configLog.MinimumLevel.Information()
+        .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
+        .MinimumLevel.Override("System", Serilog.Events.LogEventLevel.Warning);
+Log.Logger = configLog
     .WriteTo.Console()
     .CreateLogger();
 
@@ -33,6 +39,11 @@ builder.Services.AddControllers(options =>
     options.Filters.Add<BussinesMS.API.Autorizacion.PermisoMenuFilter>();
     options.Filters.Add<BussinesMS.API.Filtros.OcultarCamposSoloAdminFilter>();
 });
+// MigracionesController (CSV del sistema regular, con DELETE LimpiarDatos) solo existe en Development: fuera de ahí responde 404
+if (!builder.Environment.IsDevelopment())
+    builder.Services.AddControllers().ConfigureApplicationPartManager(m =>
+        m.FeatureProviders.Add(new BussinesMS.API.Configuracion.ControladoresSoloDevelopment()));
+
 builder.Services.Configure<BussinesMS.API.Autorizacion.PermisosOptions>(builder.Configuration.GetSection(BussinesMS.API.Autorizacion.PermisosOptions.Seccion));
 
 // Después de builder.Services.AddControllers();
@@ -40,10 +51,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:5173",
-                "https://spore-actress-ducktail.ngrok-free.dev"
-              )
+        // Orígenes permitidos: Cors:OrigenesPermitidos (separados por coma)
+        var origenes = (builder.Configuration["Cors:OrigenesPermitidos"] ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        policy.WithOrigins(origenes)
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -165,8 +176,11 @@ builder.Services.AddAuthorization(options =>
 
 Console.WriteLine("Configurando DbContexts...");
 builder.Services.AddDbContext<AuthDbContext>(opciones =>
-    opciones.UseSqlServer(builder.Configuration.GetConnectionString("AuthDB"))
-    .LogTo(Console.WriteLine));
+{
+    opciones.UseSqlServer(builder.Configuration.GetConnectionString("AuthDB"));
+    if (builder.Environment.IsDevelopment())
+        opciones.LogTo(Console.WriteLine);
+});
 
 builder.Services.AddDbContext<SistemaDbContext>(opciones =>
     opciones.UseSqlServer(builder.Configuration.GetConnectionString("SistemaDB")));
@@ -327,6 +341,8 @@ builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IAlmacenNavS
 // Cálculos compartidos entre el dashboard y los reportes (un solo método por total)
 builder.Services.AddScoped<BussinesMS.Aplicacion.Servicios.Navidad.ResumenNavCalculos>();
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IDashboardNavService, BussinesMS.Aplicacion.Servicios.Navidad.DashboardNavService>();
+// Importación de productos desde Excel (solo admin)
+builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IImportacionNavService, BussinesMS.Aplicacion.Servicios.Navidad.ImportacionNavService>();
 // Reportes del sistema navideño (módulo 9, solo admin)
 builder.Services.AddScoped<BussinesMS.Aplicacion.Interfaces.Navidad.IReportesNavService, BussinesMS.Aplicacion.Servicios.Navidad.ReportesNavService>();
 
@@ -412,8 +428,16 @@ catch (Exception ex)
     }
 }
 
-// Swagger solo en Development (apagado en produccion)
-if (app.Environment.IsDevelopment())
+// Detrás de nginx (loopback): toma IP y esquema reales de X-Forwarded-For / X-Forwarded-Proto
+app.UseForwardedHeaders(new Microsoft.AspNetCore.Builder.ForwardedHeadersOptions
+{
+    ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
+                     | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
+});
+
+// Swagger en Development o si Swagger:Habilitado=true (apagado por defecto en produccion)
+var swaggerActivo = app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Swagger:Habilitado");
+if (swaggerActivo)
 {
     Console.WriteLine("Activando Swagger...");
     app.UseSwagger();
@@ -448,10 +472,18 @@ app.UseAuthorization();
 app.MapControllers();
 
 Console.WriteLine("=== SERVIDOR INICIADO ===");
-Console.WriteLine("Swagger: http://localhost:5001/swagger");
 
-var port = Environment.GetEnvironmentVariable("PORT") ?? "5001";
-app.Urls.Add($"http://0.0.0.0:{port}");
+// Si viene ASPNETCORE_URLS (o la config "urls") se respeta; si no, 0.0.0.0:PORT (default 5001)
+var urlsConfiguradas = builder.Configuration["urls"] ?? builder.Configuration["ASPNETCORE_URLS"];
+if (string.IsNullOrWhiteSpace(urlsConfiguradas))
+{
+    var port = Environment.GetEnvironmentVariable("PORT") ?? "5001";
+    app.Urls.Add($"http://0.0.0.0:{port}");
+    urlsConfiguradas = $"http://localhost:{port}";
+}
+Console.WriteLine(swaggerActivo
+    ? $"Swagger activo en: {urlsConfiguradas.Split(';')[0].Replace("0.0.0.0", "localhost")}/swagger"
+    : "Swagger desactivado");
 
 app.Run();
 

@@ -1,0 +1,4 @@
+# Los archivos que se copian al VPS Linux tienen que quedar con LF (si no, fallan con ^M)
+*.sh      text eol=lf
+*.service text eol=lf
+*.timer   text eol=lf
