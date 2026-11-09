@@ -66,8 +66,13 @@ public class ReservaProductoNavDto
     public int StockTotal { get; set; }
     // Lo pedido y todavía no recibido (misma fuente que Faltantes)
     public int PorLlegar { get; set; }
-    // PorLlegar − Σ partes sin bloqueo de las reservas vigentes (puede ser negativo)
+    // Legado (regla anterior): PorLlegar − Σ partes sin bloqueo de las reservas vigentes (puede ser negativo)
     public int PorLlegarLibre { get; set; }
+    // Σ pendiente de entregar de las otras reservas vigentes (sin la reserva que se edita), bloqueado o no
+    public int ReservadoPendiente { get; set; }
+    // Cobertura global (2026-11-08): Σ stock de la temporada + PorLlegar − ReservadoPendiente (puede ser negativo).
+    // Es lo máximo que esta reserva puede tener pendiente de entregar para ese producto.
+    public int Libre { get; set; }
     public List<ReservaProductoAlmacenNavDto> Almacenes { get; set; } = new();
 }
 
@@ -105,9 +110,11 @@ public class ReservaCoberturaNavDto
     public int StockTotal { get; set; }
     // Pedido y todavía no recibido (misma lógica que Faltantes: Σ de las filas con faltante > 0)
     public int PorLlegar { get; set; }
-    // PorLlegar − SinBloqueo (puede ser negativo)
+    // Legado (regla anterior): PorLlegar − SinBloqueo (puede ser negativo)
     public int PorLlegarLibre { get; set; }
-    // max(0, −PorLlegarLibre): unidades reservadas sin bloqueo que ningún pedido cubre
+    // Cobertura global (2026-11-08): StockTotal + PorLlegar − ReservadoPendiente (puede ser negativo)
+    public int Libre { get; set; }
+    // max(0, −Libre): unidades reservadas que ni el stock ni lo que falta llegar cubren
     public int SinCobertura { get; set; }
     // Bloqueos vigentes por almacén
     public List<ReservaCoberturaAlmacenNavDto> Bloqueos { get; set; } = new();

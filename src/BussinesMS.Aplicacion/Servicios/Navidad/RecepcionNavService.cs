@@ -255,9 +255,7 @@ public class RecepcionNavService : IRecepcionNavService
                         await _stock.RegistrarEntradaAsync(temporada.Id, dist.AlmacenId, detalle.ProductoId,
                             dist.CantidadUnidades, TipoMovimientoNav.Recepcion, ReferenciaRecepcion, creada.Id);
 
-                // Bloqueo automático: las reservas vigentes con parte sin bloqueo (la más antigua primero) quedan bloqueadas en el almacén donde llegó
-                await _reservas.BloquearPorRecepcionAsync(temporada.Id, creada.Id,
-                    creada.Detalles.SelectMany(d => d.Distribuciones.Select(x => (x.AlmacenId, d.ProductoId, x.CantidadUnidades))));
+                // Sin bloqueo automático desde 2026-11-08 (cobertura global): la recepción ya no crea ReservaBloqueo
 
                 // Avisos por WhatsApp a admins y encargados (misma transaccion; no falla la operacion)
                 await _avisos.RecepcionAsync(creada, proveedor.Nombre);

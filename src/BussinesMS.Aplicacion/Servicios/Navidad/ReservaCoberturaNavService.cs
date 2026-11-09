@@ -10,8 +10,9 @@ using Microsoft.Extensions.Logging;
 
 namespace BussinesMS.Aplicacion.Servicios.Navidad;
 
-// Cobertura de reservas (replanteo): por línea sinBloqueo = pendiente − Σ bloqueos vigentes; por producto
-// porLlegarLibre = porLlegar (misma fuente que Faltantes) − Σ sinBloqueo de las reservas vigentes.
+// Cobertura de reservas. Desde 2026-11-08 es global por producto: Libre = Σ stock de la temporada + porLlegar (misma fuente que
+// Faltantes) − Σ pendiente de entregar de las reservas vigentes. Reservar exige Libre ≥ 0; ventas directas y cargas a ruta no pueden
+// dejarlo < 0. Se conserva porLlegarLibre (legado: porLlegar − Σ partes sin bloqueo) para no romper el front.
 public class ReservaCoberturaNavService : IReservaCoberturaNavService
 {
     private readonly IVentaNavRepository _ventaRepo;
@@ -93,40 +94,90 @@ public class ReservaCoberturaNavService : IReservaCoberturaNavService
             .ToDictionary(g => g.Key, g => g.Sum(f => f.Faltante));
     }
 
-    public async Task<Dictionary<int, (int PorLlegar, int PorLlegarLibre)>> ObtenerPorLlegarAsync(
-        int temporadaId, IEnumerable<int>? productoIds = null, int? excluirVentaId = null)
+    // Σ stock de la temporada por producto (todos los almacenes con StockAlmacen). Lo cargado a ruta ya salió del almacén y no cuenta.
+    private async Task<Dictionary<int, int>> ObtenerStockProductoAsync(int temporadaId, List<int>? productoIds)
+        => await _stockRepo.AsQueryable()
+            .AsNoTracking()
+            .Where(s => s.TemporadaId == temporadaId && (productoIds == null || productoIds.Contains(s.ProductoId)))
+            .GroupBy(s => s.ProductoId)
+            .Select(g => new { ProductoId = g.Key, Total = g.Sum(x => x.Cantidad) })
+            .ToDictionaryAsync(x => x.ProductoId, x => x.Total);
+
+    // Cobertura global (2026-11-08): Libre = Stock + PorLlegar − Reservado (Σ pendiente de entregar, bloqueado o no)
+    private sealed record ResumenProducto(int Stock, int PorLlegar, int Reservado, int SinBloqueo)
     {
-        var ids = productoIds?.Distinct().ToList();
-        var lineas = await ObtenerLineasAsync(temporadaId, ids, excluirVentaId);
-        var sinBloqueo = lineas.GroupBy(l => l.ProductoId).ToDictionary(g => g.Key, g => g.Sum(l => l.SinBloqueo));
+        public int Libre => Stock + PorLlegar - Reservado;
+        // Legado (regla anterior): por llegar − Σ partes sin bloqueo
+        public int PorLlegarLibre => PorLlegar - SinBloqueo;
+    }
+
+    private async Task<Dictionary<int, ResumenProducto>> ObtenerResumenAsync(
+        int temporadaId, List<int>? ids, List<LineaReserva> lineas)
+    {
+        var reservado = lineas.GroupBy(l => l.ProductoId)
+            .ToDictionary(g => g.Key, g => (Pendiente: g.Sum(l => l.Pendiente), SinBloqueo: g.Sum(l => l.SinBloqueo)));
+        var stocks = await ObtenerStockProductoAsync(temporadaId, ids);
         var porLlegar = await ObtenerPorLlegarProductoAsync(temporadaId, ids);
 
-        var resultado = new Dictionary<int, (int, int)>();
-        foreach (var id in porLlegar.Keys.Concat(sinBloqueo.Keys).Distinct())
+        var resultado = new Dictionary<int, ResumenProducto>();
+        foreach (var id in stocks.Keys.Concat(porLlegar.Keys).Concat(reservado.Keys).Distinct())
         {
-            var llegar = porLlegar.GetValueOrDefault(id);
-            resultado[id] = (llegar, llegar - sinBloqueo.GetValueOrDefault(id));
+            var r = reservado.GetValueOrDefault(id);
+            resultado[id] = new ResumenProducto(stocks.GetValueOrDefault(id), porLlegar.GetValueOrDefault(id), r.Pendiente, r.SinBloqueo);
         }
         return resultado;
     }
 
-    public async Task ValidarCoberturaAsync(int temporadaId, IReadOnlyList<(int ProductoId, string ProductoNombre, int SinBloqueo)> lineas, int? excluirVentaId = null)
+    public async Task<Dictionary<int, (int PorLlegar, int PorLlegarLibre, int Reservado, int Libre)>> ObtenerPorLlegarAsync(
+        int temporadaId, IEnumerable<int>? productoIds = null, int? excluirVentaId = null)
     {
-        var aValidar = lineas.Where(l => l.SinBloqueo > 0).ToList();
+        var ids = productoIds?.Distinct().ToList();
+        var lineas = await ObtenerLineasAsync(temporadaId, ids, excluirVentaId);
+        var resumen = await ObtenerResumenAsync(temporadaId, ids, lineas);
+        return resumen.ToDictionary(kv => kv.Key, kv => (kv.Value.PorLlegar, kv.Value.PorLlegarLibre, kv.Value.Reservado, kv.Value.Libre));
+    }
+
+    public async Task ValidarCoberturaAsync(int temporadaId, IReadOnlyList<(int ProductoId, string ProductoNombre, int Pendiente)> lineas, int? excluirVentaId = null)
+    {
+        var aValidar = lineas.Where(l => l.Pendiente > 0).ToList();
         if (aValidar.Count == 0) return;
 
-        var ids = aValidar.Select(l => l.ProductoId).ToList();
-        var libres = await ObtenerPorLlegarAsync(temporadaId, ids, excluirVentaId);
+        var ids = aValidar.Select(l => l.ProductoId).Distinct().ToList();
+        var lineasReserva = await ObtenerLineasAsync(temporadaId, ids, excluirVentaId);
+        var resumen = await ObtenerResumenAsync(temporadaId, ids, lineasReserva);
         foreach (var l in aValidar)
         {
-            var libre = libres.TryGetValue(l.ProductoId, out var v) ? v.PorLlegarLibre : 0;
-            if (l.SinBloqueo > libre)
-            {
-                var sinCubrir = l.SinBloqueo - Math.Max(0, libre);
+            var r = resumen.GetValueOrDefault(l.ProductoId) ?? new ResumenProducto(0, 0, 0, 0);
+            if (l.Pendiente > r.Libre)
                 throw new ExcepcionDominio(
-                    $"No hay pedido pendiente que cubra {sinCubrir} u de {l.ProductoNombre}; bloqueá stock o registrá una compra",
-                    409, "SIN_COBERTURA_PEDIDO");
-            }
+                    $"No alcanza para reservar {l.Pendiente} u de {l.ProductoNombre}: stock en almacenes {r.Stock} + por llegar {r.PorLlegar} − reservado pendiente {r.Reservado} = libre {r.Libre}",
+                    409, "SIN_COBERTURA");
+        }
+    }
+
+    public async Task ValidarLibreParaSalidaAsync(int temporadaId, IReadOnlyList<(int ProductoId, string ProductoNombre, int Unidades)> lineas,
+        string accion, int? excluirVentaId = null)
+    {
+        var porProducto = lineas
+            .Where(l => l.Unidades > 0)
+            .GroupBy(l => l.ProductoId)
+            .Select(g => (ProductoId: g.Key, ProductoNombre: g.First().ProductoNombre, Unidades: g.Sum(x => x.Unidades)))
+            .ToList();
+        if (porProducto.Count == 0) return;
+
+        // Sin reservas pendientes de esos productos no hay nada comprometido: el stock del almacén lo valida la salida misma
+        var ids = porProducto.Select(l => l.ProductoId).ToList();
+        var lineasReserva = await ObtenerLineasAsync(temporadaId, ids, excluirVentaId);
+        if (lineasReserva.Count == 0) return;
+
+        var resumen = await ObtenerResumenAsync(temporadaId, ids, lineasReserva);
+        foreach (var l in porProducto)
+        {
+            if (!resumen.TryGetValue(l.ProductoId, out var r) || r.Reservado <= 0) continue;
+            if (l.Unidades > r.Libre)
+                throw new ExcepcionDominio(
+                    $"No se puede {accion} {l.Unidades} u de {l.ProductoNombre}: hay {r.Reservado} u reservadas pendientes de entregar y solo quedan {Math.Max(0, r.Libre)} libres (stock + por llegar)",
+                    409, "RESERVAS_COMPROMETIDAS");
         }
     }
 
@@ -186,7 +237,9 @@ public class ReservaCoberturaNavService : IReservaCoberturaNavService
                 {
                     productos.TryGetValue(r.ProductoId, out var p);
                     var llegar = porLlegar.GetValueOrDefault(r.ProductoId);
-                    var libre = llegar - r.SinBloqueo;
+                    var stock = stocks.GetValueOrDefault(r.ProductoId);
+                    // Cobertura global (2026-11-08): stock + por llegar − reservado pendiente (bloqueado o no)
+                    var libre = stock + llegar - r.Reservado;
                     return new ReservaCoberturaNavDto
                     {
                         ProductoId = r.ProductoId,
@@ -197,9 +250,10 @@ public class ReservaCoberturaNavService : IReservaCoberturaNavService
                         ReservadoPendiente = r.Reservado,
                         Bloqueado = r.Bloqueado,
                         SinBloqueo = r.SinBloqueo,
-                        StockTotal = stocks.GetValueOrDefault(r.ProductoId),
+                        StockTotal = stock,
                         PorLlegar = llegar,
-                        PorLlegarLibre = libre,
+                        PorLlegarLibre = llegar - r.SinBloqueo,
+                        Libre = libre,
                         SinCobertura = Math.Max(0, -libre),
                         Bloqueos = bloqueosAlmacen
                             .Where(b => b.ProductoId == r.ProductoId)

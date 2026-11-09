@@ -17,7 +17,8 @@ namespace BussinesMS.Aplicacion.Servicios.Navidad;
 
 // Reservas (replanteo 2026-10-15). Reutiliza los helpers internal de VentaNavService (precio R4, vendedor, cliente, cobro inicial,
 // estados, entregas). Crear no descuenta stock: el stock baja con cada entrega, desde cualquier almacén.
-// Cada línea se cubre con bloqueos por almacén (ReservaBloqueo) y/o con el "por llegar libre" de los pedidos.
+// Cobertura global (2026-11-08): cada línea tiene que caber en el Libre del producto (stock + por llegar − reservado pendiente);
+// el bloqueo por almacén (ReservaBloqueo) es opcional.
 public class ReservaNavService : IReservaNavService
 {
     private const string ReferenciaVenta = "Venta";
@@ -135,7 +136,7 @@ public class ReservaNavService : IReservaNavService
                             };
                         })
                         .ToList();
-                    var (llegar, libre) = porLlegar.TryGetValue(p.Id, out var v) ? v : (0, 0);
+                    var (llegar, llegarLibre, reservado, libre) = porLlegar.TryGetValue(p.Id, out var v) ? v : (0, 0, 0, 0);
                     return new ReservaProductoNavDto
                     {
                         ProductoId = p.Id,
@@ -147,7 +148,9 @@ public class ReservaNavService : IReservaNavService
                         PrecioCompraUnidad = p.PrecioCompraUnidad,
                         StockTotal = filas.Sum(f => f.Stock),
                         PorLlegar = llegar,
-                        PorLlegarLibre = libre,
+                        PorLlegarLibre = llegarLibre,
+                        ReservadoPendiente = reservado,
+                        Libre = libre,
                         Almacenes = filas
                     };
                 })
@@ -204,12 +207,6 @@ public class ReservaNavService : IReservaNavService
                 foreach (var b in bloqueos[l.ProductoId])
                     await _stock.VerificarLibreAsync(b.AlmacenId, l.ProductoId, b.Unidades);
 
-            // La parte sin bloqueo tiene que estar cubierta por lo que falta llegar de los pedidos
-            await _cobertura.ValidarCoberturaAsync(temporada.Id,
-                dto.Detalles
-                    .Select(l => (l.ProductoId, NombreMostrar(productos[l.ProductoId]), l.Unidades - bloqueos[l.ProductoId].Sum(b => b.Unidades)))
-                    .ToList());
-
             var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
             var hoy = BoliviaTimeZone.Now().Date;
@@ -265,6 +262,13 @@ public class ReservaNavService : IReservaNavService
             await _uow.BeginTransactionAsync();
             try
             {
+                // Cobertura global (2026-11-08): cada línea tiene que caber en el Libre del producto
+                // (stock en almacenes + por llegar − reservado pendiente de las otras reservas); bloquear es opcional
+                await _cobertura.ValidarCoberturaAsync(temporada.Id,
+                    dto.Detalles
+                        .Select(l => (l.ProductoId, NombreMostrar(productos[l.ProductoId]), l.Unidades))
+                        .ToList());
+
                 venta.NroVenta = await _repo.ObtenerSiguienteNroAsync(temporada.Id);
                 var creada = await _repo.CrearAsync(venta);
 
@@ -376,18 +380,15 @@ public class ReservaNavService : IReservaNavService
                     if (unidades > p.Recortados.GetValueOrDefault(almacenId))
                         await _stock.VerificarLibreAsync(almacenId, p.ProductoId, unidades, venta.Id);
 
-            // Cobertura: solo las líneas cuya parte sin bloqueo crece (o son nuevas) tienen que estar cubiertas por lo que falta llegar
-            var aValidar = new List<(int ProductoId, string ProductoNombre, int SinBloqueo)>();
+            // Cobertura global (2026-11-08): solo las líneas cuyo pendiente de entregar crece (o son nuevas) tienen que caber
+            // en el Libre del producto, calculado sin esta reserva (se valida con su pendiente nuevo completo)
+            var aValidar = new List<(int ProductoId, string ProductoNombre, int Pendiente)>();
             foreach (var p in plan.Where(p => p.NuevaCantidad > 0))
             {
-                var sinBloqueoNuevo = p.PendienteNuevo - p.Deseados.Values.Sum();
-                var sinBloqueoActual = p.Existente == null ? 0
-                    : Math.Max(0, p.Existente.Unidades - p.Existente.UnidadesEntregadas
-                        - bloqueosVigentes.Where(b => b.VentaDetalleId == p.Existente.Id).Sum(b => b.Unidades));
-                if (sinBloqueoNuevo > sinBloqueoActual)
-                    aValidar.Add((p.ProductoId, NombreMostrar(productos[p.ProductoId]), sinBloqueoNuevo));
+                var pendienteActual = p.Existente == null ? 0 : Math.Max(0, p.Existente.Unidades - p.Existente.UnidadesEntregadas);
+                if (p.PendienteNuevo > pendienteActual)
+                    aValidar.Add((p.ProductoId, NombreMostrar(productos[p.ProductoId]), p.PendienteNuevo));
             }
-            await _cobertura.ValidarCoberturaAsync(venta.TemporadaId, aValidar, venta.Id);
 
             var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
@@ -395,6 +396,8 @@ public class ReservaNavService : IReservaNavService
             await _uow.BeginTransactionAsync();
             try
             {
+                await _cobertura.ValidarCoberturaAsync(venta.TemporadaId, aValidar, venta.Id);
+
                 // 1) Bajar unidades ya entregadas: el stock vuelve al almacén de la última entrega de la línea (DevolucionVenta)
                 foreach (var p in plan.Where(p => p.Devolver > 0))
                 {

@@ -42,6 +42,7 @@ public class VentaNavService : IVentaNavService
     private readonly IPrecioCompraAccesoService _precioAcceso;
     private readonly IAvisosInternosNav _avisos;
     private readonly INotificadorNav _notificador;
+    private readonly IReservaCoberturaNavService _cobertura;
     private readonly ILogger<VentaNavService> _logger;
 
     public VentaNavService(
@@ -64,6 +65,7 @@ public class VentaNavService : IVentaNavService
         IPrecioCompraAccesoService precioAcceso,
         IAvisosInternosNav avisos,
         INotificadorNav notificador,
+        IReservaCoberturaNavService cobertura,
         ILogger<VentaNavService> logger)
     {
         _repo = repo;
@@ -85,6 +87,7 @@ public class VentaNavService : IVentaNavService
         _precioAcceso = precioAcceso;
         _avisos = avisos;
         _notificador = notificador;
+        _cobertura = cobertura;
         _logger = logger;
     }
 
@@ -474,6 +477,13 @@ public class VentaNavService : IVentaNavService
             if (!desdeCierre) await _uow.BeginTransactionAsync();
             try
             {
+                // Cobertura global (2026-11-08): la venta directa no puede dejar Libre < 0 (stock + por llegar − reservas pendientes).
+                // El faltante del cierre de conteo ya ocurrió: no se valida
+                if (tipo == TipoVentaNav.Directa && !desdeCierre)
+                    await _cobertura.ValidarLibreParaSalidaAsync(temporada.Id,
+                        dto.Detalles.Select(l => (l.ProductoId, NombreMostrar(productos[l.ProductoId]), l.Unidades)).ToList(),
+                        "vender");
+
                 venta.NroVenta =await _repo.ObtenerSiguienteNroAsync(temporada.Id);
                 var creada = await _repo.CrearAsync(venta);
 
@@ -643,6 +653,8 @@ public class VentaNavService : IVentaNavService
             // Plan por línea existente (las que faltan en el body quedan en 0)
             var aDevolver = new List<(VentaNavDetalle Linea, int Cantidad)>();
             var aSumarEnEntrega = 0;
+            // Aumento neto por producto que sale de la tienda (para la cobertura global de reservas)
+            var aumentos = new List<(int ProductoId, string ProductoNombre, int Unidades)>();
             foreach (var d in venta.Detalles)
             {
                 var nuevaCantidad = nuevas.TryGetValue(d.ProductoId, out var l) ? l.Unidades : 0;
@@ -650,11 +662,17 @@ public class VentaNavService : IVentaNavService
                     aDevolver.Add((d, d.UnidadesEntregadas - nuevaCantidad));
                 var entregadasFinal = Math.Min(d.UnidadesEntregadas, nuevaCantidad);
                 if (venta.Tipo == TipoVentaNav.Directa && nuevaCantidad > entregadasFinal)
+                {
                     aSumarEnEntrega += nuevaCantidad - entregadasFinal;
+                    aumentos.Add((d.ProductoId, NombreMostrar(productos[d.ProductoId]), nuevaCantidad - entregadasFinal));
+                }
             }
             foreach (var l in nuevas.Values.Where(l => !existentes.ContainsKey(l.ProductoId)))
                 if (venta.Tipo == TipoVentaNav.Directa)
+                {
                     aSumarEnEntrega += l.Unidades;
+                    aumentos.Add((l.ProductoId, NombreMostrar(productos[l.ProductoId]), l.Unidades));
+                }
 
             // Directa: el extra sale de la tienda (apertura de hoy si lleva conteo)
             if (aSumarEnEntrega > 0)
@@ -666,6 +684,10 @@ public class VentaNavService : IVentaNavService
             await _uow.BeginTransactionAsync();
             try
             {
+                // Cobertura global (2026-11-08): lo que sube no puede dejar Libre < 0 (solo se valida el aumento neto)
+                if (aumentos.Count > 0)
+                    await _cobertura.ValidarLibreParaSalidaAsync(venta.TemporadaId, aumentos, "vender");
+
                 // 1) Bajar unidades ya entregadas: vuelven a la tienda de la venta (DevolucionVenta) y se descuentan de las entregas más recientes
                 foreach (var (linea, cantidad) in aDevolver)
                 {

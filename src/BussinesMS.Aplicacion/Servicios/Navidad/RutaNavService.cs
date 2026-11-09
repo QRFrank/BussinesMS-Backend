@@ -36,6 +36,7 @@ public class RutaNavService : IRutaNavService
     private readonly IAlmacenAccesoNavService _acceso;
     private readonly IPrecioCompraAccesoService _precioAcceso;
     private readonly IAvisosInternosNav _avisos;
+    private readonly IReservaCoberturaNavService _cobertura;
     private readonly ILogger<RutaNavService> _logger;
 
     public RutaNavService(
@@ -53,6 +54,7 @@ public class RutaNavService : IRutaNavService
         IAlmacenAccesoNavService acceso,
         IPrecioCompraAccesoService precioAcceso,
         IAvisosInternosNav avisos,
+        IReservaCoberturaNavService cobertura,
         ILogger<RutaNavService> logger)
     {
         _ventas = ventas;
@@ -69,6 +71,7 @@ public class RutaNavService : IRutaNavService
         _acceso = acceso;
         _precioAcceso = precioAcceso;
         _avisos = avisos;
+        _cobertura = cobertura;
         _logger = logger;
     }
 
@@ -370,6 +373,12 @@ public class RutaNavService : IRutaNavService
             await _uow.BeginTransactionAsync();
             try
             {
+                // Cobertura global (2026-11-08): la carga sale del almacén (lo que está en ruta ya no cuenta como stock),
+                // así que no puede dejar Libre < 0 (stock + por llegar − reservas pendientes)
+                await _cobertura.ValidarLibreParaSalidaAsync(temporada.Id,
+                    dto.Detalles.Select(l => (l.ProductoId, NombreMostrar(productos[l.ProductoId]), l.Unidades)).ToList(),
+                    "sacar a ruta");
+
                 if (abiertaId.HasValue)
                 {
                     salida = await ObtenerSalidaParaEdicionAsync(abiertaId.Value);
