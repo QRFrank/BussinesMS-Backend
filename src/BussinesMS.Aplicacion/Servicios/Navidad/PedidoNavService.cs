@@ -372,7 +372,7 @@ public class PedidoNavService : IPedidoNavService
             throw new ValidacionException("El código no pertenece al proveedor");
     }
 
-    // Productos activos y del proveedor (principal). Sin tracking: el pedido no los modifica
+    // Productos activos; del proveedor si usa códigos de cliente, de la temporada si no. Sin tracking: el pedido no los modifica
     private async Task<Dictionary<int, ProductoNav>> ValidarProductosAsync(ProveedorNav proveedor, IEnumerable<int> productoIds)
     {
         var ids = productoIds.Distinct().ToList();
@@ -387,8 +387,14 @@ public class PedidoNavService : IPedidoNavService
                 throw new ValidacionException($"El producto {id} no existe");
             if (!producto.IsActive)
                 throw new ValidacionException($"El producto {NombreMostrar(producto)} está inactivo");
-            if (producto.ProveedorId != proveedor.Id)
-                throw new ValidacionException($"El producto {NombreMostrar(producto)} no pertenece al proveedor");
+            // Con códigos de cliente: solo productos del proveedor. Sin códigos: cualquiera de la temporada
+            if (proveedor.UsaCodigosCliente)
+            {
+                if (producto.ProveedorId != proveedor.Id)
+                    throw new ValidacionException($"El producto {NombreMostrar(producto)} no pertenece al proveedor");
+            }
+            else if (producto.TemporadaId != proveedor.TemporadaId)
+                throw new ValidacionException($"El producto {NombreMostrar(producto)} no pertenece a la temporada");
         }
 
         return productos;

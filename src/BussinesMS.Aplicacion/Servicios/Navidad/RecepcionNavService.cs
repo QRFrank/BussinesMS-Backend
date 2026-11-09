@@ -226,8 +226,15 @@ public class RecepcionNavService : IRecepcionNavService
                     throw new ValidacionException($"El producto {item.ProductoId} no existe");
                 if (!producto.IsActive)
                     throw new ValidacionException($"El producto {NombreMostrar(producto)} está inactivo");
-                if (producto.ProveedorId != proveedor.Id)
-                    throw new ValidacionException($"El producto {NombreMostrar(producto)} no pertenece al proveedor");
+                // Con códigos de cliente: solo productos del proveedor. Sin códigos: cualquiera de la temporada
+                // (igual queda limitado a lo pedido por ArmarDetallesConPedido)
+                if (proveedor.UsaCodigosCliente)
+                {
+                    if (producto.ProveedorId != proveedor.Id)
+                        throw new ValidacionException($"El producto {NombreMostrar(producto)} no pertenece al proveedor");
+                }
+                else if (producto.TemporadaId != temporada.Id)
+                    throw new ValidacionException($"El producto {NombreMostrar(producto)} no pertenece a la temporada");
 
                 // Precio de la línea del pedido (uno por código → un precio por producto)
                 var detalles = ArmarDetallesConPedido(producto, item, dto.CodigoClienteId.HasValue,
