@@ -80,6 +80,49 @@ public class ComprobantePdfService : IComprobantePdfService
         }).GeneratePdf();
     }
 
+    // Comprobante de entrega de reserva: mismo ticket, solo productos y unidades entregadas (sin precios, saldo ni pendientes)
+    public byte[] GenerarEntrega(ComprobanteEntregaDatos d, string firma)
+    {
+        return Document.Create(doc =>
+        {
+            doc.Page(page =>
+            {
+                page.ContinuousSize(80, Unit.Millimetre);
+                page.Margin(4, Unit.Millimetre);
+                page.DefaultTextStyle(t => t.FontSize(8.5f));
+
+                page.Content().Column(col =>
+                {
+                    col.Spacing(2);
+
+                    col.Item().AlignCenter().Text(firma).Bold().FontSize(12);
+                    col.Item().AlignCenter().Text("Comprobante de entrega").Bold();
+                    col.Item().AlignCenter().Text($"Reserva N° {d.NroVenta}");
+                    if (!string.IsNullOrWhiteSpace(d.Almacen))
+                        col.Item().AlignCenter().Text($"Entregado desde: {d.Almacen}");
+                    col.Item().AlignCenter().Text(MensajesAvisosNav.Fecha(d.FechaLocal));
+                    if (!string.IsNullOrWhiteSpace(d.Cliente))
+                        col.Item().AlignCenter().Text($"Cliente: {d.Cliente}");
+
+                    Separador(col);
+
+                    foreach (var l in d.Lineas)
+                    {
+                        col.Item().Text(l.Producto).Bold();
+                        col.Item().AlignRight().Text(l.Cantidad);
+                    }
+
+                    Separador(col);
+
+                    if (!string.IsNullOrWhiteSpace(d.Entrego))
+                        col.Item().AlignCenter().Text($"Entregó: {d.Entrego}");
+                    col.Item().AlignCenter().Text("¡Gracias por tu compra y feliz Navidad!");
+                    col.Item().AlignCenter().Text(firma).FontSize(7.5f);
+                });
+            });
+        }).GeneratePdf();
+    }
+
     private static void Separador(ColumnDescriptor col) =>
         col.Item().PaddingVertical(2).LineHorizontal(0.5f).LineColor(Colors.Grey.Medium);
 

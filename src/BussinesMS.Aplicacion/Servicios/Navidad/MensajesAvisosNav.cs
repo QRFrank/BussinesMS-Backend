@@ -395,6 +395,19 @@ public static class MensajesAvisosNav
     // C7: comprobante de una venta de "Mis ventas" del vendedor de ruta (ReferenciaId = VentaClienteRuta.Id)
     public const string AdjuntoComprobanteMisVentasPdf = "ComprobanteMisVentasPdf";
 
+    // Comprobante de una entrega de reserva (ReferenciaId = EntregaVenta.Id): sin precios, saldo ni pendientes
+    public const string AdjuntoComprobanteEntregaPdf = "ComprobanteEntregaPdf";
+
+    public static string CaptionComprobanteEntrega(int nroVenta, int productos, int unidades)
+        => $"📦 Comprobante de entrega — Reserva N° {nroVenta}\n"
+           + $"{productos} {(productos == 1 ? "producto" : "productos")} — {unidades} u\n— {Firma}";
+
     public static string CaptionComprobante(int nroVenta, decimal total)
         => $"🧾 Comprobante de venta N° {nroVenta}\nTotal: {Bs(total)}\n— {Firma}";
+
+    // Reservas: además del total, lo pagado y el saldo que falta pagar
+    public static string CaptionComprobanteReserva(int nroVenta, decimal total, decimal pagado, decimal saldo)
+        => $"🧾 Comprobante de reserva N° {nroVenta}\nTotal: {Bs(total)}\nPagado: {Bs(pagado)}\n"
+           + (saldo > 0 ? $"Saldo por pagar: {Bs(saldo)}" : "Pagado completo")
+           + $"\n— {Firma}";
 }

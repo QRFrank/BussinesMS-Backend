@@ -172,6 +172,11 @@ public class ReservaNavService : IReservaNavService
         {
             ValidarEstructuraCrear(dto);
 
+            // Comprobante por WhatsApp: el número se valida antes de crear nada (igual que en la venta)
+            string? telefonoComprobante = null;
+            if (dto.EnviarComprobante)
+                telefonoComprobante = NormalizarTelefonoComprobante(dto.TelefonoComprobante);
+
             var condicion = (CondicionPagoVentaNav)dto.CondicionPago;
             var temporada = await _temporadaActual.ObtenerAbiertaAsync();
 
@@ -259,6 +264,7 @@ public class ReservaNavService : IReservaNavService
                 });
             RecalcularEntrega(venta);
 
+            bool? comprobanteEncolado = null;
             await _uow.BeginTransactionAsync();
             try
             {
@@ -283,6 +289,10 @@ public class ReservaNavService : IReservaNavService
                             Unidades = b.Unidades
                         });
 
+                // El comprobante queda en la bandeja dentro de la misma transacción; si WhatsApp falla, no afecta a la reserva
+                if (telefonoComprobante != null)
+                    comprobanteEncolado = await _ventas.EncolarComprobanteSeguroAsync(creada, telefonoComprobante, $"comprobante-reserva:{creada.Id}");
+
                 await _uow.CommitAsync();
             }
             catch
@@ -293,8 +303,10 @@ public class ReservaNavService : IReservaNavService
 
             _logger.LogInformation("Reserva creada: {Id} #{Nro} (temporada {TemporadaId})", venta.Id, venta.NroVenta, temporada.Id);
 
-            return await ObtenerPorIdAsync(venta.Id)
+            var resultado = await ObtenerPorIdAsync(venta.Id)
                 ?? throw new EntidadNoEncontradaException("Reserva", venta.Id);
+            resultado.ComprobanteEncolado = comprobanteEncolado;
+            return resultado;
         }
         catch (Exception ex)
         {

@@ -32,6 +32,10 @@ public class CrearReservaNavDto
     public CobroInicialVentaDto? Cobro { get; set; }
     // Opcional: tienda de la sesión donde se recibe el cobro inicial (caja de tienda). Debe ser una tienda navideña activa. No se guarda en la reserva
     public int? AlmacenId { get; set; }
+    // Opcional (false por defecto). Si es true, telefonoComprobante es obligatorio y se encola el comprobante PDF por WhatsApp a ese número
+    public bool EnviarComprobante { get; set; }
+    // Celular al que se envía el comprobante (solo para este envío; no se guarda en el cliente)
+    public string? TelefonoComprobante { get; set; }
     public List<ReservaLineaDto> Detalles { get; set; } = new();
 }
 

@@ -536,7 +536,9 @@ public class VentaNavService : IVentaNavService
             TemporadaId = venta.TemporadaId,
             Evento = EventoNotificacionNav.ComprobanteVenta,
             Prioridad = 1,
-            Mensaje = MensajesAvisosNav.CaptionComprobante(venta.NroVenta, venta.MontoNeto),
+            Mensaje = venta.Tipo == TipoVentaNav.Reserva
+                ? MensajesAvisosNav.CaptionComprobanteReserva(venta.NroVenta, venta.MontoNeto, venta.MontoCobrado, venta.MontoSaldo)
+                : MensajesAvisosNav.CaptionComprobante(venta.NroVenta, venta.MontoNeto),
             Audiencia = AudienciaNotificacionNav.TelefonoDirecto,
             TelefonoDirecto = telefono,
             AdjuntoTipo = MensajesAvisosNav.AdjuntoComprobanteVentaPdf,
@@ -545,7 +547,7 @@ public class VentaNavService : IVentaNavService
         });
 
     // En la venta nueva: nunca lanza (un error de WhatsApp no puede romper la venta)
-    private async Task<bool> EncolarComprobanteSeguroAsync(VentaNav venta, string telefono, string clave)
+    internal async Task<bool> EncolarComprobanteSeguroAsync(VentaNav venta, string telefono, string clave)
     {
         try
         {
@@ -595,6 +597,74 @@ public class VentaNavService : IVentaNavService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al reenviar comprobante de la venta {Id}", id);
+            throw;
+        }
+    }
+
+    // Comprobante de una entrega de reserva (solo productos y unidades entregadas). Mismas reglas que el reenvío de venta
+    public async Task<ComprobanteEncoladoDto> EnviarComprobanteEntregaAsync(int entregaId, string? telefono)
+    {
+        try
+        {
+            var normalizado = NormalizarTelefonoComprobante(telefono);
+
+            var ventaId = await _entregaRepo.AsQueryable()
+                .AsNoTracking()
+                .Where(e => e.Id == entregaId && e.IsActive)
+                .Select(e => (int?)e.VentaId)
+                .FirstOrDefaultAsync();
+            if (ventaId == null)
+                throw new EntidadNoEncontradaException("Entrega", entregaId);
+
+            var venta = await ObtenerVentaParaEdicionAsync(ventaId.Value);
+            var entrega = venta.Entregas.First(e => e.Id == entregaId);
+            if (venta.AlmacenId.HasValue)
+                await _acceso.VerificarAlmacenAsync(venta.TemporadaId, venta.AlmacenId.Value);
+            if (venta.Tipo != TipoVentaNav.Reserva)
+                throw new ExcepcionDominio("La entrega no es de una reserva: no tiene comprobante de entrega", 409, "NO_ES_RESERVA");
+            if (venta.Anulada)
+                throw new ExcepcionDominio("La reserva está anulada: no se puede enviar el comprobante", 409, "VENTA_ANULADA");
+            if (entrega.Anulada)
+                throw new ExcepcionDominio("La entrega está anulada: no se puede enviar el comprobante", 409, "ENTREGA_ANULADA");
+
+            var lineas = entrega.Detalles.Where(d => d.Unidades > 0).ToList();
+
+            NotificacionNav? notificacion;
+            await _uow.BeginTransactionAsync();
+            try
+            {
+                notificacion = await _notificador.EncolarAsync(new NuevaNotificacionNav
+                {
+                    TemporadaId = venta.TemporadaId,
+                    Evento = EventoNotificacionNav.ComprobanteVenta,
+                    Prioridad = 1,
+                    Mensaje = MensajesAvisosNav.CaptionComprobanteEntrega(venta.NroVenta,
+                        lineas.Select(d => d.ProductoId).Distinct().Count(), lineas.Sum(d => d.Unidades)),
+                    Audiencia = AudienciaNotificacionNav.TelefonoDirecto,
+                    TelefonoDirecto = normalizado,
+                    AdjuntoTipo = MensajesAvisosNav.AdjuntoComprobanteEntregaPdf,
+                    ReferenciaId = entrega.Id,
+                    ClaveUnica = $"comprobante-entrega:{entrega.Id}:{Guid.NewGuid():N}"
+                });
+                if (notificacion == null)
+                    throw new ExcepcionDominio("No se pudo encolar el comprobante: WhatsApp no está configurado o el aviso está desactivado", 409, "WHATSAPP_NO_CONFIGURADO");
+                await _uow.CommitAsync();
+            }
+            catch
+            {
+                await _uow.RollbackAsync();
+                throw;
+            }
+
+            return new ComprobanteEncoladoDto
+            {
+                NotificacionId = notificacion.Id,
+                DestinoEnmascarado = EnmascaradorTelefono.Enmascarar(normalizado)
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al enviar comprobante de la entrega {Id}", entregaId);
             throw;
         }
     }

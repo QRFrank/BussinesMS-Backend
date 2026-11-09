@@ -40,8 +40,33 @@ public interface IComprobanteMisVentasDatosService
     Task<ComprobanteVentaDatos?> ObtenerAsync(int ventaId);
 }
 
+/// <summary>Producto entregado: Cantidad ya formateada con su equivalencia en empaques ("24 u (2 javas)").</summary>
+public record ComprobanteEntregaLineaNav(string Producto, int Unidades, string Cantidad);
+
+/// <summary>Datos de una entrega de reserva para su comprobante (sin precios, saldo ni pendientes). Fecha en hora de Bolivia.</summary>
+public class ComprobanteEntregaDatos
+{
+    public int EntregaId { get; set; }
+    public int NroVenta { get; set; }
+    /// <summary>La entrega o su reserva están anuladas: no se envía.</summary>
+    public bool Anulada { get; set; }
+    public string Almacen { get; set; } = string.Empty;
+    public DateTime FechaLocal { get; set; }
+    public string? Cliente { get; set; }
+    public string Entrego { get; set; } = string.Empty;
+    public List<ComprobanteEntregaLineaNav> Lineas { get; set; } = new();
+}
+
+/// <summary>Arma los datos del comprobante de una entrega de reserva, sin depender del usuario logueado (lo usa la bandeja).</summary>
+public interface IComprobanteEntregaDatosService
+{
+    /// <summary>Null si la entrega o su reserva no existen o están dadas de baja.</summary>
+    Task<ComprobanteEntregaDatos?> ObtenerAsync(int entregaId);
+}
+
 /// <summary>Genera el PDF tipo ticket del comprobante (implementado en Infraestructura con QuestPDF).</summary>
 public interface IComprobantePdfService
 {
     byte[] Generar(ComprobanteVentaDatos datos, string firma);
+    byte[] GenerarEntrega(ComprobanteEntregaDatos datos, string firma);
 }

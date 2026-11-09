@@ -27,4 +27,6 @@ public interface IVentaNavService
     Task AnularAsync(int id);
     // S4: encola un comprobante PDF nuevo por WhatsApp al teléfono indicado (400 sin/inválido, 404, 409 si está anulada)
     Task<ComprobanteEncoladoDto> ReenviarComprobanteAsync(int id, string? telefono);
+    // Comprobante PDF de una entrega de reserva (sin precios ni saldo): 400 teléfono, 404 entrega, 409 entrega/reserva anulada o WhatsApp no configurado
+    Task<ComprobanteEncoladoDto> EnviarComprobanteEntregaAsync(int entregaId, string? telefono);
 }

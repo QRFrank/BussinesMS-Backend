@@ -95,6 +95,15 @@ public class VentasNavController : BaseController
         return RespuestaOk(resultado, "Entrega anulada");
     }
 
+    // Comprobante de una entrega de reserva por WhatsApp (menús de entregas de reserva, flag Leer)
+    [Menu(152, 154, 143, Flag = FlagMenu.Leer)]
+    [HttpPost("entregas/{entregaId:int}/comprobante")]
+    public async Task<IActionResult> EnviarComprobanteEntrega(int entregaId, [FromBody] ReenviarComprobanteVentaDto dto)
+    {
+        var resultado = await _servicio.EnviarComprobanteEntregaAsync(entregaId, dto?.Telefono);
+        return RespuestaOk(resultado, "Comprobante en cola de envío");
+    }
+
     // Reenviar el comprobante: lo puede hacer quien puede ver la venta (flag Leer en los mismos menús que GET {id}) y respeta la restricción por almacén
     [Menu(151, 152, 154, 143, Flag = FlagMenu.Leer)]
     [HttpPost("{id:int}/comprobante")]

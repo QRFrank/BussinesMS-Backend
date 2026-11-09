@@ -38,6 +38,7 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
     private readonly IEvolutionApiClient _evolution;
     private readonly IComprobanteVentaDatosService _comprobantes;
     private readonly IComprobanteMisVentasDatosService _comprobantesRuta;
+    private readonly IComprobanteEntregaDatosService _comprobantesEntrega;
     private readonly IComprobantePdfService _pdf;
     private readonly INavidadUnitOfWork _uow;
     private readonly IOptions<WhatsAppOpciones> _opciones;
@@ -55,6 +56,7 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
         IEvolutionApiClient evolution,
         IComprobanteVentaDatosService comprobantes,
         IComprobanteMisVentasDatosService comprobantesRuta,
+        IComprobanteEntregaDatosService comprobantesEntrega,
         IComprobantePdfService pdf,
         INavidadUnitOfWork uow,
         IOptions<WhatsAppOpciones> opciones,
@@ -71,6 +73,7 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
         _evolution = evolution;
         _comprobantes = comprobantes;
         _comprobantesRuta = comprobantesRuta;
+        _comprobantesEntrega = comprobantesEntrega;
         _pdf = pdf;
         _uow = uow;
         _opciones = opciones;
@@ -309,16 +312,21 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
 
             // Comprobante PDF: se arma al enviar desde los datos actuales de la venta; si está anulada no se manda
             ComprobanteVentaDatos? comprobante = null;
+            ComprobanteEntregaDatos? comprobanteEntrega = null;
             if (EsComprobantePdf(envio.Notificacion))
             {
+                var esEntrega = envio.Notificacion!.AdjuntoTipo == MensajesAvisosNav.AdjuntoComprobanteEntregaPdf;
                 try
                 {
                     var refId = envio.Notificacion!.ReferenciaId;
-                    comprobante = !refId.HasValue
-                        ? null
-                        : envio.Notificacion.AdjuntoTipo == MensajesAvisosNav.AdjuntoComprobanteMisVentasPdf
-                            ? await _comprobantesRuta.ObtenerAsync(refId.Value)
-                            : await _comprobantes.ObtenerAsync(refId.Value);
+                    if (esEntrega)
+                        comprobanteEntrega = refId.HasValue ? await _comprobantesEntrega.ObtenerAsync(refId.Value) : null;
+                    else
+                        comprobante = !refId.HasValue
+                            ? null
+                            : envio.Notificacion.AdjuntoTipo == MensajesAvisosNav.AdjuntoComprobanteMisVentasPdf
+                                ? await _comprobantesRuta.ObtenerAsync(refId.Value)
+                                : await _comprobantes.ObtenerAsync(refId.Value);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -327,7 +335,18 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
                     continue;
                 }
 
-                if (comprobante == null || comprobante.Anulada)
+                // Entrega: si la entrega o su reserva se anularon entre que se encoló y se envía, se descarta
+                if (esEntrega && (comprobanteEntrega == null || comprobanteEntrega.Anulada))
+                {
+                    envio.Estado = EstadoEnvioNotificacionNav.Omitido;
+                    envio.UltimoError = comprobanteEntrega == null ? "La entrega ya no existe: no se envía el comprobante" : "La entrega o la reserva están anuladas: no se envía el comprobante";
+                    envio.ProximoIntentoEn = null;
+                    await _envios.ActualizarAsync(envio);
+                    resultado.Omitidos++;
+                    continue;
+                }
+
+                if (!esEntrega && (comprobante == null || comprobante.Anulada))
                 {
                     envio.Estado = EstadoEnvioNotificacionNav.Omitido;
                     envio.UltimoError = comprobante == null ? "La venta ya no existe: no se envía el comprobante" : "La venta está anulada: no se envía el comprobante";
@@ -348,6 +367,12 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
                     var pdf = _pdf.Generar(comprobante, MensajesAvisosNav.Firma);
                     await _evolution.EnviarDocumentoAsync(fila.NombreInstancia, telefono, pdf, "application/pdf",
                         $"comprobante-{comprobante.NroVenta}.pdf", texto, ct);
+                }
+                else if (comprobanteEntrega != null)
+                {
+                    var pdf = _pdf.GenerarEntrega(comprobanteEntrega, MensajesAvisosNav.Firma);
+                    await _evolution.EnviarDocumentoAsync(fila.NombreInstancia, telefono, pdf, "application/pdf",
+                        $"entrega-reserva-{comprobanteEntrega.NroVenta}-{comprobanteEntrega.EntregaId}.pdf", texto, ct);
                 }
                 else
                     await _evolution.EnviarTextoAsync(fila.NombreInstancia, telefono, texto, ct);
@@ -388,7 +413,8 @@ public class BandejaNotificacionNavService : IBandejaNotificacionNavService
 
     private static bool EsComprobantePdf(NotificacionNav? n) =>
         n?.AdjuntoTipo == MensajesAvisosNav.AdjuntoComprobanteVentaPdf
-        || n?.AdjuntoTipo == MensajesAvisosNav.AdjuntoComprobanteMisVentasPdf;
+        || n?.AdjuntoTipo == MensajesAvisosNav.AdjuntoComprobanteMisVentasPdf
+        || n?.AdjuntoTipo == MensajesAvisosNav.AdjuntoComprobanteEntregaPdf;
 
     private async Task RegistrarFalloAsync(NotificacionEnvioNav envio, string telefono, string instancia, string mensaje)
     {
