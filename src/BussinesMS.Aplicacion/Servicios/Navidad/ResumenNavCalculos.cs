@@ -878,7 +878,7 @@ public class ResumenNavCalculos
 
         var todosCobros = await _cobroRepo.AsQueryable().AsNoTracking()
             .Where(c => c.IsActive && !c.Anulado && c.Venta != null && c.Venta.IsActive && !c.Venta.Anulada && c.Venta.TemporadaId == temporadaId)
-            .Select(c => new { c.Id, c.VentaId, c.Monto, c.Fecha })
+            .Select(c => new { c.Id, c.VentaId, c.Monto, c.Fecha, c.EsDevolucion })
             .ToListAsync();
         var primerCobro = todosCobros.GroupBy(c => c.VentaId).ToDictionary(g => g.Key, g => g.Min(c => c.Id));
         var dDesde = desde?.Date;
@@ -892,7 +892,8 @@ public class ResumenNavCalculos
             if (!ventas.TryGetValue(c.VentaId, out var v)) continue;
             if (v.Canal == CanalVentaNav.Ruta) rutaRend += c.Monto;
             else if (v.Tipo == TipoVentaNav.Reserva) reservas += c.Monto;
-            else if (primerCobro[c.VentaId] == c.Id) ventasTienda += c.Monto;
+            // La devolución al editar (negativa) corrige la venta: resta de ventasTienda, no de los abonos
+            else if (c.EsDevolucion || primerCobro[c.VentaId] == c.Id) ventasTienda += c.Monto;
             else abonos += c.Monto;
         }
 

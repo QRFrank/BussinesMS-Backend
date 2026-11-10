@@ -62,6 +62,9 @@ public class CierreCajaResumenNavDto
     public decimal TransferenciasVentasTurno { get; set; }
     public decimal TransferenciasReservas { get; set; }
     public decimal TransferenciasCobrosDeuda { get; set; }
+    // Devoluciones a clientes al editar ventas (origen "Devolucion"): van en NEGATIVO (o 0) y también suman en efectivoEsperado / transferencias
+    public decimal EfectivoDevoluciones { get; set; }
+    public decimal TransferenciasDevoluciones { get; set; }
     public decimal Credito { get; set; }
     public List<CierreCajaVentaNavDto> Ventas { get; set; } = new();
     public List<CierreCajaCobroNavDto> Cobros { get; set; } = new();
@@ -95,10 +98,13 @@ public class CierreCajaCobroNavDto
     public int Medio { get; set; }
     public string MedioNombre { get; set; } = string.Empty;
     // "VentaTurno" (venta directa creada en el turno) | "Reserva" (venta tipo Reserva) | "CobroDeuda" (venta directa de antes del turno)
+    // | "Devolucion" (diferencia devuelta al cliente al editar la venta; Monto negativo)
     public string Origen { get; set; } = string.Empty;
     public string OrigenNombre { get; set; } = string.Empty;
     public string TipoVenta { get; set; } = string.Empty;
     public string? ClienteNombre { get; set; }
+    // Observación del cobro; en las devoluciones es el motivo
+    public string? Observacion { get; set; }
 }
 
 public class RegistrarCierreCajaNavDto

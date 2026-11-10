@@ -647,6 +647,11 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
                     b.Property<int?>("DeletedByUsuarioId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("EsDevolucion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<DateTime>("Fecha")
                         .HasColumnType("date");
 
@@ -682,7 +687,7 @@ namespace BussinesMS.Infraestructura.Migrations.NavidadDb
 
                     b.ToTable("CobroVenta", null, t =>
                         {
-                            t.HasCheckConstraint("CK_CobroVenta_MontoPositivo", "[Monto] > 0");
+                            t.HasCheckConstraint("CK_CobroVenta_MontoPositivo", "[Monto] > 0 OR ([EsDevolucion] = 1 AND [Monto] < 0)");
                         });
                 });
 

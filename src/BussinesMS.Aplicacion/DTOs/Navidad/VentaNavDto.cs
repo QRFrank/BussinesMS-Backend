@@ -165,6 +165,8 @@ public class CobroVentaDto
     public string? Comprobante { get; set; }
     public string? Observacion { get; set; }
     public bool Anulado { get; set; }
+    // Devolución de la diferencia al editar la venta (Monto negativo, no se anula)
+    public bool EsDevolucion { get; set; }
     public int UsuarioId { get; set; }
     public string UsuarioNombre { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
@@ -220,6 +222,12 @@ public class EditarVentaNavDto
     public decimal Descuento { get; set; }
     public string? Observacion { get; set; }
     public List<VentaLineaDto> Detalles { get; set; } = new();
+    // Si el nuevo neto queda por debajo de lo cobrado: true = devolver la diferencia al cliente desde la caja de la tienda
+    public bool DevolverDiferencia { get; set; }
+    // Obligatorio si hay diferencia a devolver y DevolverDiferencia = true (Transferencia = 1, Efectivo = 2)
+    public MedioPagoNav? MedioDevolucion { get; set; }
+    // Obligatorio junto con MedioDevolucion (máx. 300). Se guarda en la Observacion del cobro de devolución
+    public string? MotivoDevolucion { get; set; }
 }
 
 public class RegistrarEntregaVentaDto

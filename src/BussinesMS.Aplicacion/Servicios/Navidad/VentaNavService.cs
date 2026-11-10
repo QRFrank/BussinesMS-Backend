@@ -707,10 +707,27 @@ public class VentaNavService : IVentaNavService
             ValidarPrecios(dto.Detalles, productos, neto, esAdmin, await _precioAcceso.PuedeVerPreciosCompraAsync());
 
             VerificarSinIncobrable(venta);
+            // Neto menor a lo cobrado: solo si se pide devolver la diferencia (cobro negativo EsDevolucion en la caja de la tienda)
+            decimal devolucion = 0;
+            string? motivoDevolucion = null;
             if (neto < venta.MontoCobrado)
-                throw new ExcepcionDominio(
-                    $"El nuevo neto ({neto}) es menor a lo ya cobrado ({venta.MontoCobrado}): primero anule un cobro",
-                    409, "NETO_MENOR_COBRADO");
+            {
+                devolucion = Redondear(venta.MontoCobrado - neto);
+                if (!dto.DevolverDiferencia)
+                    throw new ExcepcionDominio(
+                        $"El nuevo neto ({neto}) es menor a lo ya cobrado ({venta.MontoCobrado}): hay que devolver Bs {devolucion:0.00} al cliente",
+                        409, "NETO_MENOR_COBRADO");
+                if (dto.MedioDevolucion == null)
+                    throw new ValidacionException("El medio de la devolución es obligatorio");
+                if (!Enum.IsDefined(dto.MedioDevolucion.Value))
+                    throw new ValidacionException("El medio de la devolución es inválido");
+                motivoDevolucion = NormalizarTexto(dto.MotivoDevolucion)
+                    ?? throw new ValidacionException("El motivo de la devolución es obligatorio");
+                if (motivoDevolucion.Length > 300)
+                    throw new ValidacionException("El motivo de la devolución no puede superar 300 caracteres");
+                // La plata sale de la caja del turno: la tienda tiene que tener la apertura de hoy
+                await _conteo.VerificarAperturaParaVentaAsync(almacenVentaId);
+            }
 
             var saldo = neto - venta.MontoCobrado;
             if (dto.ClienteId.HasValue)
@@ -830,6 +847,18 @@ public class VentaNavService : IVentaNavService
                 venta.MontoTotal = total;
                 venta.MontoNeto = neto;
                 venta.Observacion = NormalizarTexto(dto.Observacion);
+                if (devolucion > 0)
+                    venta.Cobros.Add(new CobroVenta
+                    {
+                        Fecha = BoliviaTimeZone.Now().Date,
+                        Monto = -devolucion,
+                        Medio = dto.MedioDevolucion!.Value,
+                        Observacion = motivoDevolucion,
+                        AlmacenId = almacenVentaId,
+                        EsDevolucion = true,
+                        CreatedByUsuarioId = usuarioId,
+                        CreatedAt = ahora
+                    });
                 RecalcularEntrega(venta);
                 RecalcularPago(venta);
                 Tocar(venta, usuarioId, ahora);
@@ -1013,6 +1042,8 @@ public class VentaNavService : IVentaNavService
                 throw new ValidacionException("La venta está anulada");
             if (cobro.AbonoVendedorId != null)
                 throw new ExcepcionDominio("El cobro pertenece a un abono de vendedor: anule el abono", 409, "COBRO_DE_ABONO");
+            if (cobro.EsDevolucion)
+                throw new ExcepcionDominio("La devolución no se puede anular: edite la venta", 409, "COBRO_DEVOLUCION");
 
             await _temporadaActual.VerificarEditableAsync(venta.TemporadaId);
             var (esAdmin, vendedorActual) = await ObtenerPermisosAsync(venta.TemporadaId);
@@ -1551,6 +1582,7 @@ public class VentaNavService : IVentaNavService
                 Comprobante = c.Comprobante,
                 Observacion = c.Observacion,
                 Anulado = c.Anulado,
+                EsDevolucion = c.EsDevolucion,
                 UsuarioId = c.CreatedByUsuarioId,
                 UsuarioNombre = usuarios.TryGetValue(c.CreatedByUsuarioId, out var cn) ? cn : string.Empty,
                 CreatedAt = BoliviaTimeZone.ToLocal(c.CreatedAt)

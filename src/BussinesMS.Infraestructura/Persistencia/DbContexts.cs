@@ -1396,13 +1396,15 @@ public class NavidadDbContext : DbContext
 
         modelBuilder.Entity<BussinesMS.Dominio.Entidades.Navidad.CobroVenta>(entity =>
         {
-            entity.ToTable("CobroVenta", t => t.HasCheckConstraint("CK_CobroVenta_MontoPositivo", "[Monto] > 0"));
+            // Monto > 0, salvo la devolución al cliente (EsDevolucion), que va en negativo
+            entity.ToTable("CobroVenta", t => t.HasCheckConstraint("CK_CobroVenta_MontoPositivo", "[Monto] > 0 OR ([EsDevolucion] = 1 AND [Monto] < 0)"));
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Fecha).HasColumnType("date");
             entity.Property(e => e.Monto).HasColumnType("decimal(18,2)");
             entity.Property(e => e.Medio).HasConversion<int>();
             entity.Property(e => e.Comprobante).HasMaxLength(100);
             entity.Property(e => e.Observacion).HasMaxLength(500);
+            entity.Property(e => e.EsDevolucion).HasDefaultValue(false);
             entity.HasOne(e => e.Venta)
                 .WithMany(v => v.Cobros)
                 .HasForeignKey(e => e.VentaId)

@@ -14,6 +14,9 @@ public class CobroVenta : EntidadBase
     public string? Observacion { get; set; }
     public bool Anulado { get; set; }
 
+    // Devolución de la diferencia al cliente al editar la venta: Monto negativo, sale de la caja de la tienda. No se anula por separado
+    public bool EsDevolucion { get; set; }
+
     // Abono del vendedor que originó este cobro (null si es un cobro directo)
     public int? AbonoVendedorId { get; set; }
 

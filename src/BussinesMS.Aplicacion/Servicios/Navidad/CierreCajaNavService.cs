@@ -140,6 +140,7 @@ public class CierreCajaNavService : ICierreCajaNavService
             if (diferencia != 0 && observacion == null)
                 throw new ValidacionException(
                     $"Hay una diferencia de {diferencia} entre lo entregado y lo esperado ({resumen.EfectivoEsperado}): la observación es obligatoria");
+            observacion = AgregarDevoluciones(observacion, resumen.Cobros);
 
             var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var entidad = new CierreCajaTienda
@@ -295,6 +296,30 @@ public class CierreCajaNavService : ICierreCajaNavService
         return new Turno { AperturaId = apertura.Id, CierreId = ultimo.Id, DesdeUtc = apertura.CreatedAt, HastaUtc = ultimo.CreatedAt };
     }
 
+    // Agrega a la observación del cajero una línea por cada devolución del turno (máx. 500 de la columna):
+    // el motivo de cada línea se recorta a 100 y, si aun así no entra, se trunca el final con "…" (el detalle completo sigue en el resumen del cierre)
+    private const int MaxObservacionCierre = 500;
+    private const int MaxMotivoEnObservacion = 100;
+
+    private static string? AgregarDevoluciones(string? observacion, IEnumerable<CierreCajaCobroNavDto> cobros)
+    {
+        var lineas = cobros.Where(c => c.Origen == "Devolucion").Select(c =>
+        {
+            var motivo = c.Observacion ?? string.Empty;
+            if (motivo.Length > MaxMotivoEnObservacion)
+                motivo = motivo[..(MaxMotivoEnObservacion - 1)] + "…";
+            return $"Devolución venta N° {c.NroVenta}: {MensajesAvisosNav.Bs(-c.Monto)} ({c.MedioNombre.ToLowerInvariant()}) — {motivo}";
+        }).ToList();
+        if (lineas.Count == 0)
+            return observacion;
+
+        var partes = new List<string>();
+        if (observacion != null) partes.Add(observacion);
+        partes.AddRange(lineas);
+        var texto = string.Join("\n", partes);
+        return texto.Length <= MaxObservacionCierre ? texto : texto[..(MaxObservacionCierre - 1)] + "…";
+    }
+
     private async Task<CierreCajaResumenNavDto> ArmarResumenAsync(int temporadaId, int almacenId, string almacenNombre, Turno turno)
     {
         var desde = turno.DesdeUtc;
@@ -321,8 +346,10 @@ public class CierreCajaNavService : ICierreCajaNavService
         var usuarios = await ObtenerNombresUsuarioAsync(ventas.Where(v => v.Vendedor != null).Select(v => v.Vendedor!.UsuarioId));
 
         // Origen del cobro (solo informativo): reserva, venta directa creada en el turno, o cobro de deuda (venta directa anterior)
+        // "Devolucion": diferencia devuelta al cliente al editar una venta (Monto negativo, resta de la caja del turno)
         string OrigenDe(CobroVenta c)
-            => c.Venta!.Tipo == TipoVentaNav.Reserva ? "Reserva"
+            => c.EsDevolucion ? "Devolucion"
+                : c.Venta!.Tipo == TipoVentaNav.Reserva ? "Reserva"
                 : c.Venta.CreatedAt >= desde && c.Venta.CreatedAt <= hasta ? "VentaTurno" : "CobroDeuda";
         decimal Suma(MedioPagoNav medio, string origen)
             => cobros.Where(c => c.Medio == medio && OrigenDe(c) == origen).Sum(c => c.Monto);
@@ -349,6 +376,8 @@ public class CierreCajaNavService : ICierreCajaNavService
             TransferenciasVentasTurno = Suma(MedioPagoNav.Transferencia, "VentaTurno"),
             TransferenciasReservas = Suma(MedioPagoNav.Transferencia, "Reserva"),
             TransferenciasCobrosDeuda = Suma(MedioPagoNav.Transferencia, "CobroDeuda"),
+            EfectivoDevoluciones = Suma(MedioPagoNav.Efectivo, "Devolucion"),
+            TransferenciasDevoluciones = Suma(MedioPagoNav.Transferencia, "Devolucion"),
             Ventas = ventas.Select(v => new CierreCajaVentaNavDto
             {
                 Id = v.Id,
@@ -378,10 +407,12 @@ public class CierreCajaNavService : ICierreCajaNavService
                 {
                     "Reserva" => "Adelanto/cobro de reserva",
                     "VentaTurno" => "Venta del turno",
+                    "Devolucion" => "Devolución a cliente",
                     _ => "Cobro de deuda"
                 },
                 TipoVenta = c.Venta.Tipo == TipoVentaNav.Reserva ? "Reserva" : "Directa",
-                ClienteNombre = c.Venta.Cliente?.Nombre
+                ClienteNombre = c.Venta.Cliente?.Nombre,
+                Observacion = c.Observacion
             }).ToList()
         };
     }
