@@ -45,10 +45,10 @@ public interface IAvisosInternosNav
     Task DevolucionRutaAsync(SalidaRuta salida, DevolucionRuta devolucion);
 
     /// <summary>A5 a admins y V2 al vendedor. <paramref name="venta"/> es null si devolvió todo (sin venta).</summary>
-    Task CierreSalidaAsync(SalidaRuta salida, VentaNav? venta, decimal dineroEntregado, MedioPagoNav? medio);
+    Task CierreSalidaAsync(SalidaRuta salida, VentaNav? venta, decimal dineroEntregado, IReadOnlyList<(MedioPagoNav Medio, decimal Monto)>? pagos);
 
     /// <summary>V2 al vendedor: abono registrado y saldo restante.</summary>
-    Task AbonoVendedorAsync(AbonoVendedor abono);
+    Task AbonoVendedorAsync(AbonoVendedor abono, IReadOnlyList<(MedioPagoNav Medio, decimal Monto)>? pagos = null);
 
     /// <summary>Traslado registrado: aviso inmediato a admins (sin el autor).</summary>
     Task TrasladoAsync(Traslado traslado);

@@ -30,6 +30,8 @@ public class CrearReservaNavDto
     public string? Observacion { get; set; }
     // Contado: obligatorio (monto = neto o sin monto); Crédito: adelanto opcional (> 0 y < neto)
     public CobroInicialVentaDto? Cobro { get; set; }
+    // Opcional: pago por medio (1 o 2 líneas). Si viene con elementos manda sobre cobro (monto/medio/comprobante)
+    public List<PagoMedioDto>? Pagos { get; set; }
     // Opcional: tienda de la sesión donde se recibe el cobro inicial (caja de tienda). Debe ser una tienda navideña activa. No se guarda en la reserva
     public int? AlmacenId { get; set; }
     // Opcional (false por defecto). Si es true, telefonoComprobante es obligatorio y se encola el comprobante PDF por WhatsApp a ese número

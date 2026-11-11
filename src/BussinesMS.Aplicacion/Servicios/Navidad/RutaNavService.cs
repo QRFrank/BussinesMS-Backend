@@ -565,10 +565,16 @@ public class RutaNavService : IRutaNavService
         {
             if (dto.Descuento < 0)
                 throw new ValidacionException("El descuento no puede ser negativo");
-            if ((dto.DineroEntregado ?? 0) < 0)
-                throw new ValidacionException("El dinero entregado no puede ser negativo");
-            if (dto.Comprobante != null && dto.Comprobante.Trim().Length > 100)
-                throw new ValidacionException("El comprobante no puede superar 100 caracteres");
+            // Pagos (mixto) reemplaza a dineroEntregado/medio/comprobante; sin Pagos rige el formato viejo (un solo cobro)
+            var usaPagos = dto.Pagos is { Count: > 0 };
+            List<PagoMedioDto> pagosCierre = usaPagos ? NormalizarPagos(dto.Pagos!).Pagos : new List<PagoMedioDto>();
+            if (!usaPagos)
+            {
+                if ((dto.DineroEntregado ?? 0) < 0)
+                    throw new ValidacionException("El dinero entregado no puede ser negativo");
+                if (dto.Comprobante != null && dto.Comprobante.Trim().Length > 100)
+                    throw new ValidacionException("El comprobante no puede superar 100 caracteres");
+            }
             if (dto.Observacion != null && dto.Observacion.Trim().Length > 500)
                 throw new ValidacionException("La observación no puede superar 500 caracteres");
 
@@ -577,10 +583,15 @@ public class RutaNavService : IRutaNavService
             await VerificarPuedeOperarSalidaAsync(salida);
             ExigirAbierta(salida);
 
-            var dinero = Redondear(dto.DineroEntregado ?? 0);
+            var dinero = usaPagos ? pagosCierre.Sum(p => p.Monto) : Redondear(dto.DineroEntregado ?? 0);
             var descuentoPedido = Redondear(dto.Descuento);
-            if (dinero > 0 && (dto.Medio == null || !Enum.IsDefined(dto.Medio.Value)))
-                throw new ValidacionException("El medio de pago es obligatorio si se entrega dinero");
+            if (!usaPagos)
+            {
+                if (dinero > 0 && (dto.Medio == null || !Enum.IsDefined(dto.Medio.Value)))
+                    throw new ValidacionException("El medio de pago es obligatorio si se entrega dinero");
+                if (dinero > 0)
+                    pagosCierre.Add(new PagoMedioDto { Medio = dto.Medio!.Value, Monto = dinero, Comprobante = NormalizarTexto(dto.Comprobante) });
+            }
 
             var (cargado, devuelto) = CalcularUnidadesPorProducto(salida);
             var vendidos = cargado
@@ -667,13 +678,13 @@ public class RutaNavService : IRutaNavService
                     CreatedByUsuarioId = usuarioId,
                     CreatedAt = ahora
                 });
-            if (dinero > 0)
+            foreach (var p in pagosCierre)
                 venta.Cobros.Add(new CobroVenta
                 {
                     Fecha = hoy.Date,
-                    Monto = dinero,
-                    Medio = dto.Medio!.Value,
-                    Comprobante = NormalizarTexto(dto.Comprobante),
+                    Monto = p.Monto,
+                    Medio = p.Medio,
+                    Comprobante = p.Comprobante,
                     AbonoVendedorId = null,
                     CreatedByUsuarioId = usuarioId,
                     CreatedAt = ahora
@@ -694,7 +705,7 @@ public class RutaNavService : IRutaNavService
                 await _uow.SaveChangesAsync();
 
                 // Avisos por WhatsApp: admins y vendedor (misma transaccion; no falla la operacion)
-                await _avisos.CierreSalidaAsync(salida, creada, dinero, dto.Medio);
+                await _avisos.CierreSalidaAsync(salida, creada, dinero, pagosCierre.Select(p => (p.Medio, p.Monto)).ToList());
 
                 await _uow.CommitAsync();
             }
@@ -1118,7 +1129,10 @@ public class RutaNavService : IRutaNavService
         try
         {
             await ExigirAdminAsync();
-            var monto = Redondear(dto.Monto);
+            // Pagos (mixto) reemplaza a monto/medio/comprobante; sin Pagos rige el formato viejo (un solo medio)
+            var usaPagos = dto.Pagos is { Count: > 0 };
+            var pagosAbono = usaPagos ? NormalizarPagos(dto.Pagos!).Pagos : new List<PagoMedioDto>();
+            var monto = usaPagos ? pagosAbono.Sum(p => p.Monto) : Redondear(dto.Monto);
             var descuento = Redondear(dto.Descuento);
             if (dto.VendedorId <= 0)
                 throw new ValidacionException("El vendedor es obligatorio");
@@ -1128,10 +1142,17 @@ public class RutaNavService : IRutaNavService
                 throw new ValidacionException("El descuento no puede ser negativo");
             if (monto + descuento <= 0)
                 throw new ValidacionException("El monto más el descuento debe ser mayor a 0");
-            if (monto > 0 && (dto.Medio == null || !Enum.IsDefined(dto.Medio.Value)))
-                throw new ValidacionException("El medio de pago es obligatorio si hay monto");
-            if (dto.Comprobante != null && dto.Comprobante.Trim().Length > 100)
-                throw new ValidacionException("El comprobante no puede superar 100 caracteres");
+            if (!usaPagos)
+            {
+                if (monto > 0 && (dto.Medio == null || !Enum.IsDefined(dto.Medio.Value)))
+                    throw new ValidacionException("El medio de pago es obligatorio si hay monto");
+                if (dto.Comprobante != null && dto.Comprobante.Trim().Length > 100)
+                    throw new ValidacionException("El comprobante no puede superar 100 caracteres");
+                if (monto > 0)
+                    pagosAbono.Add(new PagoMedioDto { Medio = dto.Medio!.Value, Monto = monto, Comprobante = NormalizarTexto(dto.Comprobante) });
+            }
+            // Se consume primero el efectivo y después la transferencia
+            pagosAbono = pagosAbono.OrderByDescending(p => p.Medio == MedioPagoNav.Efectivo).ToList();
             if (dto.Observacion != null && dto.Observacion.Trim().Length > 500)
                 throw new ValidacionException("La observación no puede superar 500 caracteres");
 
@@ -1197,8 +1218,11 @@ public class RutaNavService : IRutaNavService
                 UsuarioId = usuarioId,
                 Monto = monto,
                 Descuento = descuento,
-                Medio = monto > 0 ? dto.Medio : null,
-                Comprobante = NormalizarTexto(dto.Comprobante),
+                // Un solo medio: ese; mixto o sin dinero: null (se distingue por Monto > 0)
+                Medio = pagosAbono.Count == 1 ? pagosAbono[0].Medio : null,
+                Comprobante = usaPagos
+                    ? (pagosAbono.FirstOrDefault(p => p.Medio == MedioPagoNav.Transferencia) ?? pagosAbono.First()).Comprobante
+                    : NormalizarTexto(dto.Comprobante),
                 Observacion = NormalizarTexto(dto.Observacion),
                 Anulado = false
             };
@@ -1207,6 +1231,8 @@ public class RutaNavService : IRutaNavService
             try
             {
                 var montoRestante = monto;
+                var restoPagos = pagosAbono.Select(p => p.Monto).ToList();
+                var idxPago = 0;
                 var descuentoRestante = descuento;
                 foreach (var venta in ventas)
                 {
@@ -1217,17 +1243,26 @@ public class RutaNavService : IRutaNavService
                     var desc = Math.Min(descuentoRestante, saldo - cobro);
                     if (cobro <= 0 && desc <= 0) continue;
 
-                    if (cobro > 0)
-                        venta.Cobros.Add(new CobroVenta
-                        {
-                            Fecha = hoy,
-                            Monto = cobro,
-                            Medio = dto.Medio!.Value,
-                            Comprobante = NormalizarTexto(dto.Comprobante),
-                            AbonoVendedor = abono,
-                            CreatedByUsuarioId = usuarioId,
-                            CreatedAt = ahora
-                        });
+                    // El cobro de la venta se reparte entre los medios del abono (efectivo primero)
+                    var porCubrir = cobro;
+                    while (porCubrir > 0 && idxPago < pagosAbono.Count)
+                    {
+                        var parte = Math.Min(porCubrir, restoPagos[idxPago]);
+                        if (parte > 0)
+                            venta.Cobros.Add(new CobroVenta
+                            {
+                                Fecha = hoy,
+                                Monto = parte,
+                                Medio = pagosAbono[idxPago].Medio,
+                                Comprobante = pagosAbono[idxPago].Comprobante,
+                                AbonoVendedor = abono,
+                                CreatedByUsuarioId = usuarioId,
+                                CreatedAt = ahora
+                            });
+                        restoPagos[idxPago] -= parte;
+                        porCubrir -= parte;
+                        if (restoPagos[idxPago] <= 0) idxPago++;
+                    }
                     if (desc > 0)
                     {
                         venta.Descuento += desc;
@@ -1258,7 +1293,7 @@ public class RutaNavService : IRutaNavService
                 await _abonoRepo.CrearAsync(abono);
 
                 // Aviso por WhatsApp al vendedor con su saldo (misma transaccion; no falla la operacion)
-                await _avisos.AbonoVendedorAsync(abono);
+                await _avisos.AbonoVendedorAsync(abono, pagosAbono.Select(p => (p.Medio, p.Monto)).ToList());
 
                 await _uow.CommitAsync();
             }
@@ -1764,7 +1799,7 @@ public class RutaNavService : IRutaNavService
         Monto = a.Monto,
         Descuento = a.Descuento,
         Medio = a.Medio.HasValue ? (int)a.Medio.Value : null,
-        MedioNombre = a.Medio?.ToString(),
+        MedioNombre = a.Medio?.ToString() ?? (a.Monto > 0 ? "Efectivo + Transferencia" : null),
         Comprobante = a.Comprobante,
         Observacion = a.Observacion,
         Anulado = a.Anulado,
@@ -1791,6 +1826,22 @@ public class RutaNavService : IRutaNavService
             : await _ventaRepo.AsQueryable().AsNoTracking()
                 .Where(v => ventaIds.Contains(v.Id))
                 .ToDictionaryAsync(v => v.Id, v => v.NroVenta);
-        return MapearAbono(a, usuarios, nros);
+        var dto = MapearAbono(a, usuarios, nros);
+        // Desglose por medio derivado de los cobros del abono (los de un abono anulado también, para ver qué se había recibido)
+        if (ventaIds.Count > 0)
+        {
+            var porMedio = await _ventaRepo.AsQueryable().AsNoTracking()
+                .Where(v => ventaIds.Contains(v.Id))
+                .SelectMany(v => v.Cobros)
+                .Where(c => c.AbonoVendedorId == a.Id && (a.Anulado || !c.Anulado))
+                .GroupBy(c => c.Medio)
+                .Select(g => new { Medio = g.Key, Monto = g.Sum(c => c.Monto) })
+                .ToListAsync();
+            dto.Pagos = porMedio
+                .OrderByDescending(p => p.Medio == MedioPagoNav.Efectivo)
+                .Select(p => new PagoMedioDto { Medio = p.Medio, Monto = p.Monto })
+                .ToList();
+        }
+        return dto;
     }
 }

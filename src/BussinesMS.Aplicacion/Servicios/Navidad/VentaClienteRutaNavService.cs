@@ -298,17 +298,23 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
                 });
             venta.Total = Redondear(venta.Detalles.Sum(d => d.Subtotal));
 
-            var pagado = Redondear(dto.PagadoAhora);
+            // Pagos (mixto) reemplaza a PagadoAhora/Medio; sin Pagos rige el formato viejo (un solo cobro)
+            var pagosVenta = dto.Pagos is { Count: > 0 }
+                ? VentaNavService.NormalizarPagos(dto.Pagos).Pagos
+                : (Redondear(dto.PagadoAhora) > 0
+                    ? new List<PagoMedioDto> { new() { Medio = dto.Medio!.Value, Monto = Redondear(dto.PagadoAhora) } }
+                    : new List<PagoMedioDto>());
+            var pagado = pagosVenta.Sum(p => p.Monto);
             if (pagado > venta.Total)
                 throw new ValidacionException("Lo pagado no puede superar el total de la venta");
             venta.Pagado = pagado;
             venta.Saldo = venta.Total - pagado;
-            if (pagado > 0)
+            foreach (var p in pagosVenta)
                 venta.Cobros.Add(new CobroClienteRuta
                 {
                     Fecha = fecha,
-                    Monto = pagado,
-                    Medio = dto.Medio,
+                    Monto = p.Monto,
+                    Medio = p.Medio,
                     Anulado = false,
                     CreatedByUsuarioId = usuarioId,
                     CreatedAt = ahora
@@ -439,6 +445,11 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
     private static void ValidarEstructura(RegistrarVentaClienteRutaDto dto)
     {
         ValidarEstructuraComun(dto.ClienteId, dto.Observacion, dto.Detalles);
+        if (dto.Pagos is { Count: > 0 })
+        {
+            VentaNavService.NormalizarPagos(dto.Pagos);
+            return;
+        }
         if (dto.PagadoAhora < 0)
             throw new ValidacionException("Lo pagado no puede ser negativo");
         if (dto.PagadoAhora > 0 && !dto.Medio.HasValue)
@@ -536,7 +547,19 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
             var cobrosVigentes = venta.Cobros.Where(c => c.IsActive && !c.Anulado).ToList();
             var cobrado = Redondear(cobrosVigentes.Sum(c => c.Monto));
             decimal? pagadoNuevo = null;
-            if (dto.PagadoAhora.HasValue)
+            List<PagoMedioDto>? pagosNuevos = null;
+            if (dto.Pagos is { Count: > 0 })
+            {
+                // Pago mixto: reemplaza los cobros vigentes (máx. uno por medio entre los vigentes)
+                pagosNuevos = VentaNavService.NormalizarPagos(dto.Pagos).Pagos;
+                pagadoNuevo = pagosNuevos.Sum(p => p.Monto);
+                if (pagadoNuevo > total)
+                    throw new ValidacionException("Lo pagado no puede superar el total de la venta");
+                if (cobrosVigentes.GroupBy(c => c.Medio).Any(g => g.Count() > 1))
+                    throw new ValidacionException("La venta tiene varios cobros del mismo medio: corregilos desde el detalle (anular o registrar cobro)");
+                cobrado = pagadoNuevo.Value;
+            }
+            else if (dto.PagadoAhora.HasValue)
             {
                 pagadoNuevo = Redondear(dto.PagadoAhora.Value);
                 if (pagadoNuevo < 0)
@@ -599,19 +622,26 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
                 if (pagadoNuevo.HasValue)
                 {
                     var actual = cobrosVigentes.FirstOrDefault();
-                    if (actual == null || actual.Monto != pagadoNuevo.Value || actual.Medio != dto.Medio)
+                    var nuevosPagos = pagosNuevos ?? (pagadoNuevo.Value > 0
+                        ? new List<PagoMedioDto> { new() { Medio = dto.Medio!.Value, Monto = pagadoNuevo.Value } }
+                        : new List<PagoMedioDto>());
+                    var cambio = pagosNuevos != null
+                        ? cobrosVigentes.Count != nuevosPagos.Count
+                            || nuevosPagos.Any(n => !cobrosVigentes.Any(c => c.Medio == n.Medio && c.Monto == n.Monto))
+                        : (actual == null || actual.Monto != pagadoNuevo.Value || actual.Medio != dto.Medio);
+                    if (cambio)
                     {
-                        if (actual != null)
+                        foreach (var c in cobrosVigentes)
                         {
-                            actual.Anulado = true;
-                            Tocar(actual, usuarioId, ahora);
+                            c.Anulado = true;
+                            Tocar(c, usuarioId, ahora);
                         }
-                        if (pagadoNuevo.Value > 0)
+                        foreach (var n in nuevosPagos)
                             venta.Cobros.Add(new CobroClienteRuta
                             {
                                 Fecha = actual?.Fecha ?? (dto.Fecha ?? venta.Fecha).Date,
-                                Monto = pagadoNuevo.Value,
-                                Medio = dto.Medio,
+                                Monto = n.Monto,
+                                Medio = n.Medio,
                                 Anulado = false,
                                 CreatedByUsuarioId = usuarioId,
                                 CreatedAt = ahora
@@ -647,16 +677,24 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
     {
         try
         {
-            if (dto.Monto <= 0)
-                throw new ValidacionException("El monto debe ser mayor a 0");
-            if (!Enum.IsDefined(dto.Medio))
-                throw new ValidacionException("El medio de pago es inválido");
+            // Pagos (mixto) reemplaza a monto/medio; sin Pagos rige el formato viejo (un solo cobro)
+            List<PagoMedioDto> pagosCobro;
+            if (dto.Pagos is { Count: > 0 })
+                pagosCobro = VentaNavService.NormalizarPagos(dto.Pagos).Pagos;
+            else
+            {
+                if (dto.Monto <= 0)
+                    throw new ValidacionException("El monto debe ser mayor a 0");
+                if (!Enum.IsDefined(dto.Medio))
+                    throw new ValidacionException("El medio de pago es inválido");
+                pagosCobro = new List<PagoMedioDto> { new() { Medio = dto.Medio, Monto = Redondear(dto.Monto) } };
+            }
 
             var venta = await ObtenerParaEdicionAsync(id);
             if (venta.Anulada)
                 throw new ExcepcionDominio("La venta está anulada", 409, "VENTA_ANULADA");
 
-            var monto = Redondear(dto.Monto);
+            var monto = pagosCobro.Sum(p => p.Monto);
             if (monto > venta.Saldo)
                 throw new ValidacionException($"El monto no puede superar el saldo pendiente ({venta.Saldo:0.00})");
 
@@ -666,15 +704,16 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
             await _uow.BeginTransactionAsync();
             try
             {
-                venta.Cobros.Add(new CobroClienteRuta
-                {
-                    Fecha = (dto.Fecha ?? BoliviaTimeZone.Now()).Date,
-                    Monto = monto,
-                    Medio = dto.Medio,
-                    Anulado = false,
-                    CreatedByUsuarioId = usuarioId,
-                    CreatedAt = ahora
-                });
+                foreach (var p in pagosCobro)
+                    venta.Cobros.Add(new CobroClienteRuta
+                    {
+                        Fecha = (dto.Fecha ?? BoliviaTimeZone.Now()).Date,
+                        Monto = p.Monto,
+                        Medio = p.Medio,
+                        Anulado = false,
+                        CreatedByUsuarioId = usuarioId,
+                        CreatedAt = ahora
+                    });
                 Recalcular(venta);
                 Tocar(venta, usuarioId, ahora);
                 await _uow.SaveChangesAsync();

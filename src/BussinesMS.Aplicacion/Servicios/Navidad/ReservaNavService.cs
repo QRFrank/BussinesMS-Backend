@@ -192,7 +192,8 @@ public class ReservaNavService : IReservaNavService
             var (total, descuento, neto) = CalcularTotales(lineas, dto.Descuento);
             ValidarPrecios(lineas, productos, neto, esAdmin, await _precioAcceso.PuedeVerPreciosCompraAsync());
 
-            var cobroMonto = ResolverCobroInicial(neto, condicion, dto.Cobro);
+            var cobrosIniciales = ResolverCobroInicial(neto, condicion, dto.Cobro, dto.Pagos);
+            var cobroMonto = cobrosIniciales.Sum(c => c.Monto);
             var saldo = neto - cobroMonto;
 
             await _ventas.ValidarClienteAsync(dto.ClienteId!.Value);
@@ -250,14 +251,14 @@ public class ReservaNavService : IReservaNavService
                     CreatedAt = ahora
                 });
 
-            if (cobroMonto > 0)
+            foreach (var c in cobrosIniciales)
                 venta.Cobros.Add(new CobroVenta
                 {
                     Fecha = hoy,
-                    Monto = cobroMonto,
-                    Medio = dto.Cobro!.Medio,
-                    Comprobante = NormalizarTexto(dto.Cobro.Comprobante),
-                    Observacion = NormalizarTexto(dto.Cobro.Observacion),
+                    Monto = c.Monto,
+                    Medio = c.Medio,
+                    Comprobante = c.Comprobante,
+                    Observacion = NormalizarTexto(dto.Cobro?.Observacion),
                     AlmacenId = dto.AlmacenId,
                     CreatedByUsuarioId = usuarioId,
                     CreatedAt = ahora

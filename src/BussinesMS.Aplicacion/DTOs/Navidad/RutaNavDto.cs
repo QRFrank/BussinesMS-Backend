@@ -215,6 +215,8 @@ public class CerrarSalidaRutaDto
     // 1 Transferencia | 2 Efectivo. Obligatorio si dineroEntregado > 0
     public MedioPagoNav? Medio { get; set; }
     public string? Comprobante { get; set; }
+    // Opcional: pago por medio (1 o 2 líneas, un medio una sola vez). Si viene con elementos reemplaza a dineroEntregado/medio/comprobante; Σ <= neto
+    public List<PagoMedioDto>? Pagos { get; set; }
     // Descuento global de la venta (rebaja), >= 0
     public decimal Descuento { get; set; }
     public string? Observacion { get; set; }
@@ -248,6 +250,8 @@ public class AbonoVendedorDto
     public string? Comprobante { get; set; }
     public string? Observacion { get; set; }
     public bool Anulado { get; set; }
+    // Solo en el detalle: desglose por medio derivado de sus cobros (vacío en la lista y en abonos sin dinero)
+    public List<PagoMedioDto> Pagos { get; set; } = new();
     // Vacío en la lista
     public List<AbonoVendedorAplicacionDto> Aplicaciones { get; set; } = new();
     public DateTime CreatedAt { get; set; }
@@ -272,6 +276,8 @@ public class CrearAbonoVendedorDto
     // 1 Transferencia | 2 Efectivo. Obligatorio si monto > 0
     public MedioPagoNav? Medio { get; set; }
     public string? Comprobante { get; set; }
+    // Opcional: pago por medio (1 o 2 líneas). Si viene con elementos reemplaza a monto/medio/comprobante (monto = Σ). Mixto: abono.medio = null
+    public List<PagoMedioDto>? Pagos { get; set; }
     public string? Observacion { get; set; }
     // Opcional: si viene, el abono se aplica solo a la venta de esa salida
     public int? SalidaRutaId { get; set; }

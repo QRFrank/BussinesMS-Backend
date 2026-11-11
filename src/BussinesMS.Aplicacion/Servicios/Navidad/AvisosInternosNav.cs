@@ -315,7 +315,7 @@ public class AvisosInternosNav : IAvisosInternosNav
         }
     });
 
-    public Task CierreSalidaAsync(SalidaRuta salida, VentaNav? venta, decimal dineroEntregado, MedioPagoNav? medio)
+    public Task CierreSalidaAsync(SalidaRuta salida, VentaNav? venta, decimal dineroEntregado, IReadOnlyList<(MedioPagoNav Medio, decimal Monto)>? pagos)
         => SeguroAsync("cierre de salida", async () =>
         {
             var autorId = _currentUser.GetUsuarioId();
@@ -324,7 +324,7 @@ public class AvisosInternosNav : IAvisosInternosNav
             var cargado = salida.Cargas.Where(c => !c.Anulada).SelectMany(c => c.Detalles).Sum(d => d.Unidades);
             var devuelto = salida.Devoluciones.Where(d => !d.Anulada).SelectMany(d => d.Detalles).Sum(d => d.Unidades);
             var vendido = Math.Max(0, cargado - devuelto);
-            var medioTxt = dineroEntregado > 0 ? medio?.ToString() : null;
+            var medioTxt = dineroEntregado > 0 ? MensajesAvisosNav.TextoMedios(pagos) : null;
             int? nro = venta?.NroVenta;
             var neto = venta?.MontoNeto ?? 0;
             var desc = venta?.Descuento ?? 0;
@@ -351,7 +351,7 @@ public class AvisosInternosNav : IAvisosInternosNav
             });
         });
 
-    public Task AbonoVendedorAsync(AbonoVendedor abono) => SeguroAsync("abono de vendedor", async () =>
+    public Task AbonoVendedorAsync(AbonoVendedor abono, IReadOnlyList<(MedioPagoNav Medio, decimal Monto)>? pagos = null) => SeguroAsync("abono de vendedor", async () =>
     {
         // Saldo que le queda al vendedor en todas sus ventas de ruta (los cambios del abono ya estan guardados en la transaccion)
         var saldo = await _ventaRepo.AsQueryable().AsNoTracking()
@@ -361,7 +361,7 @@ public class AvisosInternosNav : IAvisosInternosNav
         {
             TemporadaId = abono.TemporadaId,
             Evento = EventoNotificacionNav.AbonoVendedor,
-            Mensaje = MensajesAvisosNav.AbonoVendedor(abono.Monto, abono.Descuento, abono.Medio?.ToString(), saldo),
+            Mensaje = MensajesAvisosNav.AbonoVendedor(abono.Monto, abono.Descuento, pagos is { Count: > 0 } ? MensajesAvisosNav.TextoMedios(pagos) : abono.Medio?.ToString().ToLowerInvariant(), saldo),
             Audiencia = AudienciaNotificacionNav.Vendedor,
             AudienciaId = abono.VendedorId,
             ClaveUnica = $"abono:{abono.Id}:vendedor"

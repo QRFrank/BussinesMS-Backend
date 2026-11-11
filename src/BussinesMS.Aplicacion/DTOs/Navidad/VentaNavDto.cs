@@ -190,11 +190,22 @@ public class CrearVentaNavDto
     public string? Observacion { get; set; }
     // Contado: obligatorio (monto = neto o sin monto); Crédito: pago inicial opcional (> 0 y < neto)
     public CobroInicialVentaDto? Cobro { get; set; }
+    // Opcional: pago por medio (1 o 2 líneas, un medio una sola vez). Si viene con elementos manda sobre cobro (monto/medio/comprobante); cobro.observacion se sigue usando
+    public List<PagoMedioDto>? Pagos { get; set; }
     // Opcional (false por defecto). Si es true, telefonoComprobante es obligatorio y se encola el comprobante PDF por WhatsApp a ese número
     public bool EnviarComprobante { get; set; }
     // Celular al que se envía el comprobante (solo para este envío; no se guarda en el cliente)
     public string? TelefonoComprobante { get; set; }
     public List<VentaLineaDto> Detalles { get; set; } = new();
+}
+
+// Una línea de pago por medio (pago mixto = efectivo + transferencia)
+public class PagoMedioDto
+{
+    // 1 Transferencia | 2 Efectivo
+    public MedioPagoNav Medio { get; set; }
+    public decimal Monto { get; set; }
+    public string? Comprobante { get; set; }
 }
 
 public class CobroInicialVentaDto
@@ -250,6 +261,8 @@ public class RegistrarCobroVentaDto
     public MedioPagoNav Medio { get; set; }
     public string? Comprobante { get; set; }
     public string? Observacion { get; set; }
+    // Opcional: pago por medio (1 o 2 líneas). Si viene con elementos reemplaza a monto/medio/comprobante
+    public List<PagoMedioDto>? Pagos { get; set; }
     // Opcional: tienda de la sesión donde se recibe el dinero (caja de tienda). Debe ser una tienda navideña activa
     public int? AlmacenId { get; set; }
 }

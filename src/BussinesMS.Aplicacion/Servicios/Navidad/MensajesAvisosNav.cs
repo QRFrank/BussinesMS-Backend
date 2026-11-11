@@ -38,6 +38,15 @@ public static class MensajesAvisosNav
 
     public static string Medio(string? medio) => medio?.ToLowerInvariant() ?? "";
 
+    /// <summary>Texto del medio de pago: "efectivo" / "transferencia" o, si es mixto, "efectivo Bs 100,00 + transferencia Bs 50,00". Null si no hay pagos.</summary>
+    public static string? TextoMedios(IReadOnlyList<(BussinesMS.Dominio.Enums.Navidad.MedioPagoNav Medio, decimal Monto)>? pagos)
+    {
+        if (pagos == null || pagos.Count == 0) return null;
+        if (pagos.Count == 1) return pagos[0].Medio.ToString().ToLowerInvariant();
+        return string.Join(" + ", pagos.OrderByDescending(p => p.Medio == BussinesMS.Dominio.Enums.Navidad.MedioPagoNav.Efectivo)
+            .Select(p => $"{p.Medio.ToString().ToLowerInvariant()} {Bs(p.Monto)}"));
+    }
+
     /// <summary>"120 u (10 javas)" / "125 u (10 javas + 5 u)" / "5 u" si el producto no tiene empaque.</summary>
     public static string Cantidad(int unidades, int? unidadesPorEmpaque, string? nombreEmpaque)
     {
@@ -290,7 +299,7 @@ public static class MensajesAvisosNav
             sb.AppendLine($"Monto: {Bs(montoNeto)}");
             if (descuento > 0) sb.AppendLine($"Descuento: {Bs(descuento)}");
             sb.Append($"Entregó: {Bs(entregado)}");
-            if (entregado > 0 && !string.IsNullOrEmpty(medio)) sb.Append($" ({Medio(medio)})");
+            if (entregado > 0 && !string.IsNullOrEmpty(medio)) sb.Append($" ({medio})");
             sb.AppendLine();
             sb.AppendLine($"Debe: {Bs(falta)}");
         }
@@ -311,7 +320,7 @@ public static class MensajesAvisosNav
             sb.AppendLine($"Monto: {Bs(montoNeto)}");
             if (descuento > 0) sb.AppendLine($"Descuento: {Bs(descuento)}");
             sb.Append($"Entregaste: {Bs(entregado)}");
-            if (entregado > 0 && !string.IsNullOrEmpty(medio)) sb.Append($" ({Medio(medio)})");
+            if (entregado > 0 && !string.IsNullOrEmpty(medio)) sb.Append($" ({medio})");
             sb.AppendLine();
             sb.AppendLine(falta > 0 ? $"*Te falta rendir: {Bs(falta)}*" : "No te falta rendir nada");
         }
@@ -325,7 +334,7 @@ public static class MensajesAvisosNav
         var sb = new StringBuilder();
         Encabezado(sb, "💵 Abono registrado");
         sb.Append("Monto: ").Append(Bs(monto));
-        if (monto > 0 && !string.IsNullOrEmpty(medio)) sb.Append($" ({Medio(medio)})");
+        if (monto > 0 && !string.IsNullOrEmpty(medio)) sb.Append($" ({medio})");
         sb.AppendLine();
         if (descuento > 0) sb.AppendLine($"Descuento: {Bs(descuento)}");
         sb.AppendLine(saldo > 0 ? $"Saldo que te falta rendir: {Bs(saldo)}" : "Saldo: Bs 0,00 (¡No te falta rendir nada!)");

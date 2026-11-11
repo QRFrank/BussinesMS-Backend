@@ -94,6 +94,8 @@ public class RegistrarVentaClienteRutaDto
     public decimal PagadoAhora { get; set; }
     // Obligatorio si PagadoAhora > 0
     public MedioPagoNav? Medio { get; set; }
+    // Opcional: pago por medio (1 o 2 líneas, un medio una sola vez). Si viene con elementos reemplaza a pagadoAhora/medio (el comprobante de cada línea no se guarda en cobros de ruta)
+    public List<PagoMedioDto>? Pagos { get; set; }
     // Opcional (false por defecto). Si es true, telefonoComprobante es obligatorio y se encola el comprobante PDF por WhatsApp a ese número
     public bool EnviarComprobante { get; set; }
     // Celular al que se envía el comprobante (solo para este envío; no se guarda en el cliente)
@@ -118,6 +120,8 @@ public class EditarVentaClienteRutaDto
     public decimal? PagadoAhora { get; set; }
     // Obligatorio si PagadoAhora > 0
     public MedioPagoNav? Medio { get; set; }
+    // Opcional: pago por medio. Si viene con elementos reemplaza los cobros vigentes (máx. uno por medio) y a pagadoAhora/medio
+    public List<PagoMedioDto>? Pagos { get; set; }
     public List<VentaClienteRutaLineaDto> Detalles { get; set; } = new();
 }
 
@@ -127,6 +131,8 @@ public class RegistrarCobroClienteRutaDto
     // Omitida = hoy (Bolivia)
     public DateTime? Fecha { get; set; }
     public MedioPagoNav Medio { get; set; }
+    // Opcional: pago por medio (1 o 2 líneas). Si viene con elementos reemplaza a monto/medio
+    public List<PagoMedioDto>? Pagos { get; set; }
 }
 
 // ---------- Me deben ----------

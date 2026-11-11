@@ -21,7 +21,7 @@ public class RegistrarVentaClienteRutaDtoValidator : AbstractValidator<Registrar
         RuleFor(x => x.Observacion).MaximumLength(500).WithMessage("La observación no puede superar 500 caracteres");
         RuleFor(x => x.PagadoAhora).GreaterThanOrEqualTo(0).WithMessage("Lo pagado no puede ser negativo");
         RuleFor(x => x.Medio).IsInEnum().When(x => x.Medio.HasValue).WithMessage("El medio de pago es inválido");
-        RuleFor(x => x.Medio).NotNull().When(x => x.PagadoAhora > 0).WithMessage("El medio de pago es obligatorio si hay un pago");
+        RuleFor(x => x.Medio).NotNull().When(x => x.PagadoAhora > 0 && (x.Pagos == null || x.Pagos.Count == 0)).WithMessage("El medio de pago es obligatorio si hay un pago");
         RuleFor(x => x.TelefonoComprobante).MaximumLength(30).WithMessage("El número de WhatsApp no puede superar 30 caracteres");
         RuleFor(x => x.Detalles).NotEmpty().WithMessage("Debe registrar al menos un producto");
         RuleForEach(x => x.Detalles).SetValidator(new VentaClienteRutaLineaDtoValidator());
@@ -32,7 +32,7 @@ public class RegistrarCobroClienteRutaDtoValidator : AbstractValidator<Registrar
 {
     public RegistrarCobroClienteRutaDtoValidator()
     {
-        RuleFor(x => x.Monto).GreaterThan(0).WithMessage("El monto debe ser mayor a 0");
-        RuleFor(x => x.Medio).IsInEnum().WithMessage("El medio de pago es inválido");
+        RuleFor(x => x.Monto).GreaterThan(0).WithMessage("El monto debe ser mayor a 0").When(x => x.Pagos == null || x.Pagos.Count == 0);
+        RuleFor(x => x.Medio).IsInEnum().WithMessage("El medio de pago es inválido").When(x => x.Pagos == null || x.Pagos.Count == 0);
     }
 }

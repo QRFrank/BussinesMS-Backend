@@ -388,7 +388,8 @@ public class VentaNavService : IVentaNavService
             if (!desdeCierre)
                 ValidarPrecios(dto.Detalles, productos, neto, esAdmin, await _precioAcceso.PuedeVerPreciosCompraAsync());
 
-            var cobroMonto = ResolverCobroInicial(neto, condicion, dto.Cobro);
+            var cobrosIniciales = ResolverCobroInicial(neto, condicion, dto.Cobro, dto.Pagos);
+            var cobroMonto = cobrosIniciales.Sum(c => c.Monto);
 
             var saldo = neto - cobroMonto;
             if (dto.ClienteId.HasValue)
@@ -439,14 +440,14 @@ public class VentaNavService : IVentaNavService
                     CreatedAt = ahora
                 });
 
-            if (cobroMonto > 0)
+            foreach (var c in cobrosIniciales)
                 venta.Cobros.Add(new CobroVenta
                 {
                     Fecha = hoy,
-                    Monto = cobroMonto,
-                    Medio = dto.Cobro!.Medio,
-                    Comprobante = NormalizarTexto(dto.Cobro.Comprobante),
-                    Observacion = NormalizarTexto(dto.Cobro.Observacion),
+                    Monto = c.Monto,
+                    Medio = c.Medio,
+                    Comprobante = c.Comprobante,
+                    Observacion = NormalizarTexto(dto.Cobro?.Observacion),
                     AlmacenId = dto.AlmacenId,
                     CreatedByUsuarioId = usuarioId,
                     CreatedAt = ahora
@@ -958,13 +959,22 @@ public class VentaNavService : IVentaNavService
     {
         try
         {
-            var monto = Redondear(dto.Monto);
-            if (monto <= 0)
-                throw new ValidacionException("El monto del cobro debe ser mayor a 0");
-            if (!Enum.IsDefined(dto.Medio))
-                throw new ValidacionException("El medio de pago es inválido");
-            if (dto.Comprobante != null && dto.Comprobante.Trim().Length > 100)
-                throw new ValidacionException("El comprobante no puede superar 100 caracteres");
+            // Pagos (mixto) manda sobre monto/medio/comprobante; si no viene, formato viejo (un solo cobro)
+            List<PagoMedioDto> pagosCobro;
+            if (dto.Pagos != null && dto.Pagos.Count > 0)
+                pagosCobro = NormalizarPagos(dto.Pagos).Pagos;
+            else
+            {
+                var montoUnico = Redondear(dto.Monto);
+                if (montoUnico <= 0)
+                    throw new ValidacionException("El monto del cobro debe ser mayor a 0");
+                if (!Enum.IsDefined(dto.Medio))
+                    throw new ValidacionException("El medio de pago es inválido");
+                if (dto.Comprobante != null && dto.Comprobante.Trim().Length > 100)
+                    throw new ValidacionException("El comprobante no puede superar 100 caracteres");
+                pagosCobro = new List<PagoMedioDto> { new() { Medio = dto.Medio, Monto = montoUnico, Comprobante = NormalizarTexto(dto.Comprobante) } };
+            }
+            var monto = pagosCobro.Sum(p => p.Monto);
             if (dto.Observacion != null && dto.Observacion.Trim().Length > 500)
                 throw new ValidacionException("La observación no puede superar 500 caracteres");
 
@@ -990,17 +1000,18 @@ public class VentaNavService : IVentaNavService
             await _uow.BeginTransactionAsync();
             try
             {
-                venta.Cobros.Add(new CobroVenta
-                {
-                    Fecha = BoliviaTimeZone.Now().Date,
-                    Monto = monto,
-                    Medio = dto.Medio,
-                    Comprobante = NormalizarTexto(dto.Comprobante),
-                    Observacion = NormalizarTexto(dto.Observacion),
-                    AlmacenId = dto.AlmacenId,
-                    CreatedByUsuarioId = usuarioId,
-                    CreatedAt = ahora
-                });
+                foreach (var p in pagosCobro)
+                    venta.Cobros.Add(new CobroVenta
+                    {
+                        Fecha = BoliviaTimeZone.Now().Date,
+                        Monto = p.Monto,
+                        Medio = p.Medio,
+                        Comprobante = p.Comprobante,
+                        Observacion = NormalizarTexto(dto.Observacion),
+                        AlmacenId = dto.AlmacenId,
+                        CreatedByUsuarioId = usuarioId,
+                        CreatedAt = ahora
+                    });
                 RecalcularPago(venta);
                 Tocar(venta, usuarioId, ahora);
                 await _uow.SaveChangesAsync();
@@ -1198,9 +1209,24 @@ public class VentaNavService : IVentaNavService
             throw new ValidacionException("El precio unitario no puede ser negativo");
     }
 
-    // Cobro inicial: Contado = neto (medio obligatorio); Crédito = pago inicial opcional (> 0 y < neto). Devuelve el monto cobrado al crear
-    internal static decimal ResolverCobroInicial(decimal neto, CondicionPagoVentaNav condicion, CobroInicialVentaDto? cobro)
+    // Cobro inicial: Contado = neto (medio obligatorio); Crédito = pago inicial opcional (> 0 y < neto). Devuelve los cobros a crear (Σ = monto cobrado).
+    // Con pagos (pago mixto) manda la lista; si es null/vacía rige el formato viejo (cobro único)
+    internal static List<PagoMedioDto> ResolverCobroInicial(decimal neto, CondicionPagoVentaNav condicion, CobroInicialVentaDto? cobro, List<PagoMedioDto>? pagos = null)
     {
+        if (pagos != null && pagos.Count > 0)
+        {
+            var (lista, suma) = NormalizarPagos(pagos);
+            if (neto <= 0) return new List<PagoMedioDto>();
+            if (condicion == CondicionPagoVentaNav.Contado)
+            {
+                if (suma != neto)
+                    throw new ValidacionException($"En una venta al contado la suma de los pagos debe ser igual al neto ({neto})");
+            }
+            else if (suma <= 0 || suma >= neto)
+                throw new ValidacionException($"El pago inicial debe ser mayor a 0 y menor al neto ({neto}); si se cobra todo, use contado");
+            return lista;
+        }
+
         decimal cobroMonto = 0;
         if (neto > 0)
         {
@@ -1222,7 +1248,33 @@ public class VentaNavService : IVentaNavService
         }
         if (cobro != null && !Enum.IsDefined(cobro.Medio))
             throw new ValidacionException("El medio de pago es inválido");
-        return cobroMonto;
+        return cobroMonto > 0
+            ? new List<PagoMedioDto> { new() { Medio = cobro!.Medio, Monto = cobroMonto, Comprobante = NormalizarTexto(cobro.Comprobante) } }
+            : new List<PagoMedioDto>();
+    }
+
+    // Pago mixto: 1 o 2 líneas, cada medio una sola vez, montos > 0, comprobante ≤ 100. Devuelve las líneas normalizadas y su suma
+    internal static (List<PagoMedioDto> Pagos, decimal Suma) NormalizarPagos(List<PagoMedioDto> pagos)
+    {
+        if (pagos == null || pagos.Count == 0)
+            throw new ValidacionException("Debe indicar al menos un pago");
+        if (pagos.Count > 2)
+            throw new ValidacionException("Solo se admiten hasta 2 pagos (efectivo y transferencia)");
+        if (pagos.Any(p => p == null || !Enum.IsDefined(p.Medio)))
+            throw new ValidacionException("El medio de pago es inválido");
+        if (pagos.Select(p => p.Medio).Distinct().Count() != pagos.Count)
+            throw new ValidacionException("No se puede repetir el medio de pago");
+        var lista = new List<PagoMedioDto>();
+        foreach (var p in pagos)
+        {
+            var monto = Redondear(p.Monto);
+            if (monto <= 0)
+                throw new ValidacionException("El monto de cada pago debe ser mayor a 0");
+            if (p.Comprobante != null && p.Comprobante.Trim().Length > 100)
+                throw new ValidacionException("El comprobante no puede superar 100 caracteres");
+            lista.Add(new PagoMedioDto { Medio = p.Medio, Monto = monto, Comprobante = NormalizarTexto(p.Comprobante) });
+        }
+        return (lista, lista.Sum(p => p.Monto));
     }
 
     // Total de líneas (subtotales redondeados), descuento y neto

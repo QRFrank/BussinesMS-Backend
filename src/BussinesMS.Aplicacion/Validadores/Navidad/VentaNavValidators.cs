@@ -85,9 +85,11 @@ public class RegistrarCobroVentaDtoValidator : AbstractValidator<RegistrarCobroV
     public RegistrarCobroVentaDtoValidator()
     {
         RuleFor(x => x.Monto)
-            .GreaterThan(0).WithMessage("El monto del cobro debe ser mayor a 0");
+            .GreaterThan(0).WithMessage("El monto del cobro debe ser mayor a 0")
+            .When(x => x.Pagos == null || x.Pagos.Count == 0);
         RuleFor(x => x.Medio)
-            .IsInEnum().WithMessage("El medio de pago es inválido");
+            .IsInEnum().WithMessage("El medio de pago es inválido")
+            .When(x => x.Pagos == null || x.Pagos.Count == 0);
         RuleFor(x => x.Comprobante)
             .MaximumLength(100).WithMessage("El comprobante no puede superar 100 caracteres");
         RuleFor(x => x.Observacion)
