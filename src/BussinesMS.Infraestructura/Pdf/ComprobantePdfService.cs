@@ -66,9 +66,9 @@ public class ComprobantePdfService : IComprobantePdfService
                     // Monto negativo = devolución de la diferencia al cliente (al editar la venta)
                     foreach (var p in d.Pagos)
                         if (p.Monto < 0)
-                            Fila(col, string.IsNullOrEmpty(p.Medio) ? "Devuelto" : $"Devuelto ({p.Medio.ToLowerInvariant()})", "- Bs " + N(-p.Monto));
+                            Fila(col, string.IsNullOrEmpty(p.Medio) ? $"Devuelto {p.Fecha:dd/MM}" : $"Devuelto {p.Fecha:dd/MM} ({p.Medio.ToLowerInvariant()})", "- Bs " + N(-p.Monto));
                         else
-                            Fila(col, string.IsNullOrEmpty(p.Medio) ? "Pagado" : $"Pagado ({p.Medio.ToLowerInvariant()})", "Bs " + N(p.Monto));
+                            Fila(col, string.IsNullOrEmpty(p.Medio) ? $"Pagado {p.Fecha:dd/MM}" : $"Pagado {p.Fecha:dd/MM} ({p.Medio.ToLowerInvariant()})", "Bs " + N(p.Monto));
                     if (d.Pagos.Count == 0 && d.Cobrado > 0)
                         Fila(col, "Pagado", "Bs " + N(d.Cobrado));
                     Fila(col, "Saldo", "Bs " + N(d.Saldo), negrita: d.Saldo > 0);
