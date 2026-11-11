@@ -110,6 +110,7 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
             var entidades = await filteredQuery.ToListAsync();
 
             var ids = entidades.Select(e => e.Id).ToList();
+            var abiertas = await SalidasAbiertasAsync(entidades.Where(e => e.SalidaRutaId.HasValue).Select(e => e.SalidaRutaId!.Value));
             var lineas = ids.Count == 0
                 ? new Dictionary<int, int>()
                 : (await _repo.AsQueryable().AsNoTracking()
@@ -127,6 +128,7 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
                     ClienteId = e.ClienteId,
                     ClienteNombre = e.Cliente?.Nombre ?? string.Empty,
                     SalidaRutaId = e.SalidaRutaId,
+                    SalidaAbierta = e.SalidaRutaId.HasValue && abiertas.Contains(e.SalidaRutaId.Value),
                     Total = e.Total,
                     Pagado = e.Pagado,
                     Saldo = e.Saldo,
@@ -153,7 +155,9 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
             if (venta == null || !venta.IsActive)
                 throw new EntidadNoEncontradaException("Venta a cliente", id);
             await ExigirDuenoAsync(venta);
-            return Mapear(venta);
+            var dtoVenta = Mapear(venta);
+            dtoVenta.SalidaAbierta = venta.SalidaRutaId.HasValue && (await SalidasAbiertasAsync(new[] { venta.SalidaRutaId.Value })).Count > 0;
+            return dtoVenta;
         }
         catch (Exception ex)
         {
@@ -268,7 +272,11 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
                 if (!productos[l.ProductoId].IsActive)
                     throw new ValidacionException($"El producto {NombreMostrar(productos[l.ProductoId])} está inactivo");
 
-            var salida = await ResolverSalidaAsync(temporada.Id, vendedor.Id, dto.SalidaRutaId);
+            // SinSalida = venta fuera de ruta; si no, la salida indicada (debe estar abierta) o la abierta del vendedor
+            var salida = dto.SinSalida ? null : await ResolverSalidaAsync(temporada.Id, vendedor.Id, dto.SalidaRutaId);
+            // Una venta en ruta no puede superar lo que el vendedor tiene en poder
+            if (salida != null)
+                await VerificarEnPoderAsync(salida.Id, vendedor.Id, dto.Detalles, productos, null);
 
             var usuarioId = _currentUser.ObtenerUsuarioIdRequerido();
             var ahora = DateTime.UtcNow;
@@ -338,9 +346,7 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
 
             var resultado = await ObtenerPorIdAsync(venta.Id);
             resultado.ComprobanteEncolado = comprobanteEncolado;
-            resultado.Avisos = salida != null && salida.Estado == EstadoSalidaRuta.Abierta
-                ? await CalcularAvisosAsync(salida.Id, vendedor.Id, dto.Detalles.Select(d => d.ProductoId).ToList(), productos)
-                : new List<string>();
+            resultado.Avisos = new List<string>();
 
             _logger.LogInformation("Venta a cliente de ruta registrada: {Id}, vendedor {VendedorId}", venta.Id, vendedor.Id);
             return resultado;
@@ -458,7 +464,7 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
             throw new ValidacionException("El medio de pago es inválido");
     }
 
-    // Salida indicada (debe ser suya) o, si se omite, su salida Abierta (si no hay, null)
+    // Salida indicada (debe ser suya y estar abierta) o, si se omite, su salida Abierta (si no hay, null)
     private async Task<SalidaRuta?> ResolverSalidaAsync(int temporadaId, int vendedorId, int? salidaRutaId)
     {
         if (salidaRutaId.HasValue && salidaRutaId.Value > 0)
@@ -473,6 +479,8 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
                 throw new ValidacionException("La salida indicada no es de la temporada");
             if (salida.Estado == EstadoSalidaRuta.Anulada)
                 throw new ValidacionException("La salida indicada está anulada");
+            if (salida.Estado != EstadoSalidaRuta.Abierta)
+                throw new ValidacionException("La salida indicada no está abierta");
             return salida;
         }
 
@@ -480,41 +488,138 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
             .FirstOrDefaultAsync(s => s.IsActive && s.TemporadaId == temporadaId && s.VendedorId == vendedorId && s.Estado == EstadoSalidaRuta.Abierta);
     }
 
-    // Avisos (nunca bloquean): por producto, Σ unidades de sus ventas no anuladas de la salida > cargado - devuelto vigentes
-    private async Task<List<string>> CalcularAvisosAsync(int salidaId, int vendedorId, IReadOnlyCollection<int> productoIds,
-        Dictionary<int, Producto> productos)
+    // Cargado / devuelto / registrado por producto de una salida (registrado = ventas vigentes del vendedor en la salida, sin contar excluirVentaId).
+    // productoIds null = todos los productos
+    private async Task<(Dictionary<int, int> Cargado, Dictionary<int, int> Devuelto, Dictionary<int, int> Registrado)> ObtenerEnPoderAsync(
+        int salidaId, int vendedorId, IReadOnlyCollection<int>? productoIds, int? excluirVentaId)
     {
         var cargado = (await _cargaRepo.AsQueryable().AsNoTracking()
                 .Where(c => c.SalidaRutaId == salidaId && !c.Anulada)
                 .SelectMany(c => c.Detalles)
-                .Where(d => productoIds.Contains(d.ProductoId))
+                .Where(d => productoIds == null || productoIds.Contains(d.ProductoId))
                 .Select(d => new { d.ProductoId, d.Unidades })
                 .ToListAsync())
             .GroupBy(x => x.ProductoId).ToDictionary(g => g.Key, g => g.Sum(x => x.Unidades));
         var devuelto = (await _devolucionRepo.AsQueryable().AsNoTracking()
                 .Where(d => d.SalidaRutaId == salidaId && !d.Anulada)
                 .SelectMany(d => d.Detalles)
-                .Where(x => productoIds.Contains(x.ProductoId))
+                .Where(x => productoIds == null || productoIds.Contains(x.ProductoId))
                 .Select(x => new { x.ProductoId, x.Unidades })
                 .ToListAsync())
             .GroupBy(x => x.ProductoId).ToDictionary(g => g.Key, g => g.Sum(x => x.Unidades));
         var registrado = (await _repo.AsQueryable().AsNoTracking()
-                .Where(v => v.IsActive && !v.Anulada && v.SalidaRutaId == salidaId && v.VendedorId == vendedorId)
+                .Where(v => v.IsActive && !v.Anulada && v.SalidaRutaId == salidaId && v.VendedorId == vendedorId
+                    && (!excluirVentaId.HasValue || v.Id != excluirVentaId.Value))
                 .SelectMany(v => v.Detalles)
-                .Where(d => productoIds.Contains(d.ProductoId))
+                .Where(d => productoIds == null || productoIds.Contains(d.ProductoId))
                 .Select(d => new { d.ProductoId, d.Unidades })
                 .ToListAsync())
             .GroupBy(x => x.ProductoId).ToDictionary(g => g.Key, g => g.Sum(x => x.Unidades));
+        return (cargado, devuelto, registrado);
+    }
 
-        var avisos = new List<string>();
-        foreach (var productoId in productoIds)
+    // Bloqueo (salida abierta): por producto, registrado en las otras ventas de la salida + unidades de esta venta <= cargado - devuelto
+    private async Task VerificarEnPoderAsync(int salidaId, int vendedorId, IReadOnlyCollection<VentaClienteRutaLineaDto> detalles,
+        Dictionary<int, Producto> productos, int? excluirVentaId)
+    {
+        var ids = detalles.Select(d => d.ProductoId).ToList();
+        var (cargado, devuelto, registrado) = await ObtenerEnPoderAsync(salidaId, vendedorId, ids, excluirVentaId);
+        var errores = new List<string>();
+        foreach (var l in detalles)
         {
-            var enPoder = cargado.GetValueOrDefault(productoId) - devuelto.GetValueOrDefault(productoId);
-            var vendidas = registrado.GetValueOrDefault(productoId);
+            var enPoder = cargado.GetValueOrDefault(l.ProductoId) - devuelto.GetValueOrDefault(l.ProductoId);
+            var vendidas = registrado.GetValueOrDefault(l.ProductoId) + l.Unidades;
             if (vendidas > enPoder)
-                avisos.Add($"{NombreMostrar(productos[productoId])}: registraste {vendidas} unidades en esta salida y solo tenés {Math.Max(enPoder, 0)} en poder");
+                errores.Add($"{NombreMostrar(productos[l.ProductoId])}: registraste {vendidas} unidades en esta salida y solo tenés {Math.Max(enPoder, 0)} en poder");
         }
-        return avisos;
+        if (errores.Count > 0)
+            throw new ValidacionException(string.Join("; ", errores));
+    }
+
+    // Salidas (de las indicadas) que siguen Abiertas
+    private async Task<HashSet<int>> SalidasAbiertasAsync(IEnumerable<int> salidaIds)
+    {
+        var ids = salidaIds.Distinct().ToList();
+        if (ids.Count == 0) return new HashSet<int>();
+        return (await _salidaRepo.AsQueryable().AsNoTracking()
+                .Where(s => ids.Contains(s.Id) && s.Estado == EstadoSalidaRuta.Abierta)
+                .Select(s => s.Id)
+                .ToListAsync())
+            .ToHashSet();
+    }
+
+    // Ayuda de la pantalla: cargado/devuelto/en poder/registrado por producto de la salida (la abierta del vendedor si no se indica). Null si no hay
+    public async Task<MisVentasSalidaResumenDto?> ObtenerResumenSalidaAsync(int? salidaId, int? excluirVentaId)
+    {
+        try
+        {
+            SalidaRuta? salida;
+            Vendedor vendedor;
+            if (salidaId.HasValue && salidaId.Value > 0)
+            {
+                salida = await _salidaRepo.AsQueryable().AsNoTracking().FirstOrDefaultAsync(s => s.Id == salidaId.Value);
+                if (salida == null || !salida.IsActive)
+                    throw new EntidadNoEncontradaException("Salida de ruta", salidaId.Value);
+                vendedor = await ObtenerVendedorAsync(salida.TemporadaId);
+                if (salida.VendedorId != vendedor.Id)
+                    throw SinPermiso("Solo puede consultar sus propias salidas");
+            }
+            else
+            {
+                var temporadaId = await _temporadaActual.ResolverTemporadaIdAsync(null);
+                vendedor = await ObtenerVendedorAsync(temporadaId);
+                salida = await ResolverSalidaAsync(temporadaId, vendedor.Id, null);
+                if (salida == null) return null;
+            }
+
+            var (cargado, devuelto, registrado) = await ObtenerEnPoderAsync(salida.Id, vendedor.Id, null, excluirVentaId);
+            var productos = cargado.Count == 0
+                ? new Dictionary<int, Producto>()
+                : await _ventas.CargarProductosAsync(salida.TemporadaId, cargado.Keys);
+            var totalRegistrado = (await _repo.AsQueryable().AsNoTracking()
+                    .Where(v => v.IsActive && !v.Anulada && v.SalidaRutaId == salida.Id && v.VendedorId == vendedor.Id
+                        && (!excluirVentaId.HasValue || v.Id != excluirVentaId.Value))
+                    .Select(v => v.Total)
+                    .ToListAsync())
+                .Sum();
+
+            return new MisVentasSalidaResumenDto
+            {
+                SalidaRutaId = salida.Id,
+                FechaApertura = salida.FechaApertura,
+                Estado = (int)salida.Estado,
+                EstadoNombre = salida.Estado.ToString(),
+                TotalRegistrado = totalRegistrado,
+                Productos = cargado.Keys
+                    .Select(pid =>
+                    {
+                        var p = productos[pid];
+                        var enPoder = cargado.GetValueOrDefault(pid) - devuelto.GetValueOrDefault(pid);
+                        var reg = registrado.GetValueOrDefault(pid);
+                        return new MisVentasSalidaProductoDto
+                        {
+                            ProductoId = pid,
+                            ProductoNombreMostrar = NombreMostrar(p),
+                            Color = p.Color,
+                            UnidadesPorEmpaque = p.UnidadesPorEmpaque,
+                            NombreEmpaque = p.NombreEmpaque,
+                            PrecioCatalogo = p.PrecioCatalogo,
+                            Cargado = cargado.GetValueOrDefault(pid),
+                            Devuelto = devuelto.GetValueOrDefault(pid),
+                            EnPoder = enPoder,
+                            Registrado = reg,
+                            Disponible = Math.Max(0, enPoder - reg)
+                        };
+                    })
+                    .OrderBy(x => x.ProductoNombreMostrar, StringComparer.CurrentCultureIgnoreCase)
+                    .ToList()
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener el resumen de la salida");
+            throw;
+        }
     }
 
     // ================= Editar =================
@@ -542,6 +647,32 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
                 if (!existentes.TryGetValue(l.ProductoId, out var previa) || !previa.IsActive || l.Unidades > previa.Unidades)
                     throw new ValidacionException($"El producto {NombreMostrar(p)} está inactivo");
             }
+
+            // Vínculo con la salida: solo cambia si dto.SinSalida pide un estado distinto del actual
+            var nuevaSalidaId = venta.SalidaRutaId;
+            SalidaRuta? salidaActual = venta.SalidaRutaId.HasValue
+                ? await _salidaRepo.AsQueryable().AsNoTracking().FirstOrDefaultAsync(s => s.Id == venta.SalidaRutaId.Value)
+                : null;
+            if (dto.SinSalida.HasValue && dto.SinSalida.Value == venta.SalidaRutaId.HasValue)
+            {
+                if (salidaActual != null && salidaActual.Estado != EstadoSalidaRuta.Abierta)
+                    throw new ExcepcionDominio("La salida de la venta ya no está abierta: no se puede cambiar el vínculo", 409, "SALIDA_CERRADA");
+                if (dto.SinSalida.Value)
+                {
+                    nuevaSalidaId = null;
+                    salidaActual = null;
+                }
+                else
+                {
+                    var abierta = await ResolverSalidaAsync(venta.TemporadaId, venta.VendedorId, null)
+                        ?? throw new ValidacionException("No tenés una salida abierta para vincular la venta");
+                    nuevaSalidaId = abierta.Id;
+                    salidaActual = abierta;
+                }
+            }
+            // Una venta en ruta (salida abierta) no puede superar lo que el vendedor tiene en poder
+            if (nuevaSalidaId.HasValue && salidaActual != null && salidaActual.Estado == EstadoSalidaRuta.Abierta)
+                await VerificarEnPoderAsync(nuevaSalidaId.Value, venta.VendedorId, dto.Detalles, productos, venta.Id);
 
             var total = Redondear(dto.Detalles.Sum(l => Redondear(l.Unidades * l.PrecioUnitario)));
             var cobrosVigentes = venta.Cobros.Where(c => c.IsActive && !c.Anulado).ToList();
@@ -586,6 +717,11 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
             {
                 venta.ClienteId = dto.ClienteId;
                 venta.Cliente = null;
+                if (venta.SalidaRutaId != nuevaSalidaId)
+                {
+                    venta.SalidaRutaId = nuevaSalidaId;
+                    venta.SalidaRuta = null;
+                }
                 if (dto.Fecha.HasValue) venta.Fecha = dto.Fecha.Value.Date;
                 venta.Observacion = NormalizarTexto(dto.Observacion);
 

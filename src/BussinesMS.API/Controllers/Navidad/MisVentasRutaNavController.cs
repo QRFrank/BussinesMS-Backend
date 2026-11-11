@@ -31,6 +31,11 @@ public class MisVentasRutaNavController : BaseController
     public async Task<IActionResult> ObtenerMeDeben([FromQuery] int? temporadaId)
         => RespuestaOk(await _servicio.ObtenerMeDebenAsync(temporadaId));
 
+    // Ayuda de la pantalla: en poder y disponible por producto de la salida abierta (o la indicada); data null si no hay salida abierta
+    [HttpGet("salidas/resumen")]
+    public async Task<IActionResult> ObtenerResumenSalida([FromQuery] int? salidaId, [FromQuery] int? excluirVentaId)
+        => RespuestaOk(await _servicio.ObtenerResumenSalidaAsync(salidaId, excluirVentaId));
+
     // Ayuda del cierre: total registrado de ventas a clientes de una salida propia
     [HttpGet("salidas/{salidaId:int}/total-registrado")]
     public async Task<IActionResult> ObtenerTotalRegistradoSalida(int salidaId)

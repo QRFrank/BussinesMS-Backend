@@ -17,4 +17,6 @@ public interface IVentaClienteRutaNavService
     Task<ComprobanteEncoladoDto> ReenviarComprobanteAsync(int id, string? telefono);
     Task<MisVentasMeDebenDto> ObtenerMeDebenAsync(int? temporadaId);
     Task<MisVentasTotalSalidaDto> ObtenerTotalRegistradoSalidaAsync(int salidaId);
+    // Cargado/devuelto/en poder/registrado por producto de la salida (la abierta del vendedor si no se indica; null si no tiene)
+    Task<MisVentasSalidaResumenDto?> ObtenerResumenSalidaAsync(int? salidaId, int? excluirVentaId);
 }
