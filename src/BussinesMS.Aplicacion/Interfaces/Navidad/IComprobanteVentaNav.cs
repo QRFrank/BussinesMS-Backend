@@ -2,7 +2,7 @@ namespace BussinesMS.Aplicacion.Interfaces.Navidad;
 
 public record ComprobanteLineaNav(string Producto, int Unidades, decimal PrecioUnitario, decimal Subtotal);
 
-public record ComprobantePagoNav(string Medio, decimal Monto, DateTime Fecha);
+public record ComprobantePagoNav(string Medio, decimal Monto);
 
 /// <summary>Datos de una venta para el comprobante (sin precios de compra ni costos). Fecha en hora de Bolivia.</summary>
 public class ComprobanteVentaDatos

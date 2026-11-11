@@ -54,7 +54,7 @@ public class ComprobanteVentaDatosService : IComprobanteVentaDatosService
             Cobrado = v.MontoCobrado,
             Saldo = v.MontoSaldo,
             Pagos = v.Cobros.Where(c => !c.Anulado).OrderBy(c => c.Id)
-                .Select(c => new ComprobantePagoNav(c.Medio.ToString(), c.Monto, c.Fecha)).ToList()
+                .Select(c => new ComprobantePagoNav(c.Medio.ToString(), c.Monto)).ToList()
         };
     }
 }

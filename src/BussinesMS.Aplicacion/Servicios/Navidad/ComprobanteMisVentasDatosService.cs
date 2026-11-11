@@ -46,7 +46,7 @@ public class ComprobanteMisVentasDatosService : IComprobanteMisVentasDatosServic
             Cobrado = v.Pagado,
             Saldo = v.Saldo,
             Pagos = v.Cobros.Where(c => c.IsActive && !c.Anulado).OrderBy(c => c.Fecha).ThenBy(c => c.Id)
-                .Select(c => new ComprobantePagoNav(c.Medio?.ToString() ?? "", c.Monto, c.Fecha)).ToList()
+                .Select(c => new ComprobantePagoNav(c.Medio?.ToString() ?? "", c.Monto)).ToList()
         };
     }
 }
