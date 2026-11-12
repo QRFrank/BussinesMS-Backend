@@ -213,6 +213,55 @@ public static class MensajesAvisosNav
         return Cerrar(sb);
     }
 
+    // ---------- Ventas y reservas de tienda (a los encargados de la tienda; sin productos) ----------
+
+    public static string VentaTienda(bool reserva, int nroVenta, string tienda, DateTime fecha, string vendedor,
+        decimal montoNeto, decimal descuento, bool credito, decimal pagado, string? medios, decimal saldo)
+    {
+        var sb = new StringBuilder();
+        Encabezado(sb, $"{(reserva ? "📝 Reserva" : "🛍️ Venta")} N° {nroVenta} — {tienda}");
+        sb.AppendLine($"Fecha: {Fecha(fecha)}");
+        sb.AppendLine($"Vendedor: {vendedor}");
+        sb.Append($"Total: {Bs(montoNeto)}");
+        if (descuento > 0) sb.Append($" (con descuento de {Bs(descuento)})");
+        sb.AppendLine();
+        sb.AppendLine($"Condición: {(credito ? "Crédito" : "Contado")}");
+        sb.Append($"Pagado: {Bs(pagado)}");
+        if (pagado > 0 && !string.IsNullOrEmpty(medios)) sb.Append($" ({medios})");
+        sb.AppendLine();
+        if (credito || saldo > 0) sb.AppendLine($"Saldo: {Bs(saldo)}");
+        return Cerrar(sb);
+    }
+
+    // ---------- Consumos ----------
+
+    public static string ConsumoAdmin(int consumoId, DateTime fecha, string almacen, string usuario, string motivo,
+        string? observacion, IEnumerable<LineaAviso> productos, int totalUnidades)
+    {
+        var sb = new StringBuilder();
+        Encabezado(sb, $"🍽️ Consumo N° {consumoId} — {Dia(fecha)}");
+        sb.AppendLine($"Almacén: {almacen}");
+        sb.AppendLine($"Registró: {usuario}");
+        sb.AppendLine($"Motivo: {motivo}");
+        if (!string.IsNullOrWhiteSpace(observacion)) sb.AppendLine($"Descripción: {observacion}");
+        sb.AppendLine($"Total: {totalUnidades} u");
+        AgregarProductos(sb, productos);
+        return Cerrar(sb);
+    }
+
+    public static string ConsumoAlmacen(int consumoId, DateTime fecha, string almacen, string usuario, string motivo,
+        string? observacion, IEnumerable<LineaAviso> productos, int totalUnidades)
+    {
+        var sb = new StringBuilder();
+        Encabezado(sb, $"🍽️ Consumo en el {almacen}: {totalUnidades} u — {Dia(fecha)}");
+        sb.AppendLine($"Consumo N°: {consumoId}");
+        sb.AppendLine($"Registró: {usuario}");
+        sb.AppendLine($"Motivo: {motivo}");
+        if (!string.IsNullOrWhiteSpace(observacion)) sb.AppendLine($"Descripción: {observacion}");
+        AgregarProductos(sb, productos);
+        return Cerrar(sb);
+    }
+
     // ---------- Ruta ----------
 
     public static string CargaVendedor(int salidaId, DateTime fecha, IEnumerable<LineaAviso> productos, int totalCarga, int enPoder)

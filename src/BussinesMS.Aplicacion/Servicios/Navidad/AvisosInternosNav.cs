@@ -420,6 +420,75 @@ public class AvisosInternosNav : IAvisosInternosNav
         });
     });
 
+    // ================= Ventas y reservas de tienda =================
+
+    public Task VentaTiendaAsync(VentaNav venta) => SeguroAsync("venta de tienda", async () =>
+    {
+        if (!venta.AlmacenId.HasValue) return;
+        var autorId = _currentUser.GetUsuarioId();
+        var almacenId = venta.AlmacenId.Value;
+        var tienda = (await NombresAlmacenAsync(new[] { almacenId })).GetValueOrDefault(almacenId, $"#{almacenId}");
+        var vendedor = await NombreVendedorAsync(venta.VendedorId);
+        var pagos = venta.Cobros
+            .GroupBy(c => c.Medio)
+            .Select(g => (Medio: g.Key, Monto: g.Sum(x => x.Monto)))
+            .ToList();
+        var reserva = venta.Tipo == TipoVentaNav.Reserva;
+        await _notificador.EncolarAsync(new NuevaNotificacionNav
+        {
+            TemporadaId = venta.TemporadaId,
+            Evento = EventoNotificacionNav.VentaTiendaAlmacen,
+            Mensaje = MensajesAvisosNav.VentaTienda(reserva, venta.NroVenta, tienda, BoliviaTimeZone.Now(), vendedor,
+                venta.MontoNeto, venta.Descuento, venta.CondicionPago == CondicionPagoVentaNav.Credito,
+                venta.MontoCobrado, MensajesAvisosNav.TextoMedios(pagos), venta.MontoSaldo),
+            Audiencia = AudienciaNotificacionNav.EncargadosAlmacen,
+            AudienciaId = almacenId,
+            ExcluirUsuarioId = autorId,
+            ClaveUnica = $"venta:{venta.Id}:almacen:{almacenId}"
+        });
+    });
+
+    // ================= Consumos =================
+
+    public Task ConsumoAsync(ConsumoNav consumo) => SeguroAsync("consumo", async () =>
+    {
+        var autorId = _currentUser.GetUsuarioId();
+        var detalles = consumo.Detalles.Where(d => d.Unidades > 0).ToList();
+        if (detalles.Count == 0) return;
+
+        var almacen = (await NombresAlmacenAsync(new[] { consumo.AlmacenId })).GetValueOrDefault(consumo.AlmacenId, $"#{consumo.AlmacenId}");
+        var productos = await ProductosAsync(detalles.Select(d => d.ProductoId));
+        var usuario = await NombreUsuarioAsync(consumo.UsuarioId);
+        var lineas = detalles.GroupBy(d => d.ProductoId).Select(g => Linea(productos, g.Key, g.Sum(x => x.Unidades))).ToList();
+        var total = lineas.Sum(l => l.Unidades);
+        var motivo = consumo.Motivo switch
+        {
+            MotivoConsumoNav.Propio => "propio",
+            MotivoConsumoNav.Invitacion => "invitación",
+            _ => "otro"
+        };
+
+        await _notificador.EncolarAsync(new NuevaNotificacionNav
+        {
+            TemporadaId = consumo.TemporadaId,
+            Evento = EventoNotificacionNav.ConsumoAdmin,
+            Mensaje = MensajesAvisosNav.ConsumoAdmin(consumo.Id, consumo.Fecha, almacen, usuario, motivo, consumo.Observacion, lineas, total),
+            Audiencia = AudienciaNotificacionNav.Admins,
+            ExcluirUsuarioId = autorId,
+            ClaveUnica = $"consumo:{consumo.Id}:admins"
+        });
+        await _notificador.EncolarAsync(new NuevaNotificacionNav
+        {
+            TemporadaId = consumo.TemporadaId,
+            Evento = EventoNotificacionNav.ConsumoAlmacen,
+            Mensaje = MensajesAvisosNav.ConsumoAlmacen(consumo.Id, consumo.Fecha, almacen, usuario, motivo, consumo.Observacion, lineas, total),
+            Audiencia = AudienciaNotificacionNav.EncargadosAlmacen,
+            AudienciaId = consumo.AlmacenId,
+            ExcluirUsuarioId = autorId,
+            ClaveUnica = $"consumo:{consumo.Id}:almacen:{consumo.AlmacenId}"
+        });
+    });
+
     // ================= Anulaciones =================
 
     public Task AnulacionAsync(AnulacionAviso a) => SeguroAsync("anulacion", async () =>

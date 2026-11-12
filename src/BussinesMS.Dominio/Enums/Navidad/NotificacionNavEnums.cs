@@ -28,7 +28,12 @@ public enum EventoNotificacionNav
     TrasladoIngresoAlmacen = 33,
     // Compra registrada: aviso a admins y a encargados de cada almacén de destino (igual que la recepción)
     CompraAdmin = 34,
-    CompraAlmacen = 35
+    CompraAlmacen = 35,
+    // Venta directa o reserva hecha en una tienda: aviso solo a los encargados de esa tienda
+    VentaTiendaAlmacen = 36,
+    // Consumo registrado: aviso a admins y a encargados del almacén del consumo
+    ConsumoAdmin = 37,
+    ConsumoAlmacen = 38
 }
 
 public enum AudienciaNotificacionNav

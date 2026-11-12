@@ -497,6 +497,9 @@ public class VentaNavService : IVentaNavService
                 if (telefonoComprobante != null)
                     comprobanteEncolado = await EncolarComprobanteSeguroAsync(creada, telefonoComprobante, $"comprobante-venta:{creada.Id}");
 
+                // Aviso a los encargados de la tienda (el faltante "Venta no registrada" del cierre de conteo no avisa)
+                if (!desdeCierre) await _avisos.VentaTiendaAsync(creada);
+
                 if (!desdeCierre) await _uow.CommitAsync();
             }
             catch
@@ -934,7 +937,8 @@ public class VentaNavService : IVentaNavService
                 Tocar(venta, usuarioId, ahora);
                 await _uow.SaveChangesAsync();
                 await _avisos.AnulacionAsync(new AnulacionAviso(venta.TemporadaId, "Entrega de reserva", $"Reserva N° {venta.NroVenta}",
-                    $"entrega:{entregaId}", $"{entrega.Detalles.Sum(x => x.Unidades)} u vuelven al almacén"));
+                    $"entrega:{entregaId}", $"{entrega.Detalles.Sum(x => x.Unidades)} u vuelven al almacén",
+                    null, new[] { entrega.AlmacenId }));
                 await _uow.CommitAsync();
             }
             catch
@@ -1072,7 +1076,8 @@ public class VentaNavService : IVentaNavService
                 Tocar(venta, usuarioId, ahora);
                 await _uow.SaveChangesAsync();
                 await _avisos.AnulacionAsync(new AnulacionAviso(venta.TemporadaId, "Cobro de venta", $"{(venta.Tipo == TipoVentaNav.Reserva ? "Reserva" : "Venta")} N° {venta.NroVenta}",
-                    $"cobro:{cobroId}", $"{MensajesAvisosNav.Bs(cobro.Monto)} ({cobro.Medio.ToString().ToLowerInvariant()}) · saldo ahora {MensajesAvisosNav.Bs(venta.MontoSaldo)}"));
+                    $"cobro:{cobroId}", $"{MensajesAvisosNav.Bs(cobro.Monto)} ({cobro.Medio.ToString().ToLowerInvariant()}) · saldo ahora {MensajesAvisosNav.Bs(venta.MontoSaldo)}",
+                    null, venta.AlmacenId.HasValue ? new[] { venta.AlmacenId.Value } : null));
                 await _uow.CommitAsync();
             }
             catch
@@ -1116,6 +1121,11 @@ public class VentaNavService : IVentaNavService
             await _uow.BeginTransactionAsync();
             try
             {
+                // Almacenes a avisar: el de la venta y los de sus entregas vigentes (a donde vuelve el stock)
+                var almacenesAviso = venta.Entregas.Where(e => !e.Anulada).Select(e => e.AlmacenId)
+                    .Concat(venta.AlmacenId.HasValue ? new[] { venta.AlmacenId.Value } : Array.Empty<int>())
+                    .Distinct().ToList();
+
                 // Entregas: el stock vuelve a su almacén
                 foreach (var entrega in venta.Entregas.Where(e => !e.Anulada))
                 {
@@ -1144,7 +1154,8 @@ public class VentaNavService : IVentaNavService
                 Tocar(venta, usuarioId, ahora);
                 await _uow.SaveChangesAsync();
                 await _avisos.AnulacionAsync(new AnulacionAviso(venta.TemporadaId, venta.Tipo == TipoVentaNav.Reserva ? "Reserva" : "Venta",
-                    $"N° {venta.NroVenta}", $"venta:{venta.Id}", $"Total {MensajesAvisosNav.Bs(venta.MontoNeto)}"));
+                    $"N° {venta.NroVenta}", $"venta:{venta.Id}", $"Total {MensajesAvisosNav.Bs(venta.MontoNeto)}",
+                    null, almacenesAviso));
                 await _uow.CommitAsync();
             }
             catch

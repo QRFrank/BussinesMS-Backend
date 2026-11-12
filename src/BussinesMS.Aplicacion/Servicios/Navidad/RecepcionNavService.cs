@@ -371,7 +371,8 @@ public class RecepcionNavService : IRecepcionNavService
                 await _avisos.AnulacionAsync(new AnulacionAviso(recepcion.TemporadaId, "Recepción", $"N° {recepcion.Id}",
                     $"recepcion:{recepcion.Id}",
                     $"Fecha {recepcion.Fecha:dd/MM/yyyy}" + (recepcion.NroFactura != null ? $" · Factura {recepcion.NroFactura}" : "")
-                    + $" · {recepcion.Detalles.Sum(d => d.CantidadUnidades)} u"));
+                    + $" · {recepcion.Detalles.Sum(d => d.CantidadUnidades)} u",
+                    null, aRevertir.Select(x => x.AlmacenId).Distinct().ToList()));
 
                 await _uow.CommitAsync();
             }

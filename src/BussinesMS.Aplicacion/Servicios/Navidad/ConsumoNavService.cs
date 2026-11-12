@@ -236,6 +236,8 @@ public class ConsumoNavService : IConsumoNavService
                     await _stock.RegistrarSalidaAsync(temporada.Id, creado.AlmacenId, d.ProductoId, d.Unidades,
                         TipoMovimientoNav.Consumo, ReferenciaConsumo, creado.Id, creado.Observacion);
 
+                await _avisos.ConsumoAsync(creado);
+
                 await _uow.CommitAsync();
             }
             catch
@@ -284,7 +286,8 @@ public class ConsumoNavService : IConsumoNavService
                 await _repo.ActualizarAsync(entidad);
 
                 await _avisos.AnulacionAsync(new AnulacionAviso(consumo.TemporadaId, "Consumo", $"N° {consumo.Id}", $"consumo:{consumo.Id}",
-                    $"{consumo.Detalles.Sum(d => d.Unidades)} u · motivo {consumo.Motivo}"));
+                    $"{consumo.Detalles.Sum(d => d.Unidades)} u · motivo {consumo.Motivo}",
+                    null, new[] { consumo.AlmacenId }));
 
                 await _uow.CommitAsync();
             }

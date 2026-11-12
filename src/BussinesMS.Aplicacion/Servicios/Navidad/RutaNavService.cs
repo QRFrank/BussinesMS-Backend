@@ -775,7 +775,8 @@ public class RutaNavService : IRutaNavService
                 Tocar(salida, usuarioId, ahora);
                 await _uow.SaveChangesAsync();
                 await _avisos.AnulacionAsync(new AnulacionAviso(salida.TemporadaId, "Carga de ruta", $"Salida N° {salida.Id}",
-                    $"carga-ruta:{carga.Id}", $"{carga.Detalles.Sum(d => d.Unidades)} u devueltas a los almacenes", salida.VendedorId));
+                    $"carga-ruta:{carga.Id}", $"{carga.Detalles.Sum(d => d.Unidades)} u devueltas a los almacenes", salida.VendedorId,
+                    carga.Detalles.Select(d => d.AlmacenOrigenId).Distinct().ToList()));
                 await _uow.CommitAsync();
             }
             catch
@@ -833,7 +834,8 @@ public class RutaNavService : IRutaNavService
                 Tocar(salida, usuarioId, ahora);
                 await _uow.SaveChangesAsync();
                 await _avisos.AnulacionAsync(new AnulacionAviso(salida.TemporadaId, "Devolución de ruta", $"Salida N° {salida.Id}",
-                    $"devolucion-ruta:{devolucion.Id}", $"{devolucion.Detalles.Sum(d => d.Unidades)} u vuelven a quedar en poder del vendedor", salida.VendedorId));
+                    $"devolucion-ruta:{devolucion.Id}", $"{devolucion.Detalles.Sum(d => d.Unidades)} u vuelven a quedar en poder del vendedor", salida.VendedorId,
+                    devolucion.Detalles.Select(d => d.AlmacenDestinoId).Distinct().ToList()));
                 await _uow.CommitAsync();
             }
             catch
@@ -960,7 +962,8 @@ public class RutaNavService : IRutaNavService
                 await _uow.SaveChangesAsync();
                 await _avisos.AnulacionAsync(new AnulacionAviso(salida.TemporadaId, "Salida de ruta", $"Salida N° {salida.Id}",
                     $"salida-ruta:{salida.Id}", $"{cargas.SelectMany(c => c.Detalles).Sum(d => d.Unidades)} u devueltas a los almacenes",
-                    salida.VendedorId));
+                    salida.VendedorId,
+                    cargas.SelectMany(c => c.Detalles).Select(d => d.AlmacenOrigenId).Distinct().ToList()));
                 await _uow.CommitAsync();
             }
             catch

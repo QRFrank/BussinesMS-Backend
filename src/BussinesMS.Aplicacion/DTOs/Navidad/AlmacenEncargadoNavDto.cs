@@ -6,6 +6,8 @@ public class EncargadoNavDto
     public int UsuarioId { get; set; }
     public string Nombre { get; set; } = string.Empty;
     public string Username { get; set; } = string.Empty;
+    // "encargado" (rol EncargadoAlmacen) | "vendedorTienda" (vendedor de tienda: solo puede ser encargado de una tienda, para recibir avisos)
+    public string Tipo { get; set; } = "encargado";
 }
 
 // Almacén navideño con sus encargados de la temporada y el indicador para el usuario actual

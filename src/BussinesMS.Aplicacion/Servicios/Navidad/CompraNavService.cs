@@ -369,7 +369,8 @@ public class CompraNavService : ICompraNavService
 
                 await _avisos.AnulacionAsync(new AnulacionAviso(compra.TemporadaId, "Compra", $"N° {compra.Id}", $"compra:{compra.Id}",
                     $"Fecha {compra.Fecha:dd/MM/yyyy}" + (compra.NroNota != null ? $" · Nota {compra.NroNota}" : "")
-                    + $" · {compra.Detalles.Sum(d => d.CantidadUnidades)} u"));
+                    + $" · {compra.Detalles.Sum(d => d.CantidadUnidades)} u",
+                    null, aRevertir.Select(x => x.AlmacenId).Distinct().ToList()));
 
                 await _uow.CommitAsync();
             }

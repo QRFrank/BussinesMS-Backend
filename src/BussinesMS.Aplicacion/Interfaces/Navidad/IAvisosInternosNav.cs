@@ -53,6 +53,12 @@ public interface IAvisosInternosNav
     /// <summary>Traslado registrado: aviso inmediato a admins (sin el autor).</summary>
     Task TrasladoAsync(Traslado traslado);
 
-    /// <summary>S1 a admins.</summary>
+    /// <summary>Venta directa o reserva hecha en una tienda: aviso solo a los encargados de esa tienda (sin el autor, sin productos).</summary>
+    Task VentaTiendaAsync(VentaNav venta);
+
+    /// <summary>Consumo registrado: admins y encargados del almacén del consumo (sin el autor).</summary>
+    Task ConsumoAsync(ConsumoNav consumo);
+
+    /// <summary>S1 a admins y, si se informan almacenes, a sus encargados.</summary>
     Task AnulacionAsync(AnulacionAviso anulacion);
 }

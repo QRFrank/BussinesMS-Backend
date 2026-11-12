@@ -1,6 +1,7 @@
 using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.Interfaces.Auth;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
+using BussinesMS.Dominio.Enums.Navidad;
 using BussinesMS.Dominio.Excepciones;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -11,10 +12,14 @@ namespace BussinesMS.Aplicacion.Servicios.Navidad;
 public class AlmacenNavService : IAlmacenNavService
 {
     private const int SistemaNavidadId = 2;
+    private const string TipoEncargadoRol = "encargado";
+    private const string TipoEncargadoVendedorTienda = "vendedorTienda";
 
     private readonly ITemporadaAlmacenEncargadoRepository _repo;
     private readonly IAlmacenRepository _almacenRepo;
     private readonly IUsuarioRepository _usuarioRepo;
+    private readonly IVendedorNavRepository _vendedorRepo;
+    private readonly ITemporadaRepository _temporadaRepo;
     private readonly IAlmacenAccesoNavService _acceso;
     private readonly ITemporadaActualService _temporadaActual;
     private readonly INavidadUnitOfWork _uow;
@@ -24,6 +29,8 @@ public class AlmacenNavService : IAlmacenNavService
         ITemporadaAlmacenEncargadoRepository repo,
         IAlmacenRepository almacenRepo,
         IUsuarioRepository usuarioRepo,
+        IVendedorNavRepository vendedorRepo,
+        ITemporadaRepository temporadaRepo,
         IAlmacenAccesoNavService acceso,
         ITemporadaActualService temporadaActual,
         INavidadUnitOfWork uow,
@@ -32,6 +39,8 @@ public class AlmacenNavService : IAlmacenNavService
         _repo = repo;
         _almacenRepo = almacenRepo;
         _usuarioRepo = usuarioRepo;
+        _vendedorRepo = vendedorRepo;
+        _temporadaRepo = temporadaRepo;
         _acceso = acceso;
         _temporadaActual = temporadaActual;
         _uow = uow;
@@ -113,11 +122,24 @@ public class AlmacenNavService : IAlmacenNavService
             var ids = (dto.UsuarioIds ?? new List<int>()).Distinct().ToList();
             if (ids.Count > 0)
             {
-                var validos = (await ObtenerCandidatosAsync()).Select(c => c.UsuarioId).ToHashSet();
-                var invalidos = ids.Where(i => !validos.Contains(i)).ToList();
+                var candidatos = (await ObtenerCandidatosAsync()).ToDictionary(c => c.UsuarioId);
+                var invalidos = ids.Where(i => !candidatos.ContainsKey(i)).ToList();
                 if (invalidos.Count > 0)
                     throw new ValidacionException(
-                        $"Los usuarios {string.Join(", ", invalidos)} no son encargados de almacén activos con acceso al sistema Navideño");
+                        $"Los usuarios {string.Join(", ", invalidos)} no son encargados de almacén ni vendedores de tienda activos con acceso al sistema Navideño");
+
+                // Un vendedor de tienda solo puede quedar como encargado de una tienda (para recibir sus avisos)
+                var vendedoresTienda = ids.Where(i => candidatos[i].Tipo == TipoEncargadoVendedorTienda).ToList();
+                if (vendedoresTienda.Count > 0)
+                {
+                    var almacen = await _almacenRepo.AsQueryable().AsNoTracking().FirstAsync(a => a.Id == almacenId);
+                    if (!almacen.EsTienda)
+                    {
+                        var nombre = candidatos[vendedoresTienda[0]].Nombre;
+                        throw new ValidacionException(
+                            $"{nombre} es vendedor de tienda: solo puede quedar como encargado de una tienda");
+                    }
+                }
             }
 
             await _uow.BeginTransactionAsync();
@@ -144,11 +166,30 @@ public class AlmacenNavService : IAlmacenNavService
 
     public async Task<List<EncargadoNavDto>> ObtenerCandidatosAsync()
     {
+        // Vendedores de tienda activos de la temporada abierta (los de ruta tambien tienen el rol VendedorTienda: se distinguen por la tabla Vendedor)
+        // Sin temporada abierta solo hay candidatos con rol EncargadoAlmacen (como antes)
+        var temporada = await _temporadaRepo.ObtenerAbiertaAsync();
+        var vendedoresTiendaIds = temporada == null
+            ? new List<int>()
+            : await _vendedorRepo.AsQueryable()
+                .AsNoTracking()
+                .Where(v => v.IsActive && v.TemporadaId == temporada.Id && v.Tipo == TipoVendedor.Tienda)
+                .Select(v => v.UsuarioId)
+                .Distinct()
+                .ToListAsync();
+
         var usuarios = await _usuarioRepo.AsQueryable()
             .AsNoTracking()
             .ValidosNavidad()
-            .Where(u => u.Rol != null && u.Rol.Nombre == AlmacenAccesoNavService.RolEncargado)
-            .Select(u => new { u.Id, u.Nombre, u.Apellido, u.Username })
+            .Where(u => (u.Rol != null && u.Rol.Nombre == AlmacenAccesoNavService.RolEncargado) || vendedoresTiendaIds.Contains(u.Id))
+            .Select(u => new
+            {
+                u.Id,
+                u.Nombre,
+                u.Apellido,
+                u.Username,
+                EsEncargado = u.Rol != null && u.Rol.Nombre == AlmacenAccesoNavService.RolEncargado
+            })
             .ToListAsync();
 
         return usuarios
@@ -156,7 +197,8 @@ public class AlmacenNavService : IAlmacenNavService
             {
                 UsuarioId = u.Id,
                 Nombre = $"{u.Nombre?.Trim()} {u.Apellido?.Trim()}".Trim(),
-                Username = u.Username
+                Username = u.Username,
+                Tipo = u.EsEncargado ? TipoEncargadoRol : TipoEncargadoVendedorTienda
             })
             .OrderBy(e => e.Nombre)
             .ToList();
@@ -177,13 +219,21 @@ public class AlmacenNavService : IAlmacenNavService
         var usuarios = await _usuarioRepo.AsQueryable()
             .AsNoTracking()
             .Where(u => ids.Contains(u.Id))
-            .Select(u => new { u.Id, u.Nombre, u.Apellido, u.Username })
+            .Select(u => new
+            {
+                u.Id,
+                u.Nombre,
+                u.Apellido,
+                u.Username,
+                EsEncargado = u.Rol != null && u.Rol.Nombre == AlmacenAccesoNavService.RolEncargado
+            })
             .ToListAsync();
         return usuarios.ToDictionary(u => u.Id, u => new EncargadoNavDto
         {
             UsuarioId = u.Id,
             Nombre = $"{u.Nombre?.Trim()} {u.Apellido?.Trim()}".Trim(),
-            Username = u.Username
+            Username = u.Username,
+            Tipo = u.EsEncargado ? TipoEncargadoRol : TipoEncargadoVendedorTienda
         });
     }
 }
