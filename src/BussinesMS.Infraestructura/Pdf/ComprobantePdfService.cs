@@ -55,6 +55,8 @@ public class ComprobantePdfService : IComprobantePdfService
                             r.RelativeItem().Text($"{l.Unidades} x Bs {N(l.PrecioUnitario)}");
                             r.AutoItem().AlignRight().Text(N(l.Subtotal));
                         });
+                        if (!string.IsNullOrEmpty(l.Equivalencia))
+                            col.Item().Text($"Equivalencia: {l.Equivalencia}");
                     }
 
                     Separador(col);

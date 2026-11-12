@@ -50,6 +50,13 @@ public static class MensajesAvisosNav
     /// <summary>"120 u (10 javas)" / "125 u (10 javas + 5 u)" / "5 u" si el producto no tiene empaque.</summary>
     public static string Cantidad(int unidades, int? unidadesPorEmpaque, string? nombreEmpaque)
     {
+        var eq = Equivalencia(unidades, unidadesPorEmpaque, nombreEmpaque);
+        return eq == null ? $"{unidades} u" : $"{unidades} u ({eq})";
+    }
+
+    /// <summary>"4 cajas + 1 u" / "1 java"; null si no hay empaque o no llega a uno completo.</summary>
+    public static string? Equivalencia(int unidades, int? unidadesPorEmpaque, string? nombreEmpaque)
+    {
         if (unidadesPorEmpaque is > 1 && !string.IsNullOrWhiteSpace(nombreEmpaque))
         {
             var completos = unidades / unidadesPorEmpaque.Value;
@@ -59,11 +66,11 @@ public static class MensajesAvisosNav
                 var nombre = nombreEmpaque.Trim().ToLowerInvariant();
                 if (completos != 1 && !nombre.EndsWith('s')) nombre += "s";
                 return sueltas == 0
-                    ? $"{unidades} u ({completos} {nombre})"
-                    : $"{unidades} u ({completos} {nombre} + {sueltas} u)";
+                    ? $"{completos} {nombre}"
+                    : $"{completos} {nombre} + {sueltas} u";
             }
         }
-        return $"{unidades} u";
+        return null;
     }
 
     /// <summary>Bloque de productos: línea en blanco y luego "• Producto: cantidad" (máx. 15) y "• y N más". Si no hay productos, no agrega nada.</summary>

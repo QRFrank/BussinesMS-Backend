@@ -1,6 +1,6 @@
 namespace BussinesMS.Aplicacion.Interfaces.Navidad;
 
-public record ComprobanteLineaNav(string Producto, int Unidades, decimal PrecioUnitario, decimal Subtotal);
+public record ComprobanteLineaNav(string Producto, int Unidades, decimal PrecioUnitario, decimal Subtotal, string? Equivalencia = null);
 
 public record ComprobantePagoNav(string Medio, decimal Monto);
 

@@ -38,7 +38,8 @@ public class ComprobanteMisVentasDatosService : IComprobanteMisVentasDatosServic
             Cliente = v.Cliente?.Nombre,
             Vendedor = vendedor,
             Lineas = v.Detalles.Where(d => d.IsActive && d.Unidades > 0).OrderBy(d => d.Id)
-                .Select(d => new ComprobanteLineaNav(d.Producto != null ? VentaNavService.NombreMostrar(d.Producto) : "Producto", d.Unidades, d.PrecioUnitario, d.Subtotal))
+                .Select(d => new ComprobanteLineaNav(d.Producto != null ? VentaNavService.NombreMostrar(d.Producto) : "Producto", d.Unidades, d.PrecioUnitario, d.Subtotal,
+                    MensajesAvisosNav.Equivalencia(d.Unidades, d.Producto?.UnidadesPorEmpaque, d.Producto?.NombreEmpaque)))
                 .ToList(),
             Total = v.Total,
             Descuento = 0,
