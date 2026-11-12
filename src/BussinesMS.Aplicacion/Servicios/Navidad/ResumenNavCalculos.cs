@@ -23,6 +23,7 @@ public sealed class LineaVentaResumen
     public int Unidades { get; set; }
     public decimal Subtotal { get; set; }
     public int UnidadesEntregadas { get; set; }
+    public decimal PrecioUnitario { get; set; }
 }
 
 // Una venta no anulada con su "peso": la fracción que cuenta como venta. Las ventas directas y de ruta pesan 1.
@@ -183,7 +184,7 @@ public class ResumenNavCalculos
                     v.MontoCobrado,
                     v.MontoSaldo,
                     Lineas = v.Detalles.Where(d => d.Unidades > 0)
-                        .Select(d => new LineaVentaResumen { ProductoId = d.ProductoId, Unidades = d.Unidades, Subtotal = d.Subtotal, UnidadesEntregadas = d.UnidadesEntregadas })
+                        .Select(d => new LineaVentaResumen { ProductoId = d.ProductoId, Unidades = d.Unidades, Subtotal = d.Subtotal, UnidadesEntregadas = d.UnidadesEntregadas, PrecioUnitario = d.PrecioUnitario })
                         .ToList()
                 })
                 .ToListAsync();
@@ -333,7 +334,7 @@ public class ResumenNavCalculos
         {
             Total = deudas.Sum(d => d.Saldo),
             PorCodigo = deudas
-                .Where(d => d.Saldo != 0)
+                .Where(d => d.Saldo != 0 || d.PagadoSinEntregar > 0)
                 .OrderByDescending(d => d.Saldo)
                 .Select(d => new DashboardDeudaProveedorCodigoNavDto
                 {
@@ -344,7 +345,9 @@ public class ResumenNavCalculos
                     CodigoTitular = d.CodigoTitular,
                     TotalDeuda = d.TotalDeuda,
                     Pagado = d.TotalPagado,
-                    Saldo = d.Saldo
+                    Saldo = d.Saldo,
+                    Entregado = d.TotalEntregado,
+                    PagadoSinEntregar = d.PagadoSinEntregar
                 })
                 .ToList()
         };
@@ -1072,7 +1075,7 @@ public class ResumenNavCalculos
                 .Where(x => x.Saldo != 0)
                 .OrderByDescending(x => x.Saldo)
                 .ToList(),
-            PorCodigo = proveedores.PorCodigo
+            PorCodigo = proveedores.PorCodigo.Where(c => c.Saldo != 0).ToList()
         };
     }
 

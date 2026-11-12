@@ -179,28 +179,41 @@ public class AbastecimientoNavService : IAbastecimientoNavService
                 .Select(g => new { g.Key.ProveedorId, g.Key.CodigoClienteId, Total = g.Sum(x => x.MontoTotalProveedor) })
                 .ToListAsync();
 
-            var filas = new Dictionary<(int ProveedorId, int? CodigoClienteId), (decimal Pedido, decimal Compra, decimal Pagado, decimal PagadoSuelto)>();
+            // Entregado: Σ cantidad × precio de compra de las recepciones activas no anuladas (el precio sale de los pedidos del mismo proveedor y código)
+            var entregados = await FiltrarRecepciones(temporadaId, filtro)
+                .SelectMany(r => r.Detalles.Select(d => new { r.ProveedorId, r.CodigoClienteId, Monto = d.CantidadUnidades * d.PrecioCompraUnidad }))
+                .GroupBy(x => new { x.ProveedorId, x.CodigoClienteId })
+                .Select(g => new { g.Key.ProveedorId, g.Key.CodigoClienteId, Total = g.Sum(x => x.Monto) })
+                .ToListAsync();
+
+            var filas = new Dictionary<(int ProveedorId, int? CodigoClienteId), (decimal Pedido, decimal Compra, decimal Pagado, decimal PagadoSuelto, decimal Entregado)>();
             foreach (var p in pedidos)
             {
                 var key = (p.ProveedorId, p.CodigoClienteId);
                 filas.TryGetValue(key, out var v);
-                filas[key] = (v.Pedido + p.Total, v.Compra, v.Pagado, v.PagadoSuelto);
+                filas[key] = (v.Pedido + p.Total, v.Compra, v.Pagado, v.PagadoSuelto, v.Entregado);
             }
             foreach (var c in compras)
             {
                 var key = (c.ProveedorId, c.CodigoClienteId);
                 filas.TryGetValue(key, out var v);
-                filas[key] = (v.Pedido, v.Compra + c.Total, v.Pagado, v.PagadoSuelto);
+                filas[key] = (v.Pedido, v.Compra + c.Total, v.Pagado, v.PagadoSuelto, v.Entregado);
             }
             foreach (var p in pagados)
             {
                 var key = (p.ProveedorId, p.CodigoClienteId);
                 filas.TryGetValue(key, out var v);
-                filas[key] = (v.Pedido, v.Compra, v.Pagado + p.Total, v.PagadoSuelto + (p.ConCompra ? 0m : p.Total));
+                filas[key] = (v.Pedido, v.Compra, v.Pagado + p.Total, v.PagadoSuelto + (p.ConCompra ? 0m : p.Total), v.Entregado);
+            }
+            foreach (var e in entregados)
+            {
+                var key = (e.ProveedorId, e.CodigoClienteId);
+                filas.TryGetValue(key, out var v);
+                filas[key] = (v.Pedido, v.Compra, v.Pagado, v.PagadoSuelto, v.Entregado + e.Total);
             }
 
             // Solo filas con algo
-            var conMovimiento = filas.Where(f => f.Value.Pedido != 0 || f.Value.Compra != 0 || f.Value.Pagado != 0).ToList();
+            var conMovimiento = filas.Where(f => f.Value.Pedido != 0 || f.Value.Compra != 0 || f.Value.Pagado != 0 || f.Value.Entregado != 0).ToList();
             if (conMovimiento.Count == 0) return new List<DeudaProveedorNavDto>();
 
             var proveedores = await ObtenerProveedoresAsync(conMovimiento.Select(f => f.Key.ProveedorId));
@@ -217,6 +230,8 @@ public class AbastecimientoNavService : IAbastecimientoNavService
                     var totalPagado = Redondear(f.Value.Pagado);
                     var pagadoSuelto = Redondear(f.Value.PagadoSuelto);
                     var totalDeuda = totalPedidos + totalCompras;
+                    // Entregado a precio de compra: recepciones + compras directas (la compra entra al stock en el acto)
+                    var totalEntregado = Redondear(f.Value.Entregado + f.Value.Compra);
                     return new DeudaProveedorNavDto
                     {
                         ProveedorId = f.Key.ProveedorId,
@@ -232,7 +247,9 @@ public class AbastecimientoNavService : IAbastecimientoNavService
                         Saldo = Redondear(totalDeuda - totalPagado),
                         PagadoPedidos = pagadoSuelto,
                         SaldoPedidos = Redondear(totalPedidos - pagadoSuelto),
-                        SaldoCompras = Redondear(totalCompras - (totalPagado - pagadoSuelto))
+                        SaldoCompras = Redondear(totalCompras - (totalPagado - pagadoSuelto)),
+                        TotalEntregado = totalEntregado,
+                        PagadoSinEntregar = Redondear(totalPagado - totalEntregado)
                     };
                 })
                 .OrderBy(x => x.ProveedorNombre)

@@ -133,6 +133,10 @@ public class DashboardDeudaProveedorCodigoNavDto
     public decimal TotalDeuda { get; set; }
     public decimal Pagado { get; set; }
     public decimal Saldo { get; set; }
+    // Entregado por el proveedor a precio de compra (recepciones + compras directas)
+    public decimal Entregado { get; set; }
+    // Con signo: Pagado − Entregado (negativo: recibí más de lo que pagué)
+    public decimal PagadoSinEntregar { get; set; }
 }
 
 public class DashboardDeudaClientesNavDto

@@ -710,7 +710,10 @@ public class ReportesNavService : IReportesNavService
             var reporte = await _pagosVendedores.ObtenerReporteAsync(new ReporteVentasVendedorFiltroDto { TemporadaId = t });
             var capital = await _capital.ObtenerResumenAsync(t);
 
-            var ventasConSaldo = await _calc.ObtenerVentasTiendaConSaldoAsync(t);
+            // Cada venta o reserva de tienda COMPLETA (montos reales, sin ponderar por lo entregado): con saldo o con adelantado/deuda de producto distinto de 0
+            var ventasConSaldo = (await _calc.CargarVentasAsync(t, new FiltroResumenVentas { Canal = CanalVentaNav.Tienda }))
+                .Where(v => v.MontoSaldo > 0 || Adelantado(v) != 0)
+                .ToList();
 
             var detalle = ventasConSaldo
                 .GroupBy(v => v.ClienteId)
@@ -718,7 +721,7 @@ public class ReportesNavService : IReportesNavService
                 {
                     ClienteId = g.Key,
                     ClienteNombre = g.Select(x => x.ClienteNombre).FirstOrDefault(n => n != null) ?? "Sin cliente",
-                    SaldoTotal = g.Sum(x => x.Saldo),
+                    SaldoTotal = g.Sum(x => x.MontoSaldo),
                     Ventas = g.OrderBy(x => x.Fecha).ThenBy(x => x.Id)
                         .Select(x => new ReporteDeudaVentaNavDto
                         {
@@ -726,9 +729,11 @@ public class ReportesNavService : IReportesNavService
                             NroVenta = x.NroVenta,
                             Fecha = x.Fecha,
                             Tipo = x.Tipo == TipoVentaNav.Reserva ? "Reserva" : "Credito",
-                            Neto = x.Neto,
-                            Cobrado = x.Cobrado,
-                            Saldo = x.Saldo
+                            Neto = x.MontoNeto,
+                            Cobrado = x.MontoCobrado,
+                            Saldo = x.MontoSaldo,
+                            Entregado = EntregadoEnPlata(x),
+                            Adelantado = Adelantado(x)
                         })
                         .ToList()
                 })
@@ -739,7 +744,13 @@ public class ReportesNavService : IReportesNavService
             {
                 Temporada = MapearTemporada(temporada),
                 Proveedores = _calc.ConstruirDeudaProveedores(deudasProveedor),
-                Clientes = await _calc.ObtenerDeudaClientesAsync(t),
+                Clientes = new DashboardDeudaClientesNavDto
+                {
+                    Total = ventasConSaldo.Sum(v => v.MontoSaldo),
+                    SaldoCreditos = ventasConSaldo.Where(v => v.Tipo == TipoVentaNav.Directa).Sum(v => v.MontoSaldo),
+                    SaldoReservas = ventasConSaldo.Where(v => v.Tipo == TipoVentaNav.Reserva).Sum(v => v.MontoSaldo),
+                    ClientesConSaldo = ventasConSaldo.Where(v => v.ClienteId != null && v.MontoSaldo > 0).Select(v => v.ClienteId).Distinct().Count()
+                },
                 ClientesDetalle = detalle,
                 VendedoresRuta = _calc.ConstruirDeudaRuta(deudasRuta),
                 Inversores = _calc.ConstruirDeudaInversores(capital),
@@ -753,6 +764,18 @@ public class ReportesNavService : IReportesNavService
             _logger.LogError(ex, "Error al obtener el reporte de deudas");
             throw;
         }
+    }
+
+    // Con signo: entregado en plata − cobrado real
+    private static decimal Adelantado(VentaResumen v)
+        => Math.Round(EntregadoEnPlata(v) - v.MontoCobrado, 2, MidpointRounding.AwayFromZero);
+
+    // Producto entregado al cliente en plata: Σ(unidades entregadas × precio) con el descuento repartido (× neto / total). UnidadesEntregadas ya descuenta las entregas anuladas
+    private static decimal EntregadoEnPlata(VentaResumen v)
+    {
+        var bruto = v.Lineas.Sum(l => l.UnidadesEntregadas * l.PrecioUnitario);
+        var factor = v.MontoTotal > 0 ? v.MontoNeto / v.MontoTotal : 1m;
+        return Math.Round(bruto * factor, 2, MidpointRounding.AwayFromZero);
     }
 
     // ================= Gastos =================

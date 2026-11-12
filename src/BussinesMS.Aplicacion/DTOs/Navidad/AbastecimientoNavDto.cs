@@ -52,4 +52,8 @@ public class DeudaProveedorNavDto
     public decimal SaldoPedidos { get; set; }
     // TotalCompras − Σ pagos activos vinculados a compra (las compras se pagan desde la compra)
     public decimal SaldoCompras { get; set; }
+    // Entregado por el proveedor a precio de compra: Σ cantidad × precio de las recepciones vigentes + compras directas
+    public decimal TotalEntregado { get; set; }
+    // Con signo: TotalPagado − TotalEntregado. Negativo: recibí más de lo que pagué (le debo)
+    public decimal PagadoSinEntregar { get; set; }
 }

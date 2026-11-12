@@ -303,6 +303,10 @@ public class ReporteDeudaVentaNavDto
     public decimal Neto { get; set; }
     public decimal Cobrado { get; set; }
     public decimal Saldo { get; set; }
+    // Producto entregado al cliente en plata (Σ unidades entregadas × precio, con el descuento repartido)
+    public decimal Entregado { get; set; }
+    // Con signo: Entregado − cobrado real (MontoCobrado, sin ponderar). Negativo: pagó más de lo que se le entregó (le debemos producto). Positivo: se llevó más de lo que pagó (nos debe)
+    public decimal Adelantado { get; set; }
 }
 
 // ---------- Gastos ----------
