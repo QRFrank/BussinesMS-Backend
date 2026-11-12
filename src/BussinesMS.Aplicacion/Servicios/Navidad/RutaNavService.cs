@@ -28,6 +28,7 @@ public class RutaNavService : IRutaNavService
     private readonly IDevolucionRutaNavRepository _devolucionRepo;
     private readonly IAbonoVendedorNavRepository _abonoRepo;
     private readonly IVentaNavRepository _ventaRepo;
+    private readonly IVentaClienteRutaNavRepository _misVentasRepo;
     private readonly IVendedorNavRepository _vendedorRepo;
     private readonly IStockNavService _stock;
     private readonly ITemporadaActualService _temporadaActual;
@@ -46,6 +47,7 @@ public class RutaNavService : IRutaNavService
         IDevolucionRutaNavRepository devolucionRepo,
         IAbonoVendedorNavRepository abonoRepo,
         IVentaNavRepository ventaRepo,
+        IVentaClienteRutaNavRepository misVentasRepo,
         IVendedorNavRepository vendedorRepo,
         IStockNavService stock,
         ITemporadaActualService temporadaActual,
@@ -63,6 +65,7 @@ public class RutaNavService : IRutaNavService
         _devolucionRepo = devolucionRepo;
         _abonoRepo = abonoRepo;
         _ventaRepo = ventaRepo;
+        _misVentasRepo = misVentasRepo;
         _vendedorRepo = vendedorRepo;
         _stock = stock;
         _temporadaActual = temporadaActual;
@@ -1678,6 +1681,12 @@ public class RutaNavService : IRutaNavService
             .GroupBy(p => p!.Id)
             .ToDictionary(g => g.Key, g => g.First()!);
 
+        // Lo registrado en "Mis ventas" (mismo cálculo que MisVentas/salidas/resumen), para cualquier estado y cualquier usuario que vea la salida
+        var registrado = await VentaClienteRutaNavService.RegistradoPorProductoAsync(
+            _misVentasRepo.AsQueryable(), s.Id, s.VendedorId, null, null);
+        var subtotalRegistrado = await VentaClienteRutaNavService.SubtotalRegistradoPorProductoAsync(
+            _misVentasRepo.AsQueryable(), s.Id, s.VendedorId);
+
         var abierta = s.Estado == EstadoSalidaRuta.Abierta;
         var productos = cargado.Keys.Union(devuelto.Keys)
             .Where(id => productosPorId.ContainsKey(id))
@@ -1699,6 +1708,8 @@ public class RutaNavService : IRutaNavService
                     Devuelto = d,
                     EnPoder = abierta ? vendido : 0,
                     Vendido = vendido,
+                    Registrado = registrado.GetValueOrDefault(id),
+                    SubtotalRegistrado = subtotalRegistrado.GetValueOrDefault(id),
                     PrecioCatalogo = p.PrecioCatalogo,
                     Subtotal = Redondear(vendido * p.PrecioCatalogo),
                     PrecioUnitario = lv?.PrecioUnitario,
@@ -1737,6 +1748,8 @@ public class RutaNavService : IRutaNavService
             UnidadesDevueltas = devuelto.Values.Sum(),
             UnidadesEnPoder = productos.Sum(p => p.EnPoder),
             UnidadesVendidas = productos.Sum(p => p.Vendido),
+            UnidadesRegistradas = productos.Sum(p => p.Registrado),
+            MontoRegistrado = productos.Sum(p => p.SubtotalRegistrado),
             TotalCatalogo = productos.Sum(p => p.Subtotal),
             Productos = productos,
             Cargas = s.Cargas

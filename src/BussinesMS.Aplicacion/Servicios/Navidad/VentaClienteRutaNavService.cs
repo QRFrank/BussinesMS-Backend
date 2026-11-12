@@ -507,7 +507,24 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
                 .Select(x => new { x.ProductoId, x.Unidades })
                 .ToListAsync())
             .GroupBy(x => x.ProductoId).ToDictionary(g => g.Key, g => g.Sum(x => x.Unidades));
-        var registrado = (await _repo.AsQueryable().AsNoTracking()
+        var registrado = await RegistradoPorProductoAsync(_repo.AsQueryable(), salidaId, vendedorId, productoIds, excluirVentaId);
+        return (cargado, devuelto, registrado);
+    }
+
+    // Hermano de RegistradoPorProductoAsync (mismo criterio de ventas): Σ Subtotal de las líneas por producto. Lo usa el detalle de la salida
+    internal static async Task<Dictionary<int, decimal>> SubtotalRegistradoPorProductoAsync(
+        IQueryable<VentaClienteRuta> ventas, int salidaId, int vendedorId)
+        => (await ventas.AsNoTracking()
+                .Where(v => v.IsActive && !v.Anulada && v.SalidaRutaId == salidaId && v.VendedorId == vendedorId)
+                .SelectMany(v => v.Detalles)
+                .Select(d => new { d.ProductoId, d.Subtotal })
+                .ToListAsync())
+            .GroupBy(x => x.ProductoId).ToDictionary(g => g.Key, g => g.Sum(x => x.Subtotal));
+
+    // Unidades por producto en las ventas vigentes de "Mis ventas" de la salida. Fuente única: la usan el resumen de Mis ventas y el detalle de la salida (RutaNavService)
+    internal static async Task<Dictionary<int, int>> RegistradoPorProductoAsync(
+        IQueryable<VentaClienteRuta> ventas, int salidaId, int vendedorId, IReadOnlyCollection<int>? productoIds, int? excluirVentaId)
+        => (await ventas.AsNoTracking()
                 .Where(v => v.IsActive && !v.Anulada && v.SalidaRutaId == salidaId && v.VendedorId == vendedorId
                     && (!excluirVentaId.HasValue || v.Id != excluirVentaId.Value))
                 .SelectMany(v => v.Detalles)
@@ -515,8 +532,6 @@ public class VentaClienteRutaNavService : IVentaClienteRutaNavService
                 .Select(d => new { d.ProductoId, d.Unidades })
                 .ToListAsync())
             .GroupBy(x => x.ProductoId).ToDictionary(g => g.Key, g => g.Sum(x => x.Unidades));
-        return (cargado, devuelto, registrado);
-    }
 
     // Bloqueo (salida abierta): por producto, registrado en las otras ventas de la salida + unidades de esta venta <= cargado - devuelto
     private async Task VerificarEnPoderAsync(int salidaId, int vendedorId, IReadOnlyCollection<VentaClienteRutaLineaDto> detalles,

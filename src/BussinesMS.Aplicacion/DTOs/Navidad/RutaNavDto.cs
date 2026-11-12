@@ -84,6 +84,10 @@ public class SalidaRutaDto
     public int UnidadesDevueltas { get; set; }
     public int UnidadesEnPoder { get; set; }
     public int UnidadesVendidas { get; set; }
+    // Σ registrado de los productos: unidades en las ventas vigentes de "Mis ventas" de la salida
+    public int UnidadesRegistradas { get; set; }
+    // Σ subtotalRegistrado: monto real vendido en las ventas vigentes de "Mis ventas" de la salida
+    public decimal MontoRegistrado { get; set; }
     // Σ vendido × precio de catálogo actual
     public decimal TotalCatalogo { get; set; }
     public List<SalidaRutaProductoDto> Productos { get; set; } = new();
@@ -121,6 +125,10 @@ public class SalidaRutaProductoDto
     public int EnPoder { get; set; }
     // cargado − devuelto (en una salida abierta es lo que se vendería al cerrar)
     public int Vendido { get; set; }
+    // Unidades en las ventas vigentes de "Mis ventas" vinculadas a la salida (informativo; no afecta Vendido/EnPoder/Subtotal)
+    public int Registrado { get; set; }
+    // Σ Subtotal de las líneas de Mis ventas de ese producto (mismo criterio que Registrado)
+    public decimal SubtotalRegistrado { get; set; }
     public decimal PrecioCatalogo { get; set; }
     // vendido × precioCatalogo
     public decimal Subtotal { get; set; }
