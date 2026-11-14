@@ -310,6 +310,15 @@ public class DashboardRecepcionadoVendidoNavDto
     public int Consumo { get; set; }
     // Unidades perdidas por diferencias negativas de conteo (positivo); mismo criterio que perdidas.diferenciasConteo
     public int PerdidaConteo { get; set; }
+    // Σ pedidos activos de la temporada (todos los proveedores y códigos); misma fuente que Faltantes
+    public int Pedido { get; set; }
+    // Σ faltante > 0 de las filas (proveedor, código, producto) de Faltantes: lo que todavía no llegó
+    public int FaltaLlegar { get; set; }
+    // Σ pendiente de entregar de las reservas vigentes (bloqueado o no)
+    public int Reservado { get; set; }
+    // Libre de la cobertura de reservas: stock + falta llegar − reservado (puede ser negativo). Es el tope que el back
+    // permite vender o sacar a ruta (409 RESERVAS_COMPROMETIDAS) y reservar (409 SIN_COBERTURA)
+    public int Disponible { get; set; }
 }
 
 public class DashboardGastosNavDto

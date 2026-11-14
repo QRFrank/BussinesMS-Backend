@@ -40,6 +40,7 @@ public class DashboardNavService : IDashboardNavService
     private readonly IConteoInventarioNavRepository _conteoRepo;
     private readonly ResumenNavCalculos _calc;
     private readonly IStockNavService _stockService;
+    private readonly IReservaCoberturaNavService _cobertura;
     private readonly ILogger<DashboardNavService> _logger;
 
     public DashboardNavService(
@@ -66,6 +67,7 @@ public class DashboardNavService : IDashboardNavService
         IConteoInventarioNavRepository conteoRepo,
         ResumenNavCalculos calc,
         IStockNavService stockService,
+        IReservaCoberturaNavService cobertura,
         ILogger<DashboardNavService> logger)
     {
         _ventas = ventas;
@@ -91,6 +93,7 @@ public class DashboardNavService : IDashboardNavService
         _conteoRepo = conteoRepo;
         _calc = calc;
         _stockService = stockService;
+        _cobertura = cobertura;
         _logger = logger;
     }
 
@@ -218,7 +221,7 @@ public class DashboardNavService : IDashboardNavService
                 Conciliacion = await _calc.ObtenerConciliacionAsync(t)
             };
 
-            await LlenarTablasProductosAsync(t, resultado.Tablas);
+            await LlenarTablasProductosAsync(t, resultado.Tablas, faltantes);
             return resultado;
         }
         catch (Exception ex)
@@ -229,8 +232,17 @@ public class DashboardNavService : IDashboardNavService
     }
 
     // Productos más vendidos y recepcionado contra vendido: agregados en SQL por producto
-    private async Task LlenarTablasProductosAsync(int temporadaId, DashboardTablasNavDto tablas)
+    private async Task LlenarTablasProductosAsync(int temporadaId, DashboardTablasNavDto tablas, List<FaltanteNavDto> faltantes)
     {
+        // Pedido: Σ de las filas de Faltantes (todos los proveedores y códigos)
+        var pedidoPor = faltantes
+            .GroupBy(f => f.ProductoId)
+            .Where(g => g.Sum(f => f.Pedido) > 0)
+            .ToDictionary(g => g.Key, g => g.Sum(f => f.Pedido));
+
+        // Falta llegar, reservado y disponible: la misma cobertura con la que el back bloquea ventas, cargas a ruta y reservas
+        var cobertura = await _cobertura.ObtenerPorLlegarAsync(temporadaId);
+
         var vendidos = (await _calc.ObtenerVendidoPorProductoAsync(temporadaId))
             .Select(x => new { x.ProductoId, x.Unidades, Monto = x.Neto })
             .ToList();
@@ -277,6 +289,8 @@ public class DashboardNavService : IDashboardNavService
             .Concat(comprados.Select(x => x.ProductoId))
             .Concat(consumidos.Select(x => x.ProductoId))
             .Concat(perdidasConteo.Select(x => x.ProductoId))
+            .Concat(pedidoPor.Keys)
+            .Concat(cobertura.Where(kv => kv.Value.Reservado > 0 || kv.Value.PorLlegar > 0).Select(kv => kv.Key))
             .Distinct()
             .ToList();
         var productos = await ObtenerProductosAsync(ids);
@@ -311,6 +325,7 @@ public class DashboardNavService : IDashboardNavService
             .Select(id =>
             {
                 productos.TryGetValue(id, out var p);
+                var cob = cobertura.GetValueOrDefault(id);
                 return new DashboardRecepcionadoVendidoNavDto
                 {
                     ProductoId = id,
@@ -323,7 +338,11 @@ public class DashboardNavService : IDashboardNavService
                     Vendido = vendidoPor.GetValueOrDefault(id),
                     EnStock = stockPor.GetValueOrDefault(id),
                     Consumo = consumoPor.GetValueOrDefault(id),
-                    PerdidaConteo = perdidaConteoPor.GetValueOrDefault(id)
+                    PerdidaConteo = perdidaConteoPor.GetValueOrDefault(id),
+                    Pedido = pedidoPor.GetValueOrDefault(id),
+                    FaltaLlegar = cob.PorLlegar,
+                    Reservado = cob.Reservado,
+                    Disponible = cob.Libre
                 };
             })
             .OrderBy(x => x.ProductoNombreMostrar, StringComparer.CurrentCultureIgnoreCase)
