@@ -1628,6 +1628,7 @@ public class VentaNavService : IVentaNavService
                         VentaDetalleId = ed.VentaDetalleId,
                         ProductoId = ed.ProductoId,
                         ProductoNombreMostrar = ed.Producto != null ? NombreMostrar(ed.Producto) : string.Empty,
+                        Color = ed.Producto?.Color,
                         Unidades = ed.Unidades
                     }).ToList()
             }).ToList();

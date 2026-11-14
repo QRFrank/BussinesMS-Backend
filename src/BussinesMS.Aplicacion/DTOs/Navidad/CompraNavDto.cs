@@ -65,6 +65,7 @@ public class CompraDetalleNavDto
     public int ProveedorPrincipalId { get; set; }
     public int? UnidadesPorEmpaque { get; set; }
     public string? NombreEmpaque { get; set; }
+    public string? Color { get; set; }
     public int CantidadUnidades { get; set; }
     [OcultoSinPrecioCompra] public decimal? PrecioCompraUnidad { get; set; }
     [OcultoSinPrecioCompra] public decimal? Subtotal { get; set; }

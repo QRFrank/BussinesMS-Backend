@@ -37,6 +37,16 @@ public class PedidosNavController : BaseController
             : RespuestaOk(resultado);
     }
 
+    [RequierePuedeHacerRecepciones]
+    [HttpGet("{id:int}/recepciones")]
+    public async Task<IActionResult> ObtenerRecepciones(int id)
+    {
+        var resultado = await _servicio.ObtenerRecepcionesAsync(id);
+        return resultado == null
+            ? RespuestaError("Pedido no encontrado", 404)
+            : RespuestaOk(resultado);
+    }
+
     [HttpPost]
     public async Task<IActionResult> Crear([FromBody] CrearPedidoNavDto dto)
     {

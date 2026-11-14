@@ -151,6 +151,7 @@ public class EntregaVentaDetalleDto
     public int VentaDetalleId { get; set; }
     public int ProductoId { get; set; }
     public string ProductoNombreMostrar { get; set; } = string.Empty;
+    public string? Color { get; set; }
     public int Unidades { get; set; }
 }
 

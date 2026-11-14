@@ -7,6 +7,7 @@ public interface IPedidoNavService
 {
     Task<PagedResultDto<PedidoNavDto>> ObtenerTodosAsync(PedidoNavFiltroDto query);
     Task<PedidoNavDto?> ObtenerPorIdAsync(int id);
+    Task<PedidoRecepcionesNavDto?> ObtenerRecepcionesAsync(int id);
     Task<PedidoNavDto> CrearAsync(CrearPedidoNavDto dto);
     Task<PedidoNavDto> ActualizarAsync(ActualizarPedidoNavDto dto);
 }

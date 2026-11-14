@@ -520,6 +520,7 @@ public class CompraNavService : ICompraNavService
                 ProveedorPrincipalId = d.Producto?.ProveedorId ?? 0,
                 UnidadesPorEmpaque = d.Producto?.UnidadesPorEmpaque,
                 NombreEmpaque = d.Producto?.NombreEmpaque,
+                Color = d.Producto?.Color,
                 CantidadUnidades = d.CantidadUnidades,
                 PrecioCompraUnidad = d.PrecioCompraUnidad,
                 Subtotal = Redondear(d.CantidadUnidades * d.PrecioCompraUnidad),

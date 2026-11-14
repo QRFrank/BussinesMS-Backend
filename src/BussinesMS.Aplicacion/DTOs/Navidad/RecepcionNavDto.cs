@@ -47,6 +47,7 @@ public class RecepcionDetalleNavDto
     public string ProductoNombreMostrar { get; set; } = string.Empty;
     public int? UnidadesPorEmpaque { get; set; }
     public string? NombreEmpaque { get; set; }
+    public string? Color { get; set; }
     public int CantidadUnidades { get; set; }
     [OcultoSinPrecioCompra] public decimal? PrecioCompraUnidad { get; set; }
     [OcultoSinPrecioCompra] public decimal? Subtotal { get; set; }

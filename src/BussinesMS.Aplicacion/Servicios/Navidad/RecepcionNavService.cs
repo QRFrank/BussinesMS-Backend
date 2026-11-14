@@ -592,6 +592,7 @@ public class RecepcionNavService : IRecepcionNavService
                 ProductoNombreMostrar = d.Producto != null ? NombreMostrar(d.Producto) : string.Empty,
                 UnidadesPorEmpaque = d.Producto?.UnidadesPorEmpaque,
                 NombreEmpaque = d.Producto?.NombreEmpaque,
+                Color = d.Producto?.Color,
                 CantidadUnidades = d.CantidadUnidades,
                 PrecioCompraUnidad = d.PrecioCompraUnidad,
                 Subtotal = d.CantidadUnidades * d.PrecioCompraUnidad,

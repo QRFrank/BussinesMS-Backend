@@ -2,6 +2,7 @@ using BussinesMS.Aplicacion.Comun;
 using BussinesMS.Aplicacion.Common;
 using BussinesMS.Aplicacion.DTOs.Navidad;
 using BussinesMS.Aplicacion.DTOs.Plantillas;
+using BussinesMS.Aplicacion.Interfaces.Auth;
 using BussinesMS.Aplicacion.Interfaces.Navidad;
 using BussinesMS.Aplicacion.Seguridad;
 using BussinesMS.Dominio.Entidades.Navidad;
@@ -21,6 +22,7 @@ public class PedidoNavService : IPedidoNavService
     private readonly ICodigoClienteRepository _codigoRepo;
     private readonly IProductoNavRepository _productoRepo;
     private readonly IRecepcionNavRepository _recepcionRepo;
+    private readonly IAlmacenRepository _almacenRepo;
     private readonly ITemporadaActualService _temporadaActual;
     private readonly INavidadUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
@@ -32,6 +34,7 @@ public class PedidoNavService : IPedidoNavService
         ICodigoClienteRepository codigoRepo,
         IProductoNavRepository productoRepo,
         IRecepcionNavRepository recepcionRepo,
+        IAlmacenRepository almacenRepo,
         ITemporadaActualService temporadaActual,
         INavidadUnitOfWork uow,
         ICurrentUserService currentUser,
@@ -42,6 +45,7 @@ public class PedidoNavService : IPedidoNavService
         _codigoRepo = codigoRepo;
         _productoRepo = productoRepo;
         _recepcionRepo = recepcionRepo;
+        _almacenRepo = almacenRepo;
         _temporadaActual = temporadaActual;
         _uow = uow;
         _currentUser = currentUser;
@@ -122,6 +126,125 @@ public class PedidoNavService : IPedidoNavService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al obtener pedido {Id}", id);
+            throw;
+        }
+    }
+
+    // Recepciones vigentes del pedido (mismo proveedor + código + temporada). Pedido/Recibido/Faltante
+    // con la misma regla de AbastecimientoNavService.ObtenerFaltantesAsync.
+    public async Task<PedidoRecepcionesNavDto?> ObtenerRecepcionesAsync(int id)
+    {
+        try
+        {
+            var pedido = await _repo.ObtenerConDetallesAsync(id);
+            if (pedido == null || !pedido.IsActive) return null;
+
+            var recepciones = await _recepcionRepo.AsQueryable()
+                .AsNoTracking()
+                .Include(r => r.Detalles).ThenInclude(d => d.Producto)
+                .Include(r => r.Detalles).ThenInclude(d => d.Distribuciones)
+                .Where(r => r.IsActive && !r.Anulada && r.TemporadaId == pedido.TemporadaId
+                    && r.ProveedorId == pedido.ProveedorId && r.CodigoClienteId == pedido.CodigoClienteId)
+                .OrderBy(r => r.Fecha).ThenBy(r => r.Id)
+                .ToListAsync();
+
+            var almacenIds = recepciones.SelectMany(r => r.Detalles).SelectMany(d => d.Distribuciones).Select(x => x.AlmacenId).Distinct().ToList();
+            var nombresAlmacen = almacenIds.Count == 0
+                ? new Dictionary<int, string>()
+                : await _almacenRepo.AsQueryable().AsNoTracking()
+                    .Where(a => almacenIds.Contains(a.Id))
+                    .ToDictionaryAsync(a => a.Id, a => a.Nombre);
+
+            List<PedidoRecepcionAlmacenNavDto> AgruparAlmacenes(IEnumerable<RecepcionDistribucion> dists) => dists
+                .GroupBy(x => x.AlmacenId)
+                .Select(g => new PedidoRecepcionAlmacenNavDto
+                {
+                    AlmacenId = g.Key,
+                    AlmacenNombre = nombresAlmacen.TryGetValue(g.Key, out var n) ? n : string.Empty,
+                    CantidadUnidades = g.Sum(x => x.CantidadUnidades)
+                })
+                .OrderBy(x => x.AlmacenNombre)
+                .ToList();
+
+            var todosDetalles = recepciones.SelectMany(r => r.Detalles).ToList();
+            var pedidoPorProducto = pedido.Detalles.GroupBy(d => d.ProductoId).ToDictionary(g => g.Key, g => g.Sum(d => d.CantidadUnidades));
+            var productos = new Dictionary<int, ProductoNav>();
+            foreach (var d in pedido.Detalles.Where(d => d.Producto != null)) productos[d.ProductoId] = d.Producto!;
+            foreach (var d in todosDetalles.Where(d => d.Producto != null)) productos.TryAdd(d.ProductoId, d.Producto!);
+
+            var productoIds = pedidoPorProducto.Keys.Union(todosDetalles.Select(d => d.ProductoId)).ToList();
+            var porProducto = productoIds
+                .Select(pid =>
+                {
+                    var detallesProd = todosDetalles.Where(d => d.ProductoId == pid).ToList();
+                    var pedidoCant = pedidoPorProducto.TryGetValue(pid, out var pc) ? pc : 0;
+                    var recibido = detallesProd.Sum(d => d.CantidadUnidades);
+                    productos.TryGetValue(pid, out var prod);
+                    return new PedidoRecepcionProductoNavDto
+                    {
+                        ProductoId = pid,
+                        ProductoNombreMostrar = prod != null ? NombreMostrar(prod) : string.Empty,
+                        UnidadesPorEmpaque = prod?.UnidadesPorEmpaque,
+                        NombreEmpaque = prod?.NombreEmpaque,
+                        Color = prod?.Color,
+                        Pedido = pedidoCant,
+                        Recibido = recibido,
+                        Faltante = pedidoCant - recibido,
+                        LlegoDeMas = pedidoCant - recibido < 0,
+                        PorAlmacen = AgruparAlmacenes(detallesProd.SelectMany(d => d.Distribuciones))
+                    };
+                })
+                .OrderBy(x => x.ProductoNombreMostrar)
+                .ToList();
+
+            var totalPedido = porProducto.Sum(x => x.Pedido);
+            var totalRecibido = porProducto.Sum(x => x.Recibido);
+
+            return new PedidoRecepcionesNavDto
+            {
+                PedidoId = pedido.Id,
+                ProveedorId = pedido.ProveedorId,
+                ProveedorNombre = pedido.Proveedor?.Nombre ?? string.Empty,
+                CodigoClienteId = pedido.CodigoClienteId,
+                Codigo = pedido.CodigoCliente?.Codigo,
+                CodigoTitular = pedido.CodigoCliente?.Titular,
+                TotalPedido = totalPedido,
+                TotalRecibido = totalRecibido,
+                TotalFaltante = totalPedido - totalRecibido,
+                PorAlmacen = AgruparAlmacenes(todosDetalles.SelectMany(d => d.Distribuciones)),
+                PorProducto = porProducto,
+                Recepciones = recepciones.Select(r => new PedidoRecepcionItemNavDto
+                {
+                    Id = r.Id,
+                    Fecha = r.Fecha,
+                    NroFactura = r.NroFactura,
+                    Observacion = r.Observacion,
+                    CantidadProductos = r.Detalles.Count,
+                    TotalUnidades = r.Detalles.Sum(d => d.CantidadUnidades),
+                    MontoTotal = r.Detalles.Sum(d => d.CantidadUnidades * d.PrecioCompraUnidad),
+                    Detalles = r.Detalles.OrderBy(d => d.Id).Select(d => new RecepcionDetalleNavDto
+                    {
+                        Id = d.Id,
+                        ProductoId = d.ProductoId,
+                        ProductoNombreMostrar = d.Producto != null ? NombreMostrar(d.Producto) : string.Empty,
+                        UnidadesPorEmpaque = d.Producto?.UnidadesPorEmpaque,
+                        NombreEmpaque = d.Producto?.NombreEmpaque,
+                        Color = d.Producto?.Color,
+                        CantidadUnidades = d.CantidadUnidades,
+                        Distribucion = d.Distribuciones.OrderBy(x => x.Id).Select(x => new RecepcionDistribucionNavDto
+                        {
+                            Id = x.Id,
+                            AlmacenId = x.AlmacenId,
+                            AlmacenNombre = nombresAlmacen.TryGetValue(x.AlmacenId, out var n) ? n : string.Empty,
+                            CantidadUnidades = x.CantidadUnidades
+                        }).ToList()
+                    }).ToList()
+                }).ToList()
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener recepciones del pedido {Id}", id);
             throw;
         }
     }
@@ -466,6 +589,7 @@ public class PedidoNavService : IPedidoNavService
                 ProductoNombreMostrar = d.Producto != null ? NombreMostrar(d.Producto) : string.Empty,
                 UnidadesPorEmpaque = d.Producto?.UnidadesPorEmpaque,
                 NombreEmpaque = d.Producto?.NombreEmpaque,
+                Color = d.Producto?.Color,
                 CantidadUnidades = d.CantidadUnidades,
                 PrecioCompraUnidad = d.PrecioCompraUnidad,
                 Subtotal = Redondear(d.CantidadUnidades * d.PrecioCompraUnidad),
